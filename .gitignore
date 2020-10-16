@@ -1,0 +1,9 @@
+# sbt specific
+# found here: https://stackoverflow.com/questions/15381294/how-to-initialize-a-new-scala-project-in-sbt-eclipse-and-github
+
+dist/*
+target/
+lib_managed/
+src_managed/
+project/boot/
+project/plugins/project/
