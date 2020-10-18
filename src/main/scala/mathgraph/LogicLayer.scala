@@ -4,27 +4,28 @@ package mathgraph.mathgraph
 * The logic layer manage the truth of expressions
 **/
 
-case object defSymbol extends Symbol(0)
-case object falseSymbol extends Symbol(1)
-case object trueSymbol extends Symbol(2)
-case object implySymbol extends Symbol(3)
-case object forallSymbol extends Symbol(4)
+object defSymbol extends Symbol(0)
+object falseSymbol extends Symbol(1)
+object trueSymbol extends Symbol(2)
+object implySymbol extends Symbol(3)
+object forallSymbol extends Symbol(4)
 
 class LogicLayer(exprLayer: ExprLayer = new ExprLayer, truth: Map[Int, Boolean] = Map(), 
-    imply: Map[Int, Set[Int]] = Map(), isImpliedBy: Map[Int, Set[Int]] = Map(), absurd: Boolean = False) {
+    imply: Map[Int, Set[Int]] = Map(), isImpliedBy: Map[Int, Set[Int]] = Map(), absurd: Boolean = false) {
 
-    def truePos = exprLayer.getPos trueSymbol
-    def falsePos = exprLayer.getPos falseSymbol
+    def truePos = exprLayer.getPos(trueSymbol)
+    def falsePos = exprLayer.getPos(falseSymbol)
+    def implyPos = exprLayer.getPos(implySymbol)
+    
+    def getAbsurd = absurd
     
     def init(): LogicLayer = {
         val newExprLayer = exprLayer
-            .setApply(defSymbol id, defSymbol id)._2
-            .setApply(defSymbol id, falseSymbol id)._2
-            .setApply(defSymbol id, trueSymbol id)._2
-            .setApply(defSymbol id, forallSymbol id)._2
-        val newTruth = truth 
-            + (newExprLayer.getPos(falseSymbol) -> false)
-            + (newExprLayer.getPos(trueSymbol) -> true)
+            .setApply(defSymbol.id, defSymbol.id)._2
+            .setApply(defSymbol.id, falseSymbol.id)._2
+            .setApply(defSymbol.id, trueSymbol.id)._2
+            .setApply(defSymbol.id, forallSymbol.id)._2
+        val newTruth = (truth + (newExprLayer.getPos(falseSymbol) -> false)) + (newExprLayer.getPos(trueSymbol) -> true)
         new LogicLayer(newExprLayer, newTruth, imply, isImpliedBy, false)
     }
 
@@ -37,34 +38,36 @@ class LogicLayer(exprLayer: ExprLayer = new ExprLayer, truth: Map[Int, Boolean] 
         // when we need to count the number of symbols to fix inside this forall
         // eg: {0(3, 1)}(forallSymbol)
         // how many symbols inside? basic algo: 4, advance algo that takes forall into account: 2
-        require( exprLayer.getExpr arg != implySymbol )
-        val pos, newExprLayer = exprLayer.setApply(next, arg)
+        require( exprLayer.getExpr(arg) != implySymbol )
+        val (pos, newExprLayer) = exprLayer.setApply(next, arg)
         (pos, setExprLayer(newExprLayer))
     }
 
-    def setAbsurd = new LogicLayer(exprLayer, truth, imply, isImpliedBy, True)
+    def setAbsurd = new LogicLayer(exprLayer, truth, imply, isImpliedBy, true)
 
-    def is(b: Boolean, pos: Int) = truth get pos match {
+    def is(b: Boolean, pos: Int) = truth get(pos) match {
         case None => false
         case Some(v) => v
     }
 
     // strict rule on imply: imply is implySymbol and has arity 2
-    def applyImplyInferenceRule(pos: Int): LogicLayer = exprLayer.getHeadTail pos match {
-        case (implySymbol, Seq(a, b)) => {
-            truth get pos match {
-                case None => this
-                case Some(b) if b => link(a, b)
-                case Some(b) if !b => link(truePos, a).link(b, falsePos)
+    def applyImplyInferenceRule(pos: Int): LogicLayer = {
+        exprLayer.getHeadTail(pos) match {
+            case (implySymbol, Seq(a, b)) => {
+                truth get pos match {
+                    case None => this
+                    case Some(v) if v => link(a, b)
+                    case Some(v) if !v => link(truePos, a).link(b, falsePos)
+                }
             }
+            case _ => this
         }
-        case _ => this
     }
 
     def getImplyGraphFor(b: Boolean) = if(b) imply else isImpliedBy
 
-
-    def propagate(pos: Int, b: Boolean): LogicLayer = 
+    /** propagate true/false in the graph **/
+    def propagate(pos: Int, b: Boolean): LogicLayer = {
         truth get pos match {
             case Some(v) if v == b => this
             case Some(v) if v != b => setAbsurd
@@ -74,14 +77,15 @@ class LogicLayer(exprLayer: ExprLayer = new ExprLayer, truth: Map[Int, Boolean] 
                     .applyImplyInferenceRule(pos)
 
                 // propagate truth value on the graph
-                getImplyGraphFor(b) get pos match => {
+                getImplyGraphFor(b) get pos match {
                     case None => newLogicLayer
                     case Some(neighs: Set[Int]) => {
-                        neigh.foldLeft(newLogicLayer)((logicUnit, neigh) => logicUnit.propagate(neigh, b))
+                        neighs.foldLeft(newLogicLayer)((logicUnit, neigh) => logicUnit.propagate(neigh, b))
                     }
                 }
             }
         }
+    }
     
     // utils method
     def insertPair(a: Int, b: Int, imp: Map[Int, Set[Int]]) = 

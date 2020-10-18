@@ -5,20 +5,18 @@ package mathgraph.mathgraph
 * The main point of this layer is to obtimize the storage of Expressions
 **/
 
-Trait Expr {
-    abstract class Expr
+abstract class Expr
 
-    case class Symbol(id: Int) extends Expr
+case class Symbol(id: Int) extends Expr
 
-    // use Int instead of Expr:
-    //  - for faster hash. (only hash int, not each expression in Apply)
-    //    https://stackoverflow.com/questions/4526706/what-code-is-generated-for-an-equals-hashcode-method-of-a-case-class
-    //  - Symbols are only instanciated when needed
-    //  - my c++ code use int, so I don't have to rethink the code entirely
-    // avantage of using Expr instead of Int:
-    //  - there is no need to go trough ExprLayer to obtain next and arg Expr
-    case class Apply(next: Int, arg: Int) extends Expr
-}
+// use Int instead of Expr:
+//  - for faster hash. (only hash int, not each expression in Apply)
+//    https://stackoverflow.com/questions/4526706/what-code-is-generated-for-an-equals-hashcode-method-of-a-case-class
+//  - Symbols are only instanciated when needed
+//  - my c++ code use int, so I don't have to rethink the code entirely
+// avantage of using Expr instead of Int:
+//  - there is no need to go trough ExprLayer to obtain next and arg Expr
+case class Apply(next: Int, arg: Int) extends Expr
 
 // applyToPos(a) gives the equivalent of applyToPos indexOf a (but is faster)
 
@@ -39,7 +37,7 @@ class ExprLayer(applies: Seq[Apply] = Seq(), applyToPos: Map[Apply, Int] = Map()
         val apply = Apply(next, arg)
         applyToPos get apply match {
             case Some(pos) => (pos, this)
-            case None => (nextExprPos, new ExprLayer(applies :+ pos, applyToPos + (apply -> nextExprPos)))
+            case None => (nextExprPos, new ExprLayer(applies :+ apply, applyToPos + (apply -> nextExprPos)))
         }
     }
 
@@ -49,25 +47,25 @@ class ExprLayer(applies: Seq[Apply] = Seq(), applyToPos: Map[Apply, Int] = Map()
             require(pos < size)
             pos
         }
-        case apply: Apply(_, _) => {
-            require(applies contains apply)
-            applies(apply)
+        case apply: Apply => {
+            require(applyToPos contains apply)
+            applyToPos(apply)
         }
     }
 
-    def getHead(pos: Int): Int = getExpr pos match {
+    def getHead(pos: Int): Int = getExpr(pos) match {
         case Symbol(_) => pos
-        case Apply(next, _) => getHead next
+        case Apply(next, _) => getHead(next)
     }
 
-    def getHeadTail(p: Int): (Symbol, Seq[Expr]) = {
-        def getHeadTailRec(pos: Int, args: Seq[Expr]): (Symbol, Seq[Expr]) = getExpr pos match {
+    def getHeadTail(p: Int): (Symbol, Seq[Int]) = {
+        def getHeadTailRec(pos: Int, args: Seq[Int]): (Symbol, Seq[Int]) = getExpr(pos) match {
             case s: Symbol => (s, args)
             case Apply(next, arg) => getHeadTailRec(next, arg +: args)
         }
         getHeadTailRec(p, Seq())
     }
 
-    def getTail(pos: Int): Seq[Expr] = getHeadTail(pos)._2
+    def getTail(pos: Int): Seq[Int] = getHeadTail(pos)._2
 
 }
