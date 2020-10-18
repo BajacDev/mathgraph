@@ -1,38 +1,42 @@
 package mathgraph.mathgraph
 
 /**
-* The logic layer manage the truth of expression.
-* 
+* The logic layer manage the truth of expressions
 **/
 
 case object defSymbol extends Symbol(0)
 case object falseSymbol extends Symbol(1)
 case object trueSymbol extends Symbol(2)
 case object implySymbol extends Symbol(3)
-case object forAllSymbol extends Symbol(4)
+case object forallSymbol extends Symbol(4)
 
-class LogicLayer(exprLayer: ExprLayer, truth: Map[Int, Boolean], 
-    imply: Map[Int, Set[Int]], isImpliedBy: Map[Int, Set[Int]], absurd: Boolean) {
+class LogicLayer(exprLayer: ExprLayer = new ExprLayer, truth: Map[Int, Boolean] = Map(), 
+    imply: Map[Int, Set[Int]] = Map(), isImpliedBy: Map[Int, Set[Int]] = Map(), absurd: Boolean = False) {
 
+    def truePos = exprLayer.getPos trueSymbol
+    def falsePos = exprLayer.getPos falseSymbol
+    
     def init(): LogicLayer = {
         val newExprLayer = exprLayer
             .setApply(defSymbol id, defSymbol id)._2
             .setApply(defSymbol id, falseSymbol id)._2
             .setApply(defSymbol id, trueSymbol id)._2
-            .setApply(defSymbol id, forAllSymbol id)._2
+            .setApply(defSymbol id, forallSymbol id)._2
         val newTruth = truth 
             + (newExprLayer.getPos(falseSymbol) -> false)
             + (newExprLayer.getPos(trueSymbol) -> true)
         new LogicLayer(newExprLayer, newTruth, imply, isImpliedBy, false)
     }
 
-    def setExprLayer(newexprLayer: ExprLayer) = new LogicLayer(newExprLayer, truth, imply, isImpliedBy, absurd)
+    def setExprLayer(newExprLayer: ExprLayer) = new LogicLayer(newExprLayer, truth, imply, isImpliedBy, absurd)
+
+    def addTruth(pos: Int, b: Boolean) = if (b) link(truePos, pos) else link(pos, falsePos) 
 
     def setApply(next: Int, arg: Int): (Int, LogicLayer) = {
         // intentionnal design: allowing forallSymbol to be an arg inside a forall makes thing difficult 
         // when we need to count the number of symbols to fix inside this forall
-        // eg: {0(3, 1)}(forall)
-        // how many symbols inside? basic algo: 4, advance algo that take the forall into account: 2
+        // eg: {0(3, 1)}(forallSymbol)
+        // how many symbols inside? basic algo: 4, advance algo that takes forall into account: 2
         require( exprLayer.getExpr arg != implySymbol )
         val pos, newExprLayer = exprLayer.setApply(next, arg)
         (pos, setExprLayer(newExprLayer))
@@ -51,7 +55,7 @@ class LogicLayer(exprLayer: ExprLayer, truth: Map[Int, Boolean],
             truth get pos match {
                 case None => this
                 case Some(b) if b => link(a, b)
-                case Some(b) if !b => link(trueSymbol, a).link(b, falseSymbol)
+                case Some(b) if !b => link(truePos, a).link(b, falsePos)
             }
         }
         case _ => this
@@ -93,8 +97,6 @@ class LogicLayer(exprLayer: ExprLayer, truth: Map[Int, Boolean],
         require(a < exprLayer.size && b < exprLayer.size)
         val newImply = insertPair(a, b, imply)
         val newIsImpledBy = insertPair(b, a, isImpliedBy)
-
-
 
         val newLogicLayer = new LogicLayer(exprLayer, truth, newImply, newIsImpledBy, absurd)
 

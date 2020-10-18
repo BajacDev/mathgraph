@@ -44,7 +44,11 @@ class ExprLayer(applies: Seq[Apply] = Seq(), applyToPos: Map[Apply, Int] = Map()
     }
 
     def getPos(expr: Expr): Int = expr match {
-        case Symbol(id) => id * 2
+        case Symbol(id) => {
+            val pos = id * 2
+            require(pos < size)
+            pos
+        }
         case apply: Apply(_, _) => {
             require(applies contains apply)
             applies(apply)
@@ -59,8 +63,7 @@ class ExprLayer(applies: Seq[Apply] = Seq(), applyToPos: Map[Apply, Int] = Map()
     def getHeadTail(p: Int): (Symbol, Seq[Expr]) = {
         def getHeadTailRec(pos: Int, args: Seq[Expr]): (Symbol, Seq[Expr]) = getExpr pos match {
             case s: Symbol => (s, args)
-            case Apply(next, arg) => getHeadTailRec(next, args :+ arg)
-
+            case Apply(next, arg) => getHeadTailRec(next, arg +: args)
         }
         getHeadTailRec(p, Seq())
     }
