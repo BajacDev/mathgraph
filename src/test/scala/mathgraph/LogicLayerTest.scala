@@ -5,7 +5,7 @@ import mathgraph.mathgraph._
 
 class LogicLayerTest extends AnyFunSuite {
   
-  test("true -> false") {
+  test("'true -> false' is absurd") {
     // todo: make it less ugly
       val logicLayer1 = new LogicLayer().init
       val (pos2, logicLayer2) = logicLayer1.setApply(logicLayer1.implyPos, logicLayer1.truePos)

@@ -19,7 +19,7 @@ case class Symbol(id: Int) extends Expr
 case class Apply(next: Int, arg: Int) extends Expr
 
 // applyToPos(a) gives the equivalent of applyToPos indexOf a (but is faster)
-
+// so we use applyToPos as a speedup mapping
 class ExprLayer(applies: Seq[Apply] = Seq(), applyToPos: Map[Apply, Int] = Map()) {
 
     def size = applies.size * 2

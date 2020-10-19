@@ -16,41 +16,36 @@ class LogicLayer(exprLayer: ExprLayer = new ExprLayer, truth: Map[Int, Boolean] 
     def truePos = exprLayer.getPos(trueSymbol)
     def falsePos = exprLayer.getPos(falseSymbol)
     def implyPos = exprLayer.getPos(implySymbol)
-    
+
     def getAbsurd = absurd
     
     def init(): LogicLayer = {
-        val newExprLayer = exprLayer
+        val newExprLayer = new ExprLayer()
             .setApply(defSymbol.id, defSymbol.id)._2
             .setApply(defSymbol.id, falseSymbol.id)._2
             .setApply(defSymbol.id, trueSymbol.id)._2
             .setApply(defSymbol.id, forallSymbol.id)._2
-        val newTruth = (truth + (newExprLayer.getPos(falseSymbol) -> false)) + (newExprLayer.getPos(trueSymbol) -> true)
-        new LogicLayer(newExprLayer, newTruth, imply, isImpliedBy, false)
+        val newTruth = Map(newExprLayer.getPos(falseSymbol) -> false, newExprLayer.getPos(trueSymbol) -> true)
+        new LogicLayer(newExprLayer, newTruth, Map(), Map(), false)
     }
 
     def setExprLayer(newExprLayer: ExprLayer) = new LogicLayer(newExprLayer, truth, imply, isImpliedBy, absurd)
 
     def addTruth(pos: Int, b: Boolean) = if (b) link(truePos, pos) else link(pos, falsePos) 
 
+    def setAbsurd = new LogicLayer(exprLayer, truth, imply, isImpliedBy, true)
+
     def setApply(next: Int, arg: Int): (Int, LogicLayer) = {
-        // intentionnal design: allowing forallSymbol to be an arg inside a forall makes thing difficult 
-        // when we need to count the number of symbols to fix inside this forall
-        // eg: {0(3, 1)}(forallSymbol)
-        // how many symbols inside? basic algo: 4, advance algo that takes forall into account: 2
-        require( exprLayer.getExpr(arg) != implySymbol )
         val (pos, newExprLayer) = exprLayer.setApply(next, arg)
         (pos, setExprLayer(newExprLayer))
     }
-
-    def setAbsurd = new LogicLayer(exprLayer, truth, imply, isImpliedBy, true)
 
     def is(b: Boolean, pos: Int) = truth get(pos) match {
         case None => false
         case Some(v) => v
     }
 
-    // strict rule on imply: imply is implySymbol and has arity 2
+    // strict rule on imply: imply must be implySymbol and has an arity of 2
     def applyImplyInferenceRule(pos: Int): LogicLayer = {
         exprLayer.getHeadTail(pos) match {
             case (implySymbol, Seq(a, b)) => {
