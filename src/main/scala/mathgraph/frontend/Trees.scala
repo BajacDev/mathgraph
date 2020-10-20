@@ -15,16 +15,13 @@ object Trees {
 
   case class Program(defs: Seq[Def], axioms: Seq[Expr]) extends Tree
 
-
-
   // ----------------------------------------------------
   // Definitions
   // ----------------------------------------------------
 
   /** Representation of let in(x, S) or let inc(A, B) = ... */
-  case class Let(name: Identifier, vars: Seq[Identifier], body: Option[Expr]) extends Def
-
-
+  case class Let(name: Identifier, vars: Seq[Identifier], body: Option[Expr])
+      extends Def
 
   // ----------------------------------------------------
   // Expressions
@@ -44,8 +41,6 @@ object Trees {
 
   /** Representation of forall */
   case class Forall(id: Identifier, body: Expr) extends Expr
-
-
 
   // ----------------------------------------------------
   // Desugared expressions

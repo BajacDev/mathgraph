@@ -7,7 +7,7 @@ case class FatalError(msg: String) extends Exception(msg)
 
 class Context {
   // Those are the reporting functionalities that the context provides
-  def info(msg: String, pos: Position = NoPosition): Unit = 
+  def info(msg: String, pos: Position = NoPosition): Unit =
     report(s"${GREEN}[ info  ]${RESET}", msg, pos)
 
   def warning(msg: String, pos: Position = NoPosition): Unit =
@@ -43,7 +43,7 @@ class Context {
     Console.err.println(msg)
   }
 
-  // Reports a message with 
+  // Reports a message with
   private def report(prefix: String, msg: Any, pos: Position): Unit = {
     err(s"$prefix line ${pos.line}, column ${pos.column}: $msg")
     err(s"${pos.longString.split('\n').map(prefix + " " + _).mkString("\n")}")

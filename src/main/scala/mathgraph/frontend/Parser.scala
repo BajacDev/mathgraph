@@ -11,27 +11,38 @@ object Parser extends Parsers with Pipeline[Seq[Token], Program] {
   // The parser takes tokens as input
   type Elem = Token
 
-  def id: Parser[String] = accept("identifier", {
-    case IdToken(name) => name
-  })
+  def id: Parser[String] = accept(
+    "identifier",
+    { case IdToken(name) =>
+      name
+    }
+  )
 
-  implicit def delim(str: String): Parser[String] = accept("delimiter", {
-    case DelimToken(`str`) => str
-  })
+  implicit def delim(str: String): Parser[String] = accept(
+    "delimiter",
+    { case DelimToken(`str`) =>
+      str
+    }
+  )
 
-  def kw(str: String): Parser[String] = accept("keyword", {
-    case KwToken(`str`) => str
-  })
+  def kw(str: String): Parser[String] = accept(
+    "keyword",
+    { case KwToken(`str`) =>
+      str
+    }
+  )
 
   def program: Parser[Program] = positioned {
-    rep(definition) ~ rep(expr) ^^ {
-      case defs ~ exprs => Program(defs, exprs)
+    rep(definition) ~ rep(expr) ^^ { case defs ~ exprs =>
+      Program(defs, exprs)
     }
   }
 
   def definition: Parser[Def] = positioned {
-    kw("let") ~> id ~ opt("(" ~> rep1sep(id, ",") <~ ")") ~ opt("=" ~> expr) <~ ";" ^^ {
-      case id ~ None ~ bodyOpt => Let(id, Seq(), bodyOpt)
+    kw("let") ~> id ~ opt("(" ~> rep1sep(id, ",") <~ ")") ~ opt(
+      "=" ~> expr
+    ) <~ ";" ^^ {
+      case id ~ None ~ bodyOpt         => Let(id, Seq(), bodyOpt)
       case id ~ Some(params) ~ bodyOpt => Let(id, params, bodyOpt)
     }
   }
@@ -39,35 +50,35 @@ object Parser extends Parsers with Pipeline[Seq[Token], Program] {
   def prefixExpr: Parser[Expr] = positioned {
     opt(kw("not")) ~ simpleExpr ^^ {
       case Some(_) ~ e => Not(e)
-      case None ~ e => e
+      case None ~ e    => e
     }
   }
 
   def simpleExpr: Parser[Expr] = positioned {
     variableOrCall |
-    kw("true") ^^^ True |
-    kw("false") ^^^ False |
-    "(" ~> expr <~ ")"
+      kw("true") ^^^ True |
+      kw("false") ^^^ False |
+      "(" ~> expr <~ ")"
   }
 
   def variableOrCall: Parser[Expr] = positioned {
     id ~ opt("(" ~> rep1sep(expr, ",") <~ ")") ^^ {
-      case id ~ None => Apply(id, Seq())
+      case id ~ None       => Apply(id, Seq())
       case id ~ Some(args) => Apply(id, args)
     }
   }
 
   def impliesExpr: Parser[Expr] = positioned {
-    rep1sep(prefixExpr, kw("->")) ^^ {
-      operands => operands.reduceRight(Implies)
+    rep1sep(prefixExpr, kw("->")) ^^ { operands =>
+      operands.reduceRight(Implies)
     }
   }
 
   def expr: Parser[Expr] = positioned {
     opt((kw("forall") | kw("exists")) ~ id <~ ".") ~ impliesExpr ^^ {
       case Some("forall" ~ x) ~ body => Forall(x, body)
-      case Some(exists ~ x) ~ body => Exists(x, body)
-      case None ~ e => e
+      case Some(exists ~ x) ~ body   => Exists(x, body)
+      case None ~ e                  => e
     }
   }
 

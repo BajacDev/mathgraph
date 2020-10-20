@@ -1,10 +1,10 @@
 package mathgraph.util
 import mathgraph.util
 
-/**
- * This represents a phase of the compiler or of the solver. Pipelines can be composed together.
- */
+/** This represents a phase of the compiler or of the solver. Pipelines can be composed together.
+  */
 trait Pipeline[-S, +T] { self =>
+
   /** This method should apply the pipeline to an input of type S, giving a result of type T */
   protected def apply(s: S)(ctxt: Context): T
 
