@@ -1,0 +1,9 @@
+let in;
+
+let and(a,b) :== (a -> (b -> false)) -> false;
+let <->(a,b) :== (a -> b) and (b -> a);
+
+let inc(A,B) :== (x in A) -> (x in B);
+let =(A, B) :== (x in A) <-> (x in B);
+
+((A inc B) and (B inc A)) and ((A = B) -> false);

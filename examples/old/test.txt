@@ -1,0 +1,15 @@
+let in;
+
+let inc(A,B) = forall x.(x in A) -> (x in B);
+
+let in(A, B);
+
+let A, B, C;
+
+A inc B;
+B inc C;
+(A inc C) -> false;
+
+program:
+- sequence of definitions
+- axioms

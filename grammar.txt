@@ -1,0 +1,38 @@
+{{"statement"}, "file", "file"},
+{{"statement", "file"}, "file", "file_rec"},
+
+// let def
+{{"let", "let_statement", ";"}, "statement", "let"},
+
+{{"declaration"}, "let_statement", "let_statement"},
+{{"declaration", ",", "let_statement"}, "let_statement", "let_statement_rec"},
+
+{{"header"}, "declaration", "declaration_no_expr"},
+{{"header", ":==", "expr"}, "declaration", "declaration_with_expr"},
+
+{{"var"}, "header", "header_no_param"},
+{{"var", "header_param"}, "header", "header_with_param"},
+
+{{"(", "list_var", ")"}, "header_param", "header_param"},
+
+{{"var"}, "list_var", "list_var"},
+{{"var", ",", "list_var"}, "list_var", "list_var_rec"},
+
+//expr def
+{{"expr", ";"}, "statement", "true_statement"},
+
+{{"(", "expr", ")"}, "expr", "expr_with_par"},
+
+{{"var"}, "expr_head", "var"},
+{{"var"}, "expr", "var"},
+
+{{"A{", "expr", "}"}, "expr_head", "forall"},
+{{"E{", "expr", "}"}, "expr_head", "exists"},
+
+{{"expr_head"}, "expr", "expr_head_no_param"},
+{{"expr_head", "(", "params", ")"}, "expr", "expr_head_with_param"},
+
+{{"expr", ",", "params"}, "params", "params_rec"},
+{{"expr"}, "params", "params"},
+
+{{"expr", "var", "expr"}, "expr", "expr_infix"},
