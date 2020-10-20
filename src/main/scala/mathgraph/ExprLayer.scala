@@ -32,12 +32,12 @@ class ExprLayer(applies: Seq[Apply] = Seq(), applyToPos: Map[Apply, Int] = Map()
     }
 
     // there is no setSymbol: adding an expr automatically add a symbol at pos = new expr pos - 1
-    def setApply(next: Int, arg: Int): (Int, ExprLayer) = {
+    def setApply(next: Int, arg: Int): (ExprLayer, Int) = {
         require( next < nextExprPos && arg < nextExprPos )
         val apply = Apply(next, arg)
         applyToPos get apply match {
-            case Some(pos) => (pos, this)
-            case None => (nextExprPos, new ExprLayer(applies :+ apply, applyToPos + (apply -> nextExprPos)))
+            case Some(pos) => (this, pos)
+            case None => (new ExprLayer(applies :+ apply, applyToPos + (apply -> nextExprPos)), nextExprPos)
         }
     }
 

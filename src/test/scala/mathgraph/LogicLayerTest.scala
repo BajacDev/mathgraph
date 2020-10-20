@@ -7,21 +7,29 @@ class LogicLayerTest extends AnyFunSuite {
   
   test("'true -> false' is absurd") {
     // todo: make it less ugly
-      val logicLayer1 = new LogicLayer().init
-      val (pos2, logicLayer2) = logicLayer1.setApply(logicLayer1.implyPos, logicLayer1.truePos)
-      val (pos3, logicLayer3) = logicLayer2.setApply(pos2, logicLayer2.falsePos)
-      val logicLayer4 = logicLayer3.addTruth(pos3, true)
-      assert(logicLayer4.getAbsurd)
+      val logicLayer = (((new LogicLayer().init match {
+        case ll => ll.setApply(ll.implyPos, ll.truePos)
+      }) match {
+        case (ll, pos) => ll.setApply(pos, ll.falsePos)
+      }) match {
+        case (ll, pos) => ll.addTruth(pos, true)
+      })
+      assert(logicLayer.getAbsurd)
   }
 
   test("'(false -> true) -> false' is absurd") {
     // todo: make it less ugly
-      val logicLayer1 = new LogicLayer().init
-      val (pos2, logicLayer2) = logicLayer1.setApply(logicLayer1.implyPos, logicLayer1.falsePos)
-      val (pos3, logicLayer3) = logicLayer2.setApply(pos2, logicLayer2.truePos)
-      val (pos4, logicLayer4) = logicLayer3.setApply(logicLayer3.implyPos, pos3)
-      val (pos5, logicLayer5) = logicLayer4.setApply(pos4, logicLayer4.falsePos)
-      val logicLayer6 = logicLayer5.addTruth(pos5, true)
-      assert(logicLayer6.getAbsurd)
+      val logicLayer = (((((new LogicLayer().init match {
+        case ll => ll.setApply(ll.implyPos, ll.falsePos)
+      }) match {
+        case (ll, pos) => ll.setApply(pos, ll.truePos)
+      }) match {
+        case (ll, pos) => ll.setApply(ll.implyPos, pos)
+      }) match {
+        case (ll, pos) => ll.setApply(pos, ll.falsePos)
+      }) match {
+        case (ll, pos) => ll.addTruth(pos, true)
+      })
+      assert(logicLayer.getAbsurd)
   }
 }

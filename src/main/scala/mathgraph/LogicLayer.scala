@@ -21,10 +21,10 @@ class LogicLayer(exprLayer: ExprLayer = new ExprLayer, truth: Map[Int, Boolean] 
     
     def init(): LogicLayer = {
         val newExprLayer = new ExprLayer()
-            .setApply(defSymbol.id, defSymbol.id)._2
-            .setApply(defSymbol.id, falseSymbol.id)._2
-            .setApply(defSymbol.id, trueSymbol.id)._2
-            .setApply(defSymbol.id, forallSymbol.id)._2
+            .setApply(defSymbol.id, defSymbol.id)._1
+            .setApply(defSymbol.id, falseSymbol.id)._1
+            .setApply(defSymbol.id, trueSymbol.id)._1
+            .setApply(defSymbol.id, forallSymbol.id)._1
         val newTruth = Map(newExprLayer.getPos(falseSymbol) -> false, newExprLayer.getPos(trueSymbol) -> true)
         new LogicLayer(newExprLayer, newTruth, Map(), Map(), false)
     }
@@ -35,14 +35,14 @@ class LogicLayer(exprLayer: ExprLayer = new ExprLayer, truth: Map[Int, Boolean] 
 
     def setAbsurd = new LogicLayer(exprLayer, truth, imply, isImpliedBy, true)
 
-    def setApply(next: Int, arg: Int): (Int, LogicLayer) = {
-        val (pos, newExprLayer) = exprLayer.setApply(next, arg)
-        (pos, setExprLayer(newExprLayer))
+    def setApply(next: Int, arg: Int): (LogicLayer, Int) = {
+        val (newExprLayer, pos) = exprLayer.setApply(next, arg)
+        (setExprLayer(newExprLayer), pos)
     }
 
     def is(b: Boolean, pos: Int) = truth get(pos) match {
         case None => false
-        case Some(v) => v
+        case Some(v) => v == b
     }
 
     // strict rule on imply: imply must be implySymbol and has an arity of 2
