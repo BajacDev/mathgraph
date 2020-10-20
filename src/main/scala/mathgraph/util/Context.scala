@@ -2,10 +2,10 @@ package mathgraph.util
 import scala.util.parsing.input._
 import io.AnsiColor._
 
-class Context {
-  // This exception will be thrown when a fatal error occurs when running the program
-  case class FatalError(msg: String) extends Exception(msg)
+// This exception will be thrown when a fatal error occurs when running the program
+case class FatalError(msg: String) extends Exception(msg)
 
+class Context {
   // Those are the reporting functionalities that the context provides
   def info(msg: String, pos: Position = NoPosition): Unit = 
     report(s"${GREEN}[ info  ]${RESET}", msg, pos)
@@ -18,7 +18,7 @@ class Context {
     report(s"${RED}[ error ]${RESET}", msg, pos)
   }
 
-  def fatal(msg: String, pos: Position = NoPosition): Unit = {
+  def fatal(msg: String, pos: Position = NoPosition): Nothing = {
     report(s"${RED}[ fatal ]${RESET}", msg, pos)
     throw FatalError(s"$pos: $msg")
   }
@@ -26,7 +26,7 @@ class Context {
   def info(msg: String, pos: Positional): Unit = info(msg, pos.pos)
   def warning(msg: String, pos: Positional): Unit = warning(msg, pos.pos)
   def error(msg: String, pos: Positional): Unit = error(msg, pos.pos)
-  def fatal(msg: String, pos: Positional): Unit = fatal(msg, pos.pos)
+  def fatal(msg: String, pos: Positional): Nothing = fatal(msg, pos.pos)
 
   /** This terminates the program if any errors were reported */
   def terminateIfErrors() = {
@@ -45,6 +45,7 @@ class Context {
 
   // Reports a message with 
   private def report(prefix: String, msg: Any, pos: Position): Unit = {
-    err(s"$prefix $pos: $msg")
+    err(s"$prefix line ${pos.line}, column ${pos.column}: $msg")
+    err(s"${pos.longString.split('\n').map(prefix + " " + _).mkString("\n")}")
   }
 }
