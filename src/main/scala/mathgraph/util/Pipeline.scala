@@ -1,4 +1,3 @@
-
 package mathgraph.util
 import mathgraph.util
 

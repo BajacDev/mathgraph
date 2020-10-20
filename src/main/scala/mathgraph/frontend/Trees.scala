@@ -1,4 +1,3 @@
-
 package mathgraph.frontend
 import scala.util.parsing.input.Positional
 import scala.io

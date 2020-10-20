@@ -1,4 +1,3 @@
-
 package mathgraph.frontend
 import mathgraph.util._
 import mathgraph.frontend.Trees._

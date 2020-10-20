@@ -1,4 +1,3 @@
-
 package mathgraph.util
 import scala.util.parsing.input._
 import io.AnsiColor._
