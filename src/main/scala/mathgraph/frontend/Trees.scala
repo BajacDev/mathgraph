@@ -30,9 +30,6 @@ object Trees {
   // Expressions
   // ----------------------------------------------------
 
-  /** Representation of x */
-  case class Symbol(id: Identifier) extends Expr
-
   /** Representation of a -> b */
   case class Implies(lhs: Expr, rhs: Expr) extends Expr
 
@@ -42,9 +39,25 @@ object Trees {
   /** Representation of false */
   case object False extends Expr
 
-  /** Representation of lhs(arg1, ..., argN) */
-  case class Apply(lhs: Expr, args: Seq[Expr]) extends Expr
+  /** Representation of lhs(arg1, ..., argN) or lhs if there are no args */
+  case class Apply(id: Identifier, args: Seq[Expr]) extends Expr
 
   /** Representation of forall */
   case class Forall(id: Identifier, body: Expr) extends Expr
+
+
+
+  // ----------------------------------------------------
+  // Desugared expressions
+  // ----------------------------------------------------
+
+  /** Syntactic sugar for not */
+  object Not {
+    def apply(e: Expr): Expr = Implies(e, False)
+  }
+
+  /** Syntactic sugar for existential quantification */
+  object Exists {
+    def apply(id: Identifier, body: Expr): Expr = Not(Forall(id, Not(body)))
+  }
 }
