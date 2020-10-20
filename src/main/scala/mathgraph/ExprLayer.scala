@@ -1,9 +1,8 @@
 package mathgraph.mathgraph
 
-/**
-* The ExprLayer manages Expressions without any logic assumption
-* The main point of this layer is to obtimize the storage of Expressions
-**/
+/** The ExprLayer manages Expressions without any logic assumption
+  * The main point of this layer is to obtimize the storage of Expressions
+  */
 
 abstract class Expr
 
@@ -20,52 +19,61 @@ case class Apply(next: Int, arg: Int) extends Expr
 
 // applyToPos(a) gives the equivalent of applyToPos indexOf a (but is faster)
 // so we use applyToPos as a speedup mapping
-class ExprLayer(applies: Seq[Apply] = Seq(), applyToPos: Map[Apply, Int] = Map()) {
+class ExprLayer(
+    applies: Seq[Apply] = Seq(),
+    applyToPos: Map[Apply, Int] = Map()
+) {
 
-    def size = applies.size * 2
-    def nextExprPos = size + 1
+  def size = applies.size * 2
+  def nextExprPos = size + 1
 
-    def getExpr(pos: Int): Expr = {
-        require( pos < size )
-        if (pos % 2 == 0) Symbol(pos / 2)
-        else applies(pos / 2)
+  def getExpr(pos: Int): Expr = {
+    require(pos < size)
+    if (pos % 2 == 0) Symbol(pos / 2)
+    else applies(pos / 2)
+  }
+
+  // there is no setSymbol: adding an expr automatically add a symbol at pos = new expr pos - 1
+  def setApply(next: Int, arg: Int): (ExprLayer, Int) = {
+    require(next < nextExprPos && arg < nextExprPos)
+    val apply = Apply(next, arg)
+    applyToPos get apply match {
+      case Some(pos) => (this, pos)
+      case None =>
+        (
+          new ExprLayer(applies :+ apply, applyToPos + (apply -> nextExprPos)),
+          nextExprPos
+        )
     }
+  }
 
-    // there is no setSymbol: adding an expr automatically add a symbol at pos = new expr pos - 1
-    def setApply(next: Int, arg: Int): (ExprLayer, Int) = {
-        require( next < nextExprPos && arg < nextExprPos )
-        val apply = Apply(next, arg)
-        applyToPos get apply match {
-            case Some(pos) => (this, pos)
-            case None => (new ExprLayer(applies :+ apply, applyToPos + (apply -> nextExprPos)), nextExprPos)
-        }
+  def getPos(expr: Expr): Int = expr match {
+    case Symbol(id) => {
+      val pos = id * 2
+      require(pos < size)
+      pos
     }
-
-    def getPos(expr: Expr): Int = expr match {
-        case Symbol(id) => {
-            val pos = id * 2
-            require(pos < size)
-            pos
-        }
-        case apply: Apply => {
-            require(applyToPos contains apply)
-            applyToPos(apply)
-        }
+    case apply: Apply => {
+      require(applyToPos contains apply)
+      applyToPos(apply)
     }
+  }
 
-    def getHead(pos: Int): Int = getExpr(pos) match {
-        case Symbol(_) => pos
-        case Apply(next, _) => getHead(next)
+  def getHead(pos: Int): Int = getExpr(pos) match {
+    case Symbol(_)      => pos
+    case Apply(next, _) => getHead(next)
+  }
+
+  def getHeadTail(p: Int): (Symbol, Seq[Int]) = {
+    def getHeadTailRec(pos: Int, args: Seq[Int]): (Symbol, Seq[Int]) = getExpr(
+      pos
+    ) match {
+      case s: Symbol        => (s, args)
+      case Apply(next, arg) => getHeadTailRec(next, arg +: args)
     }
+    getHeadTailRec(p, Seq())
+  }
 
-    def getHeadTail(p: Int): (Symbol, Seq[Int]) = {
-        def getHeadTailRec(pos: Int, args: Seq[Int]): (Symbol, Seq[Int]) = getExpr(pos) match {
-            case s: Symbol => (s, args)
-            case Apply(next, arg) => getHeadTailRec(next, arg +: args)
-        }
-        getHeadTailRec(p, Seq())
-    }
-
-    def getTail(pos: Int): Seq[Int] = getHeadTail(pos)._2
+  def getTail(pos: Int): Seq[Int] = getHeadTail(pos)._2
 
 }
