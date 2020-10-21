@@ -1,7 +1,7 @@
-package mathgraph.utils
+package mathgraph.util
 
 object Pipe {
-  // todo: make scalafmt aligns |>
+  // todo: make scalafmt align |>
   import scala.language.implicitConversions
   implicit class Piper[A](val a: A) {
     import scala.util.chaining._

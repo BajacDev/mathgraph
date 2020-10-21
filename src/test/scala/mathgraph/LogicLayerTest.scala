@@ -2,7 +2,7 @@ package logiclayertest
 
 import org.scalatest.funsuite.AnyFunSuite
 import mathgraph.mathgraph._
-import mathgraph.utils.Pipe._
+import mathgraph.util.Pipe._
 
 class LogicLayerTest extends AnyFunSuite {
 
