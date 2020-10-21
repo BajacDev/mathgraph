@@ -26,6 +26,8 @@ class LogicLayer(
   def getAbsurd = absurd
   def getExprLayer = exprLayer
 
+  def idToPos(id: Int): Int = exprLayer.idToPos(id)
+
   def init(): LogicLayer = {
     val newExprLayer = new ExprLayer()
       .setApply(defSymbol.id, defSymbol.id)

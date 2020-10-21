@@ -52,7 +52,7 @@ class ExprLayer(
   def getPos(expr: Expr): Int = expr match {
     case Symbol(id) => {
       val pos = id * 2
-      require(pos > 0 && pos < size)
+      require(pos >= 0 && pos < size)
       pos
     }
     case apply: Apply => {
@@ -60,6 +60,8 @@ class ExprLayer(
       applyToPos(apply)
     }
   }
+
+  def idToPos(id: Int): Int = getPos(Symbol(id))
 
   /** count the number of Apply it would take to fix this expr
     * eg: returns 4 for 0(3, 1)
