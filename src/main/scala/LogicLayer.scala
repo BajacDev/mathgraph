@@ -20,8 +20,11 @@ class LogicLayer(
   def truePos = exprLayer.getPos(trueSymbol)
   def falsePos = exprLayer.getPos(falseSymbol)
   def implyPos = exprLayer.getPos(implySymbol)
+  def defPos = exprLayer.getPos(defSymbol)
+  def forallPos = exprLayer.getPos(forallSymbol)
 
   def getAbsurd = absurd
+  def getExprLayer = exprLayer
 
   def init(): LogicLayer = {
     val newExprLayer = new ExprLayer()
@@ -48,14 +51,39 @@ class LogicLayer(
 
   def setAbsurd = new LogicLayer(exprLayer, truth, imply, isImpliedBy, true)
 
-  def setApply(next: Int, arg: Int): (LogicLayer, Int) = {
-    val (newExprLayer, pos) = exprLayer.setApply(next, arg)
-    (setExprLayer(newExprLayer), pos)
-  }
-
   def is(b: Boolean, pos: Int) = truth get (pos) match {
     case None    => false
     case Some(v) => v == b
+  }
+
+  def unfoldForall(pos: Int): Option[(Int, Seq[Int])] =
+    exprLayer.getHeadTail(pos) match {
+      case (forallSymbol, inside +: args) => Some((inside, args))
+      case _                              => None
+    }
+
+  /** return true if it is a forall and it is simplifiable * */
+  def isSimplifiable(pos: Int): Boolean = unfoldForall(pos) match {
+    case None                 => false
+    case Some((inside, args)) => exprLayer.countSymbols(inside) <= args.length
+  }
+
+  def applySymblifyInferenceRule(pos: Int): (LogicLayer, Int) = unfoldForall(
+    pos
+  ) match {
+    case None => (this, pos)
+    case Some((inside, args)) =>
+      if (exprLayer.countSymbols(inside) > args.length) (this, pos)
+      else {
+        val (newExprLayer, newPos) = exprLayer.symplify(inside, args)
+        (setExprLayer(newExprLayer).link(newPos, pos).link(pos, newPos), newPos)
+      }
+  }
+
+  def applySymblifyInferenceRuleLoop(pos: Int): LogicLayer = {
+    val (newLogicLayer, new_pos) = applySymblifyInferenceRule(pos)
+    if (new_pos != pos) newLogicLayer.applySymblifyInferenceRule(new_pos)._1
+    else newLogicLayer
   }
 
   // strict rule on imply: imply must be implySymbol and has an arity of 2
@@ -71,6 +99,29 @@ class LogicLayer(
       case _ => this
     }
   }
+
+  def applyAssociatedSymbol(pos: Int): (LogicLayer, Int) =
+    exprLayer.getAssociatedSymbol(pos) match {
+      case Some(posSymbol) => setApply(posSymbol, pos)
+      case None            => (this, pos)
+    }
+
+  def setApply(next: Int, arg: Int): (LogicLayer, Int) = {
+    val (newExprLayer, pos) = exprLayer.setApply(next, arg)
+    setExprLayer(newExprLayer)
+      .applySymblifyInferenceRuleLoop(pos)
+      .link(next, pos) match {
+      case ll =>
+        if (ll.getExprLayer.isAssociatedSymbol(next, arg))
+          (ll.link(pos, next), pos)
+        else (ll, pos)
+    }
+  }
+
+  def getFreshSymbol: (LogicLayer, Int) =
+    setApply(defPos, exprLayer.size) match {
+      case (newLogicLayer, pos) => (newLogicLayer, pos - 1)
+    }
 
   def getImplyGraphFor(b: Boolean) = if (b) imply else isImpliedBy
 

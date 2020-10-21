@@ -1,5 +1,7 @@
 package mathgraph.mathgraph
 
+import scala.math._
+
 /** The ExprLayer manages Expressions without any logic assumption
   * The main point of this layer is to obtimize the storage of Expressions
   */
@@ -25,24 +27,24 @@ class ExprLayer(
 ) {
 
   def size = applies.size * 2
-  def nextExprPos = size + 1
+  def nextApplyPos = size + 1
 
   def getExpr(pos: Int): Expr = {
-    require( pos >= 0 && pos < size )
+    require(pos >= 0 && pos < size)
     if (pos % 2 == 0) Symbol(pos / 2)
     else applies(pos / 2)
   }
 
   // there is no setSymbol: adding an expr automatically add a symbol at pos = new expr pos - 1
   def setApply(next: Int, arg: Int): (ExprLayer, Int) = {
-    require( next >= 0 && next < nextApplyPos && arg >= 0 && arg < nextApplyPos )
+    require(next >= 0 && next < nextApplyPos && arg >= 0 && arg < nextApplyPos)
     val apply = Apply(next, arg)
     applyToPos get apply match {
       case Some(pos) => (this, pos)
       case None =>
         (
-          new ExprLayer(applies :+ apply, applyToPos + (apply -> nextExprPos)),
-          nextExprPos
+          new ExprLayer(applies :+ apply, applyToPos + (apply -> nextApplyPos)),
+          nextApplyPos
         )
     }
   }
@@ -59,13 +61,12 @@ class ExprLayer(
     }
   }
 
-  /** 
-  * count the number of Apply it would take to fix this expr 
-  * eg: returns 4 for 0(3, 1) 
-  **/
+  /** count the number of Apply it would take to fix this expr
+    * eg: returns 4 for 0(3, 1)
+    */
   def countSymbols(pos: Int): Int = getExpr(pos) match {
-      case Symbol(id) => id + 1
-      case Apply(next, arg) => max(countSymbols(next), countSymbols(arg))
+    case Symbol(id)       => id + 1
+    case Apply(next, arg) => max(countSymbols(next), countSymbols(arg))
   }
 
   def getHeadTail(p: Int): (Symbol, Seq[Int]) = {
@@ -82,23 +83,27 @@ class ExprLayer(
 
   def getTail(pos: Int): Seq[Int] = getHeadTail(pos)._2
 
-  def symplify(inside: Int, args: Seq[Int]): (ExprLayer, Int) = getExpr(inside) match {
-      case Symbol(id) => (this, args(id))
-      case Apply(next, arg) => {
-          val (exprLayerNext, posNext) = symplify(next, args)
-          val (exprLayerArg, posArg) = exprLayerNext.symplify(arg, args)
-          exprLayerArg.setApply(posNext, posArg)
-      }
+  def symplify(inside: Int, args: Seq[Int]): (ExprLayer, Int) = getExpr(
+    inside
+  ) match {
+    case Symbol(id) => (this, args(id))
+    case Apply(next, arg) => {
+      val (exprLayerNext, posNext) = symplify(next, args)
+      val (exprLayerArg, posArg) = exprLayerNext.symplify(arg, args)
+      exprLayerArg.setApply(posNext, posArg)
+    }
   }
 
   def getAssociatedSymbol(pos: Int): Option[Int] = getExpr(pos) match {
-      case expr: Expr => Some(pos - 1)
-      case _ => None
+    case expr: Expr => Some(pos - 1)
+    case _          => None
   }
 
-  def isAssociatedSymbol(next: Int, arg: Int): Boolean = getAssociatedSymbol(next) match {
-      case Some(v) => v == arg
-      case _ => false
+  def isAssociatedSymbol(next: Int, arg: Int): Boolean = getAssociatedSymbol(
+    next
+  ) match {
+    case Some(v) => v == arg
+    case _       => false
   }
 
 }
