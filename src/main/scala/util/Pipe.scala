@@ -4,7 +4,6 @@ object Pipe {
   // todo: make scalafmt align |>
   import scala.language.implicitConversions
   implicit class Piper[A](val a: A) {
-    import scala.util.chaining._
-    implicit def |>[B](f: (A) => B): B = a.pipe(f)
+    implicit def |>[B](f: (A) => B): B = f(a)
   }
 }
