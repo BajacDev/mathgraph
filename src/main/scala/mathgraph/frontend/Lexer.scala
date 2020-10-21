@@ -4,6 +4,7 @@ import Tokens._
 import scala.util.parsing.combinator.RegexParsers
 import scala.util.parsing.input.CharSequenceReader
 
+/** A lexer takes as input a string and outputs a sequence of tokens */
 object Lexer extends RegexParsers with Pipeline[String, Seq[Token]] {
   // Those are all the keywords of the language
   val keywords = Set("let", "not", "forall", "exists", "->")

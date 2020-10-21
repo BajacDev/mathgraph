@@ -6,7 +6,7 @@ import scala.util.parsing.combinator._
 import scala.io.Source
 import scala.language.implicitConversions
 
-/** A parser takes as input the name of a file and outputs a program */
+/** A parser takes as input a sequence of tokens and outputs a program */
 object Parser extends Parsers with Pipeline[Seq[Token], Program] {
   // The parser takes tokens as input
   type Elem = Token
