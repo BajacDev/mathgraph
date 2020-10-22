@@ -1,0 +1,6 @@
+let not(A) = A -> false;
+let and(A, B) = not(A -> not(B));
+let ens;
+
+let E = ens(A) and not(A(A));
+ens(E);
