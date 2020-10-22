@@ -12,7 +12,7 @@ class LogicLayerTest extends AnyFunSuite {
       new LogicLayer().init |> (ll => ll.setApply(ll.implyPos, ll.truePos)) |> {
         case (ll, pos) => ll.setApply(pos, ll.falsePos)
       } |> { case (ll, pos) =>
-        ll.addTruth(pos, true)
+        ll.setAxiom(pos, true)
       } |> (_.getAbsurd)
 
     assert(absurd)
@@ -26,7 +26,7 @@ class LogicLayerTest extends AnyFunSuite {
       ) |> { case (ll, pos) => ll.setApply(pos, ll.truePos) } |> {
         case (ll, pos) => ll.setApply(ll.implyPos, pos)
       } |> { case (ll, pos) => ll.setApply(pos, ll.falsePos) } |> {
-        case (ll, pos) => ll.addTruth(pos, true)
+        case (ll, pos) => ll.setAxiom(pos, true)
       } |> (_.getAbsurd)
 
     assert(absurd)
@@ -42,7 +42,7 @@ class LogicLayerTest extends AnyFunSuite {
       } |> { case (ll, pos) => ll.setApply(pos, ll.implyPos) } |> {
         case (ll, pos) => ll.setApply(pos, ll.truePos)
       } |> { case (ll, pos) => ll.setApply(pos, ll.falsePos) } |> {
-        case (ll, pos) => ll.addTruth(pos, true)
+        case (ll, pos) => ll.setAxiom(pos, true)
       } |> (_.getAbsurd)
 
     assert(absurd)

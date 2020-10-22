@@ -80,9 +80,17 @@ class LogicLayer(
       inferences,
       reverseImply + ((a, b) -> imp)
     )
-
-  def addTruth(pos: Int, b: Boolean) =
-    if (b) link(truePos, pos, axiom) else link(pos, falsePos, axiom)
+  
+  private def addTruth(pos: Int, b: Boolean) = 
+    new LogicLayer(
+      exprLayer,
+      truth + (pos -> b),
+      imply,
+      isImpliedBy,
+      absurd,
+      inferences,
+      reverseImply
+    )
 
   def setAbsurd = new LogicLayer(
     exprLayer,
@@ -93,6 +101,10 @@ class LogicLayer(
     inferences,
     reverseImply
   )
+
+  def setAxiom(pos: Int, b: Boolean) =
+    if (b) link(truePos, pos, axiom) else link(pos, falsePos, axiom)
+
 
   def is(b: Boolean, pos: Int) = truth get (pos) match {
     case None    => false
@@ -141,8 +153,8 @@ class LogicLayer(
   }
 
   def applySymplifyInferenceRuleLoop(pos: Int): LogicLayer = {
-    val (newLogicLayer, new_pos) = applySymplifyInferenceRule(pos)
-    if (new_pos != pos) newLogicLayer.applySymplifyInferenceRule(new_pos)._1
+    val (newLogicLayer, newPos) = applySymplifyInferenceRule(pos)
+    if (newPos != pos) newLogicLayer.applySymplifyInferenceRule(newPos)._1
     else newLogicLayer
   }
 
@@ -196,22 +208,13 @@ class LogicLayer(
       case Some(v) if v == b => this
       case Some(v) if v != b => setAbsurd
       case None => {
-        val newThuth = truth + (pos -> b)
-        val newLogicLayer =
-          new LogicLayer(
-            exprLayer,
-            newThuth,
-            imply,
-            isImpliedBy,
-            absurd,
-            inferences,
-            reverseImply
-          )
+        
+        val newLogicLayer = addTruth(pos, b)
             .applyImplyInferenceRule(pos)
-            .applySymplifyInferenceRuleLoop(pos)
+            //.applySymplifyInferenceRuleLoop(pos)
 
         // propagate truth value on the graph
-        getImplyGraphFor(b) get pos match {
+        newLogicLayer.getImplyGraphFor(b) get pos match {
           case None => newLogicLayer
           case Some(neighs: Set[Int]) => {
             neighs.foldLeft(newLogicLayer)((logicUnit, neigh) =>
