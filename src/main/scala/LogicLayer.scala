@@ -9,8 +9,6 @@ object trueSymbol extends Symbol(2)
 object implySymbol extends Symbol(3)
 object forallSymbol extends Symbol(4)
 
-
-
 trait InferenceRule
 
 object applyIR extends InferenceRule
@@ -25,15 +23,12 @@ class LogicLayer(
     imply: Map[Int, Set[Int]] = Map(),
     isImpliedBy: Map[Int, Set[Int]] = Map(),
     absurd: Boolean = false,
-
     // use for proofs
 
-    /** pos -> (previousPos, InferenceRule) **/
+    /** pos -> (previousPos, InferenceRule) * */
     inferences: Map[Int, (Int, InferenceRule)] = Map(),
-
-    /** ((a, b) -> c) mean c is of the form a -> b **/
-    reverseImply: Map[(Int, Int), Int] = Map(),
-
+    /** ((a, b) -> c) mean c is of the form a -> b * */
+    reverseImply: Map[(Int, Int), Int] = Map()
 ) {
 
   def truePos = exprLayer.getPos(trueSymbol)
@@ -65,15 +60,39 @@ class LogicLayer(
   }
 
   def setExprLayer(newExprLayer: ExprLayer) =
-    new LogicLayer(newExprLayer, truth, imply, isImpliedBy, absurd, inferences, reverseImply)
+    new LogicLayer(
+      newExprLayer,
+      truth,
+      imply,
+      isImpliedBy,
+      absurd,
+      inferences,
+      reverseImply
+    )
 
   def addReverseImply(a: Int, b: Int, imp: Int) =
-    new LogicLayer(exprLayer, truth, imply, isImpliedBy, absurd, inferences, reverseImply + ((a, b) -> imp))
+    new LogicLayer(
+      exprLayer,
+      truth,
+      imply,
+      isImpliedBy,
+      absurd,
+      inferences,
+      reverseImply + ((a, b) -> imp)
+    )
 
   def addTruth(pos: Int, b: Boolean) =
     if (b) link(truePos, pos, axiom) else link(pos, falsePos, axiom)
 
-  def setAbsurd = new LogicLayer(exprLayer, truth, imply, isImpliedBy, true, inferences, reverseImply)
+  def setAbsurd = new LogicLayer(
+    exprLayer,
+    truth,
+    imply,
+    isImpliedBy,
+    true,
+    inferences,
+    reverseImply
+  )
 
   def is(b: Boolean, pos: Int) = truth get (pos) match {
     case None    => false
@@ -112,7 +131,12 @@ class LogicLayer(
       if (exprLayer.countSymbols(inside) > args.length) (this, pos)
       else {
         val (logicLayer, newPos) = symplify(inside, args)
-        (logicLayer.link(newPos, pos, simplifyIR).link(pos, newPos, simplifyIR), newPos)
+        (
+          logicLayer
+            .link(newPos, pos, simplifyIR)
+            .link(pos, newPos, simplifyIR),
+          newPos
+        )
       }
   }
 
@@ -127,11 +151,14 @@ class LogicLayer(
     exprLayer.getHeadTail(pos) match {
       case (implySymbol, Seq(a, b)) => {
         truth get pos match {
-          case None          => this
-          case Some(v) if v  => link(a, b, trueImplyIR).addReverseImply(a, b, pos)
-          case Some(v) if !v => link(truePos, a, falseImplyIR).link(b, falsePos, falseImplyIR)
-            .addReverseImply(truePos, a, pos)
-            .addReverseImply(b, falsePos, pos)
+          case None => this
+          case Some(v) if v =>
+            link(a, b, trueImplyIR).addReverseImply(a, b, pos)
+          case Some(v) if !v =>
+            link(truePos, a, falseImplyIR)
+              .link(b, falsePos, falseImplyIR)
+              .addReverseImply(truePos, a, pos)
+              .addReverseImply(b, falsePos, pos)
         }
       }
       case _ => this
@@ -171,7 +198,15 @@ class LogicLayer(
       case None => {
         val newThuth = truth + (pos -> b)
         val newLogicLayer =
-          new LogicLayer(exprLayer, newThuth, imply, isImpliedBy, absurd, inferences, reverseImply)
+          new LogicLayer(
+            exprLayer,
+            newThuth,
+            imply,
+            isImpliedBy,
+            absurd,
+            inferences,
+            reverseImply
+          )
             .applyImplyInferenceRule(pos)
             .applySymplifyInferenceRuleLoop(pos)
 
@@ -202,7 +237,15 @@ class LogicLayer(
     val newIsImpledBy = insertPair(b, a, isImpliedBy)
 
     val newLogicLayer =
-      new LogicLayer(exprLayer, truth, newImply, newIsImpledBy, absurd, inferences + (b -> (a, inferenceRule)), reverseImply)
+      new LogicLayer(
+        exprLayer,
+        truth,
+        newImply,
+        newIsImpledBy,
+        absurd,
+        inferences + (b -> (a, inferenceRule)),
+        reverseImply
+      )
 
     // A => B and A true: we propagate true to B
     val newLogicLayerPropagateOnB = truth get a match {
