@@ -38,6 +38,7 @@ class ExprLayer(
   // there is no setSymbol: adding an expr automatically add a symbol at pos = new expr pos - 1
   def setApply(next: Int, arg: Int): (ExprLayer, Int) = {
     require(next >= 0 && next < nextApplyPos && arg >= 0 && arg < nextApplyPos)
+
     val apply = Apply(next, arg)
     applyToPos get apply match {
       case Some(pos) => (this, pos)

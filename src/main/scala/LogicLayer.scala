@@ -1,5 +1,7 @@
 package mathgraph.mathgraph
 
+import mathgraph.util.Pipe._
+
 /** The logic layer manage the truth of expressions
   */
 
@@ -31,10 +33,10 @@ class LogicLayer(
     reverseImply: Map[(Int, Int), Int] = Map()
 ) {
 
-  def truePos = exprLayer.getPos(trueSymbol)
+  def defPos = 0
   def falsePos = exprLayer.getPos(falseSymbol)
+  def truePos = exprLayer.getPos(trueSymbol)
   def implyPos = exprLayer.getPos(implySymbol)
-  def defPos = exprLayer.getPos(defSymbol)
   def forallPos = exprLayer.getPos(forallSymbol)
 
   def getAbsurd = absurd
@@ -42,22 +44,22 @@ class LogicLayer(
 
   def idToPos(id: Int): Int = exprLayer.idToPos(id)
 
-  def init(): LogicLayer = {
-    val newExprLayer = new ExprLayer()
-      .setApply(defSymbol.id, defSymbol.id)
-      ._1
-      .setApply(defSymbol.id, falseSymbol.id)
-      ._1
-      .setApply(defSymbol.id, trueSymbol.id)
-      ._1
-      .setApply(defSymbol.id, forallSymbol.id)
-      ._1
-    val newTruth = Map(
-      newExprLayer.getPos(falseSymbol) -> false,
-      newExprLayer.getPos(trueSymbol) -> true
-    )
-    new LogicLayer(newExprLayer, newTruth)
-  }
+  private def freshSymbolAssertEq(sym: Symbol): LogicLayer =
+    getFreshSymbol match {
+      case (ll, symbolPos) => {
+        assert(ll.getExprLayer.getExpr(symbolPos) == sym)
+        ll
+      }
+    }
+
+  def init(): LogicLayer = 
+    freshSymbolAssertEq(defSymbol) |>
+      (_.freshSymbolAssertEq(falseSymbol)) |>
+      (_.freshSymbolAssertEq(trueSymbol)) |>
+      (_.freshSymbolAssertEq(implySymbol)) |>
+      (_.freshSymbolAssertEq(forallSymbol)) |>
+      (ll => ll.addTruth(ll.truePos, true)) |>
+      (ll => ll.addTruth(ll.falsePos, false))
 
   def setExprLayer(newExprLayer: ExprLayer) =
     new LogicLayer(
@@ -80,8 +82,8 @@ class LogicLayer(
       inferences,
       reverseImply + ((a, b) -> imp)
     )
-  
-  private def addTruth(pos: Int, b: Boolean) = 
+
+  private def addTruth(pos: Int, b: Boolean) =
     new LogicLayer(
       exprLayer,
       truth + (pos -> b),
@@ -104,7 +106,6 @@ class LogicLayer(
 
   def setAxiom(pos: Int, b: Boolean) =
     if (b) link(truePos, pos, axiom) else link(pos, falsePos, axiom)
-
 
   def is(b: Boolean, pos: Int) = truth get (pos) match {
     case None    => false
@@ -208,10 +209,10 @@ class LogicLayer(
       case Some(v) if v == b => this
       case Some(v) if v != b => setAbsurd
       case None => {
-        
+
         val newLogicLayer = addTruth(pos, b)
-            .applyImplyInferenceRule(pos)
-            //.applySymplifyInferenceRuleLoop(pos)
+          .applyImplyInferenceRule(pos)
+        //.applySymplifyInferenceRuleLoop(pos)
 
         // propagate truth value on the graph
         newLogicLayer.getImplyGraphFor(b) get pos match {
@@ -236,15 +237,13 @@ class LogicLayer(
   /** create a imply link a => b in the graph and propagate changes* */
   def link(a: Int, b: Int, inferenceRule: InferenceRule): LogicLayer = {
     require(a < exprLayer.size && b < exprLayer.size)
-    val newImply = insertPair(a, b, imply)
-    val newIsImpledBy = insertPair(b, a, isImpliedBy)
 
     val newLogicLayer =
       new LogicLayer(
         exprLayer,
         truth,
-        newImply,
-        newIsImpledBy,
+        insertPair(a, b, imply),
+        insertPair(b, a, isImpliedBy),
         absurd,
         inferences + (b -> (a, inferenceRule)),
         reverseImply
