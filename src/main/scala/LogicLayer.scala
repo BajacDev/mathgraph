@@ -104,7 +104,7 @@ class LogicLayer(
       }
     }
 
-  def applySymblifyInferenceRule(pos: Int): (LogicLayer, Int) = unfoldForall(
+  def applySymplifyInferenceRule(pos: Int): (LogicLayer, Int) = unfoldForall(
     pos
   ) match {
     case None => (this, pos)
@@ -116,9 +116,9 @@ class LogicLayer(
       }
   }
 
-  def applySymblifyInferenceRuleLoop(pos: Int): LogicLayer = {
-    val (newLogicLayer, new_pos) = applySymblifyInferenceRule(pos)
-    if (new_pos != pos) newLogicLayer.applySymblifyInferenceRule(new_pos)._1
+  def applySymplifyInferenceRuleLoop(pos: Int): LogicLayer = {
+    val (newLogicLayer, new_pos) = applySymplifyInferenceRule(pos)
+    if (new_pos != pos) newLogicLayer.applySymplifyInferenceRule(new_pos)._1
     else newLogicLayer
   }
 
@@ -147,7 +147,7 @@ class LogicLayer(
   def setApply(next: Int, arg: Int): (LogicLayer, Int) = {
     val (newExprLayer, pos) = exprLayer.setApply(next, arg)
     setExprLayer(newExprLayer)
-      .applySymblifyInferenceRuleLoop(pos)
+      .applySymplifyInferenceRuleLoop(pos)
       .link(next, pos, applyIR) match {
       case ll =>
         if (ll.getExprLayer.isAssociatedSymbol(next, arg))
@@ -173,6 +173,7 @@ class LogicLayer(
         val newLogicLayer =
           new LogicLayer(exprLayer, newThuth, imply, isImpliedBy, absurd, inferences, reverseImply)
             .applyImplyInferenceRule(pos)
+            .applySymplifyInferenceRuleLoop(pos)
 
         // propagate truth value on the graph
         getImplyGraphFor(b) get pos match {
