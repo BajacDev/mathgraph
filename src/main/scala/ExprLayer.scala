@@ -85,17 +85,6 @@ class ExprLayer(
 
   def getTail(pos: Int): Seq[Int] = getHeadTail(pos)._2
 
-  def symplify(inside: Int, args: Seq[Int]): (ExprLayer, Int) = getExpr(
-    inside
-  ) match {
-    case Symbol(id) => (this, args(id))
-    case Apply(next, arg) => {
-      val (exprLayerNext, posNext) = symplify(next, args)
-      val (exprLayerArg, posArg) = exprLayerNext.symplify(arg, args)
-      exprLayerArg.setApply(posNext, posArg)
-    }
-  }
-
   def getAssociatedSymbol(pos: Int): Option[Int] = getExpr(pos) match {
     case expr: Expr => Some(pos - 1)
     case _          => None

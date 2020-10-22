@@ -70,6 +70,18 @@ class LogicLayer(
     case Some((inside, args)) => exprLayer.countSymbols(inside) <= args.length
   }
 
+  def symplify(inside: Int, args: Seq[Int]): (LogicLayer, Int) =
+    exprLayer.getExpr(
+      inside
+    ) match {
+      case Symbol(id) => (this, args(id))
+      case Apply(next, arg) => {
+        val (logicLayerNext, posNext) = symplify(next, args)
+        val (logicLayerArg, posArg) = logicLayerNext.symplify(arg, args)
+        logicLayerArg.setApply(posNext, posArg)
+      }
+    }
+
   def applySymblifyInferenceRule(pos: Int): (LogicLayer, Int) = unfoldForall(
     pos
   ) match {
@@ -77,8 +89,8 @@ class LogicLayer(
     case Some((inside, args)) =>
       if (exprLayer.countSymbols(inside) > args.length) (this, pos)
       else {
-        val (newExprLayer, newPos) = exprLayer.symplify(inside, args)
-        (setExprLayer(newExprLayer).link(newPos, pos).link(pos, newPos), newPos)
+        val (logicLayer, newPos) = symplify(inside, args)
+        (logicLayer.link(newPos, pos).link(pos, newPos), newPos)
       }
   }
 
