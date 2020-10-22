@@ -38,7 +38,7 @@ object Commands {
     }
   }
 
-  case object Absurd extends Command{
+  case object Absurd extends Command {
     override def apply(): Unit = {
       System.out.println("Absurd command recognized")
     }
@@ -121,8 +121,10 @@ object Commands {
       n match {
         case 0 => System.out.println(s"usage: ${command}")
         case 1 => System.out.println(s"usage: ${command} pos")
-        case _ if command == "fix" => System.out.println(s"usage: ${command} next pos")
-        case _ if command == "why" => System.out.println(s"usage: ${command} a b")
+        case _ if command == "fix" =>
+          System.out.println(s"usage: ${command} next pos")
+        case _ if command == "why" =>
+          System.out.println(s"usage: ${command} a b")
         case _ => UnknownCommand.apply()
       }
     }

@@ -15,7 +15,7 @@ object Main {
     val pipeline = Lexer andThen Parser
     val ctx = new Context()
 
-    val sourceFile = if(args.size >= 2){
+    val sourceFile = if (args.size >= 2) {
       args(1)
     } else {
       ctx.info(s"""Using default example: \"${defaultExample}\"""")
@@ -32,7 +32,7 @@ object Main {
 
     do {
       System.out.print(s"${GREEN}>>> ${RESET}")
-    } while(process(ctx));
+    } while (process(ctx));
   }
 
   def process(ctx: Context): Boolean = {

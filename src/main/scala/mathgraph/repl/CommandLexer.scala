@@ -5,10 +5,26 @@ import scala.util.parsing.combinator.RegexParsers
 import scala.util.parsing.input.CharSequenceReader
 import scala.util.{Try, Success, Failure}
 
-
 object CommandLexer extends RegexParsers with Pipeline[String, Seq[Token]] {
 
-  val keywords = Set("help", "leave", "lse", "lss", "ls", "absurd", "fixn", "fix", "apply", "why", "fat", "faf", "dij", "stats", "chain", "proof")
+  val keywords = Set(
+    "help",
+    "leave",
+    "lse",
+    "lss",
+    "ls",
+    "absurd",
+    "fixn",
+    "fix",
+    "apply",
+    "why",
+    "fat",
+    "faf",
+    "dij",
+    "stats",
+    "chain",
+    "proof"
+  )
 
   def keyword: Parser[Token] = positioned {
     rep1(
