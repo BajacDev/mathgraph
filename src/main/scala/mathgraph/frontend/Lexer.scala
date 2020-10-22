@@ -31,7 +31,6 @@ object Lexer extends RegexParsers with Pipeline[String, Seq[Token]] {
   }
 
   def apply(str: String)(ctxt: Context): Seq[Token] = {
-    println(str)
     parseAll(rep(token), str) match {
       case Success(tokens, _) =>
         tokens
