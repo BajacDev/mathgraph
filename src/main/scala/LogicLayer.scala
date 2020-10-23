@@ -13,9 +13,9 @@ object forallSymbol extends Symbol(4)
 
 trait InferenceRule
 
+case class ImplyIR(b: Boolean, implyPos: Int) extends InferenceRule
 object applyIR extends InferenceRule
-object falseImplyIR extends InferenceRule
-object trueImplyIR extends InferenceRule
+object applyLetSymIR extends InferenceRule
 object simplifyIR extends InferenceRule
 object axiom extends InferenceRule
 
@@ -24,13 +24,10 @@ class LogicLayer(
     truth: Map[Int, Boolean] = Map(),
     imply: Map[Int, Set[Int]] = Map(),
     isImpliedBy: Map[Int, Set[Int]] = Map(),
-    absurd: Boolean = false,
+    absurd: Option[(Int, Int)] = None,
     // use for proofs
-
-    /** pos -> (previousPos, InferenceRule) * */
-    inferences: Map[Int, (Int, InferenceRule)] = Map(),
-    /** ((a, b) -> c) mean c is of the form a -> b * */
-    reverseImply: Map[(Int, Int), Int] = Map()
+    truthOrigin: Map[Int, Int] = Map(),
+    inferences: Map[(Int, Int), InferenceRule] = Map()
 ) {
 
   def defPos = 0
@@ -39,8 +36,13 @@ class LogicLayer(
   def implyPos = exprLayer.getPos(implySymbol)
   def forallPos = exprLayer.getPos(forallSymbol)
 
-  def getAbsurd = absurd
+  def isAbsurd: Boolean = !absurd.isEmpty
   def getExprLayer = exprLayer
+  def getInferenceOf(a: Int, b: Int) = inferences get (a, b)
+  def getTruthOriginOf(pos: Int) = truthOrigin get pos
+  def getTruthOf(pos: Int) = truth get pos
+
+  def getAbsurd = absurd
 
   def idToPos(id: Int): Int = exprLayer.idToPos(id)
 
@@ -52,7 +54,7 @@ class LogicLayer(
       }
     }
 
-  def init(): LogicLayer = 
+  def init(): LogicLayer =
     freshSymbolAssertEq(defSymbol) |>
       (_.freshSymbolAssertEq(falseSymbol)) |>
       (_.freshSymbolAssertEq(trueSymbol)) |>
@@ -68,19 +70,8 @@ class LogicLayer(
       imply,
       isImpliedBy,
       absurd,
-      inferences,
-      reverseImply
-    )
-
-  def addReverseImply(a: Int, b: Int, imp: Int) =
-    new LogicLayer(
-      exprLayer,
-      truth,
-      imply,
-      isImpliedBy,
-      absurd,
-      inferences,
-      reverseImply + ((a, b) -> imp)
+      truthOrigin,
+      inferences
     )
 
   private def addTruth(pos: Int, b: Boolean) =
@@ -90,18 +81,30 @@ class LogicLayer(
       imply,
       isImpliedBy,
       absurd,
-      inferences,
-      reverseImply
+      truthOrigin,
+      inferences
     )
 
-  def setAbsurd = new LogicLayer(
+  private def addTruth(pos: Int, prev: Int, b: Boolean) = {
+    new LogicLayer(
+      exprLayer,
+      truth + (pos -> b),
+      imply,
+      isImpliedBy,
+      absurd,
+      truthOrigin + (pos -> prev),
+      inferences
+    )
+  }
+
+  def setAbsurd(pos: Int, prev: Int) = new LogicLayer(
     exprLayer,
     truth,
     imply,
     isImpliedBy,
-    true,
-    inferences,
-    reverseImply
+    Some((pos, prev)),
+    truthOrigin,
+    inferences
   )
 
   def setAxiom(pos: Int, b: Boolean) =
@@ -166,12 +169,10 @@ class LogicLayer(
         truth get pos match {
           case None => this
           case Some(v) if v =>
-            link(a, b, trueImplyIR).addReverseImply(a, b, pos)
+            link(a, b, ImplyIR(true, pos))
           case Some(v) if !v =>
-            link(truePos, a, falseImplyIR)
-              .link(b, falsePos, falseImplyIR)
-              .addReverseImply(truePos, a, pos)
-              .addReverseImply(b, falsePos, pos)
+            link(truePos, a, ImplyIR(false, pos))
+              .link(b, falsePos, ImplyIR(false, pos))
         }
       }
       case _ => this
@@ -191,7 +192,7 @@ class LogicLayer(
       .link(next, pos, applyIR) match {
       case ll =>
         if (ll.getExprLayer.isAssociatedSymbol(next, arg))
-          (ll.link(pos, next, applyIR), pos)
+          (ll.link(pos, next, applyLetSymIR), pos)
         else (ll, pos)
     }
   }
@@ -204,22 +205,21 @@ class LogicLayer(
   def getImplyGraphFor(b: Boolean) = if (b) imply else isImpliedBy
 
   /** propagate true/false in the graph * */
-  def propagate(pos: Int, b: Boolean): LogicLayer = {
+  def propagate(pos: Int, prev: Int, b: Boolean): LogicLayer = {
     truth get pos match {
       case Some(v) if v == b => this
-      case Some(v) if v != b => setAbsurd
+      case Some(v) if v != b => setAbsurd(pos, prev)
       case None => {
 
-        val newLogicLayer = addTruth(pos, b)
+        val newLogicLayer = addTruth(pos, prev, b)
           .applyImplyInferenceRule(pos)
-        //.applySymplifyInferenceRuleLoop(pos)
 
         // propagate truth value on the graph
         newLogicLayer.getImplyGraphFor(b) get pos match {
           case None => newLogicLayer
           case Some(neighs: Set[Int]) => {
             neighs.foldLeft(newLogicLayer)((logicUnit, neigh) =>
-              logicUnit.propagate(neigh, b)
+              logicUnit.propagate(neigh, pos, b)
             )
           }
         }
@@ -245,19 +245,19 @@ class LogicLayer(
         insertPair(a, b, imply),
         insertPair(b, a, isImpliedBy),
         absurd,
-        inferences + (b -> (a, inferenceRule)),
-        reverseImply
+        truthOrigin,
+        inferences + ((a, b) -> inferenceRule)
       )
 
     // A => B and A true: we propagate true to B
     val newLogicLayerPropagateOnB = truth get a match {
-      case Some(v) if v => newLogicLayer.propagate(b, v)
+      case Some(v) if v => newLogicLayer.propagate(b, a, v)
       case _            => newLogicLayer
     }
 
     // A => B and B false: we propagate false to A
     val newLogicLayerPropagateOnA = truth get b match {
-      case Some(v) if !v => newLogicLayerPropagateOnB.propagate(a, v)
+      case Some(v) if !v => newLogicLayerPropagateOnB.propagate(a, b, v)
       case _             => newLogicLayerPropagateOnB
     }
 
