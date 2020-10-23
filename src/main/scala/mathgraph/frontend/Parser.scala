@@ -39,7 +39,9 @@ object Parser extends Parsers with Pipeline[Seq[Token], Program] {
   }
 
   def definition: Parser[Def] = positioned {
-    kw("let") ~> id ~ opt("(" ~> rep1sep(id, ",") <~ ")") ~ opt("=" ~> expr) ^^ {
+    kw("let") ~> id ~ opt("(" ~> rep1sep(id, ",") <~ ")") ~ opt(
+      "=" ~> expr
+    ) ^^ {
       case id ~ None ~ bodyOpt         => Let(id, Seq(), bodyOpt)
       case id ~ Some(params) ~ bodyOpt => Let(id, params, bodyOpt)
     }
