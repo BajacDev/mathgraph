@@ -4,15 +4,15 @@ import org.scalatest.funsuite.AnyFunSuite
 import mathgraph.mathgraph._
 import mathgraph.util.Pipe._
 
-class LogicLayerTest extends AnyFunSuite {
+class LogicGraphTest extends AnyFunSuite {
 
   test("'true -> false' is absurd") {
 
     val absurd =
-      new LogicLayer().init |> (ll => ll.setApply(ll.implyPos, ll.truePos)) |> {
-        case (ll, pos) => ll.setApply(pos, ll.falsePos)
-      } |> { case (ll, pos) =>
-        ll.setAxiom(pos, true)
+      new LogicGraph().init |> (lg => lg.setApply(lg.implyPos, lg.truePos)) |> {
+        case (lg, pos) => lg.setApply(pos, lg.falsePos)
+      } |> { case (lg, pos) =>
+        lg.setAxiom(pos, true)
       } |> (_.isAbsurd)
 
     assert(absurd)
@@ -21,12 +21,12 @@ class LogicLayerTest extends AnyFunSuite {
   test("'(false -> true) -> false' is absurd") {
 
     val absurd =
-      new LogicLayer().init |> (ll =>
-        ll.setApply(ll.implyPos, ll.falsePos)
-      ) |> { case (ll, pos) => ll.setApply(pos, ll.truePos) } |> {
-        case (ll, pos) => ll.setApply(ll.implyPos, pos)
-      } |> { case (ll, pos) => ll.setApply(pos, ll.falsePos) } |> {
-        case (ll, pos) => ll.setAxiom(pos, true)
+      new LogicGraph().init |> (lg =>
+        lg.setApply(lg.implyPos, lg.falsePos)
+      ) |> { case (lg, pos) => lg.setApply(pos, lg.truePos) } |> {
+        case (lg, pos) => lg.setApply(lg.implyPos, pos)
+      } |> { case (lg, pos) => lg.setApply(pos, lg.falsePos) } |> {
+        case (lg, pos) => lg.setAxiom(pos, true)
       } |> (_.isAbsurd)
 
     assert(absurd)
@@ -35,14 +35,14 @@ class LogicLayerTest extends AnyFunSuite {
   test("'{0(1, 2)}(->, true, false)' is absurd") {
 
     val absurd =
-      new LogicLayer().init |> (ll =>
-        ll.setApply(ll.idToPos(0), ll.idToPos(1))
-      ) |> { case (ll, pos) => ll.setApply(pos,ll.idToPos(2)) } |> {
-        case (ll, pos) => ll.setApply(ll.forallPos, pos)
-      } |> { case (ll, pos) => ll.setApply(pos, ll.implyPos) } |> {
-        case (ll, pos) => ll.setApply(pos, ll.truePos)
-      } |> { case (ll, pos) => ll.setApply(pos, ll.falsePos) } |> {
-        case (ll, pos) => ll.setAxiom(pos, true)
+      new LogicGraph().init |> (lg =>
+        lg.setApply(lg.idToPos(0), lg.idToPos(1))
+      ) |> { case (lg, pos) => lg.setApply(pos,lg.idToPos(2)) } |> {
+        case (lg, pos) => lg.setApply(lg.forallPos, pos)
+      } |> { case (lg, pos) => lg.setApply(pos, lg.implyPos) } |> {
+        case (lg, pos) => lg.setApply(pos, lg.truePos)
+      } |> { case (lg, pos) => lg.setApply(pos, lg.falsePos) } |> {
+        case (lg, pos) => lg.setAxiom(pos, true)
       } |> (_.isAbsurd)
 
     assert(absurd)

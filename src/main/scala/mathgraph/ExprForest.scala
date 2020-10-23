@@ -44,7 +44,10 @@ class ExprForest(
       case Some(pos) => (this, pos)
       case None =>
         (
-          new ExprForest(applies :+ apply, applyToPos + (apply -> nextApplyPos)),
+          new ExprForest(
+            applies :+ apply,
+            applyToPos + (apply -> nextApplyPos)
+          ),
           nextApplyPos
         )
     }

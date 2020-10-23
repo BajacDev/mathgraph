@@ -4,24 +4,24 @@ import mathgraph.mathgraph._
 import io.AnsiColor._
 
 class Printer(
-    logicLayer: LogicLayer,
+    logicGraph: LogicGraph,
     exprToString: Map[Int, String] = Map()
 ) {
 
   def init(): Printer = {
     val e2s = Map(
-      logicLayer.defPos -> "def",
-      logicLayer.falsePos -> "false",
-      logicLayer.truePos -> "true",
-      logicLayer.implyPos -> "->"
+      logicGraph.defPos -> "def",
+      logicGraph.falsePos -> "false",
+      logicGraph.truePos -> "true",
+      logicGraph.implyPos -> "->"
     )
-    new Printer(logicLayer, e2s)
+    new Printer(logicGraph, e2s)
   }
 
   /** print expression in a simple way * */
   def toSimpleString(pos: Int): String = {
     // todo find a better way to access this function (too much dots)
-    logicLayer.getExprForest.getHeadTail(pos) match {
+    logicGraph.getExprForest.getHeadTail(pos) match {
       case (Symbol(id), Seq()) => id.toString
       case (Symbol(id), seq) =>
         id.toString + "(" + seq.map(toSimpleString).mkString(", ") + ")"
@@ -63,7 +63,7 @@ class Printer(
     ): Map[Int, String] = l match {
       case Nil => result
       case x :: xs =>
-        listToMapRec(xs, id + 1, result + (logicLayer.idToPos(id) -> x))
+        listToMapRec(xs, id + 1, result + (logicGraph.idToPos(id) -> x))
     }
     listToMapRec(stringList, 0, Map())
   }
@@ -89,7 +89,7 @@ class Printer(
       exprNames get pos match {
         case Some(name) => combineHeadTail(name, argsToString(args))
         case None =>
-          logicLayer.getExprForest.getExpr(pos) match {
+          logicGraph.getExprForest.getExpr(pos) match {
             case Symbol(id) =>
               forallPos match {
                 case Some(p) if p == pos =>
@@ -111,7 +111,7 @@ class Printer(
           }
       }
     }
-    toAdvStringRec(orig, Nil, exprToString, Some(logicLayer.forallPos))
+    toAdvStringRec(orig, Nil, exprToString, Some(logicGraph.forallPos))
   }
 
   // ------------------------------------------
@@ -126,7 +126,7 @@ class Printer(
       case Nil     => Nil
       case List(a) => List(alg + toAdvString(a))
       case a :: b :: xs =>
-        logicLayer.getInferenceOf(a, b) match {
+        logicGraph.getInferenceOf(a, b) match {
           case None => Nil // todo: assert(false)
           case Some(ImplyIR(_, implyPos)) =>
             (alg + toAdvString(a)) :: proofFromPos(
@@ -145,12 +145,12 @@ class Printer(
   /** build list of expressions st way(0) -> way(1) -> ... -> way(n) * */
   def wayToTruth(orig: Int): List[Int] = {
     def wayToTruthRec(pos: Int): List[Int] =
-      logicLayer.getTruthOriginOf(pos) match {
+      logicGraph.getTruthOriginOf(pos) match {
         case None          => List(pos)
         case Some(nextPos) => pos :: wayToTruthRec(nextPos)
       }
 
-    logicLayer.getTruthOf(orig) match {
+    logicGraph.getTruthOf(orig) match {
       case None          => Nil
       case Some(v) if v  => wayToTruthRec(orig).reverse
       case Some(v) if !v => wayToTruthRec(orig)
@@ -158,10 +158,10 @@ class Printer(
   }
 
   /** build the way from true to false and create the proof * */
-  def proofAbsurd: List[String] = logicLayer.getAbsurd match {
+  def proofAbsurd: List[String] = logicGraph.getAbsurd match {
     case None => Nil
     case Some((a, b)) => {
-      val way = logicLayer.getTruthOf(a) match {
+      val way = logicGraph.getTruthOf(a) match {
         case None          => Nil // todo: assert(false)
         case Some(v) if v  => wayToTruth(a) ++ wayToTruth(b)
         case Some(v) if !v => wayToTruth(b) ++ wayToTruth(a)
