@@ -3,7 +3,6 @@ package logiclayertest
 import org.scalatest.funsuite.AnyFunSuite
 import mathgraph.mathgraph._
 import mathgraph.util.Pipe._
-import mathgraph.printer._
 
 class LogicLayerTest extends AnyFunSuite {
 
@@ -38,7 +37,7 @@ class LogicLayerTest extends AnyFunSuite {
     val absurd =
       new LogicLayer().init |> (ll =>
         ll.setApply(ll.idToPos(0), ll.idToPos(1))
-      ) |> { case (ll, pos) => ll.setApply(pos, ll.idToPos(2)) } |> {
+      ) |> { case (ll, pos) => ll.setApply(pos,ll.idToPos(2)) } |> {
         case (ll, pos) => ll.setApply(ll.forallPos, pos)
       } |> { case (ll, pos) => ll.setApply(pos, ll.implyPos) } |> {
         case (ll, pos) => ll.setApply(pos, ll.truePos)
