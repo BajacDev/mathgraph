@@ -21,7 +21,7 @@ class Printer(
   /** print expression in a simple way * */
   def toSimpleString(pos: Int): String = {
     // todo find a better way to access this function (too much dots)
-    logicLayer.getExprLayer.getHeadTail(pos) match {
+    logicLayer.getExprForest.getHeadTail(pos) match {
       case (Symbol(id), Seq()) => id.toString
       case (Symbol(id), seq) =>
         id.toString + "(" + seq.map(toSimpleString).mkString(", ") + ")"
@@ -89,7 +89,7 @@ class Printer(
       exprNames get pos match {
         case Some(name) => combineHeadTail(name, argsToString(args))
         case None =>
-          logicLayer.getExprLayer.getExpr(pos) match {
+          logicLayer.getExprForest.getExpr(pos) match {
             case Symbol(id) =>
               forallPos match {
                 case Some(p) if p == pos =>

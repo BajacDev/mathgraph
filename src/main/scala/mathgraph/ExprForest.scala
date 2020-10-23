@@ -2,7 +2,7 @@ package mathgraph.mathgraph
 
 import scala.math._
 
-/** The ExprLayer manages Expressions without any logic assumption
+/** The ExprForest manages Expressions without any logic assumption
   * The main point of this layer is to obtimize the storage of Expressions
   */
 
@@ -16,12 +16,12 @@ case class Symbol(id: Int) extends Expr
 //  - Symbols are only instanciated when needed
 //  - my c++ code use int, so I don't have to rethink the code entirely
 // avantage of using Expr instead of Int:
-//  - there is no need to go trough ExprLayer to obtain next and arg Expr
+//  - there is no need to go trough ExprForest to obtain next and arg Expr
 case class Apply(next: Int, arg: Int) extends Expr
 
 // applyToPos(a) gives the equivalent of applyToPos indexOf a (but is faster)
 // so we use applyToPos as a speedup mapping
-class ExprLayer(
+class ExprForest(
     applies: Seq[Apply] = Seq(),
     applyToPos: Map[Apply, Int] = Map()
 ) {
@@ -36,7 +36,7 @@ class ExprLayer(
   }
 
   // there is no setSymbol: adding an expr automatically add a symbol at pos = new expr pos - 1
-  def setApply(next: Int, arg: Int): (ExprLayer, Int) = {
+  def setApply(next: Int, arg: Int): (ExprForest, Int) = {
     require(next >= 0 && next < nextApplyPos && arg >= 0 && arg < nextApplyPos)
 
     val apply = Apply(next, arg)
@@ -44,7 +44,7 @@ class ExprLayer(
       case Some(pos) => (this, pos)
       case None =>
         (
-          new ExprLayer(applies :+ apply, applyToPos + (apply -> nextApplyPos)),
+          new ExprForest(applies :+ apply, applyToPos + (apply -> nextApplyPos)),
           nextApplyPos
         )
     }
