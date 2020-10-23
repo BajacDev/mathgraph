@@ -2,6 +2,7 @@ import org.scalatest.funsuite.AnyFunSuite
 import mathgraph.frontend.Trees._
 import mathgraph.util._
 import mathgraph.frontend._
+import java.io.OutputStream
 
 class ParserTest extends AnyFunSuite {
   object PrettyPrinter extends Pipeline[Program, String] {
@@ -28,10 +29,15 @@ class ParserTest extends AnyFunSuite {
   }
 
   def frontend = Lexer andThen Parser andThen PrettyPrinter
+  def nullOutputStream = new OutputStream {
+    def write(b: Int): Unit = {}
+  }
 
   def shouldSucceed(input: String, result: String): Unit = {
     try {
-      assert(frontend.run(input)(new Context) == result)
+      Console.withErr(nullOutputStream) {
+        assert(frontend.run(input)(new Context) == result)
+      }
     } catch {
       case err: FatalError =>
         fail("Unexpected failure of the frontend: " + err, err)
@@ -40,7 +46,9 @@ class ParserTest extends AnyFunSuite {
 
   def shouldFail(input: String): Unit = {
     try {
-      frontend.run(input)(new Context)
+      Console.withErr(nullOutputStream) {
+        frontend.run(input)(new Context)
+      }
       fail("The frontend was expected to fail.")
     } catch {
       case _: FatalError =>
