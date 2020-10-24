@@ -9,8 +9,8 @@ class LogicGraphTest extends AnyFunSuite {
   test("'true -> false' is absurd") {
 
     val absurd =
-      new LogicGraph().init |> (lg => lg.setApply(lg.implyPos, lg.truePos)) |> {
-        case (lg, pos) => lg.setApply(pos, lg.falsePos)
+      new LogicGraph().init |> (lg => lg.apply(lg.implyPos, lg.truePos)) |> {
+        case (lg, pos) => lg.apply(pos, lg.falsePos)
       } |> { case (lg, pos) =>
         lg.setAxiom(pos, true)
       } |> (_.isAbsurd)
@@ -22,10 +22,10 @@ class LogicGraphTest extends AnyFunSuite {
 
     val absurd =
       new LogicGraph().init |> (lg =>
-        lg.setApply(lg.implyPos, lg.falsePos)
-      ) |> { case (lg, pos) => lg.setApply(pos, lg.truePos) } |> {
-        case (lg, pos) => lg.setApply(lg.implyPos, pos)
-      } |> { case (lg, pos) => lg.setApply(pos, lg.falsePos) } |> {
+        lg.apply(lg.implyPos, lg.falsePos)
+      ) |> { case (lg, pos) => lg.apply(pos, lg.truePos) } |> {
+        case (lg, pos) => lg.apply(lg.implyPos, pos)
+      } |> { case (lg, pos) => lg.apply(pos, lg.falsePos) } |> {
         case (lg, pos) => lg.setAxiom(pos, true)
       } |> (_.isAbsurd)
 
@@ -36,12 +36,12 @@ class LogicGraphTest extends AnyFunSuite {
 
     val absurd =
       new LogicGraph().init |> (lg =>
-        lg.setApply(lg.idToPos(0), lg.idToPos(1))
-      ) |> { case (lg, pos) => lg.setApply(pos,lg.idToPos(2)) } |> {
-        case (lg, pos) => lg.setApply(lg.forallPos, pos)
-      } |> { case (lg, pos) => lg.setApply(pos, lg.implyPos) } |> {
-        case (lg, pos) => lg.setApply(pos, lg.truePos)
-      } |> { case (lg, pos) => lg.setApply(pos, lg.falsePos) } |> {
+        lg.apply(lg.idToPos(0), lg.idToPos(1))
+      ) |> { case (lg, pos) => lg.apply(pos,lg.idToPos(2)) } |> {
+        case (lg, pos) => lg.apply(lg.forallPos, pos)
+      } |> { case (lg, pos) => lg.apply(pos, lg.implyPos) } |> {
+        case (lg, pos) => lg.apply(pos, lg.truePos)
+      } |> { case (lg, pos) => lg.apply(pos, lg.falsePos) } |> {
         case (lg, pos) => lg.setAxiom(pos, true)
       } |> (_.isAbsurd)
 

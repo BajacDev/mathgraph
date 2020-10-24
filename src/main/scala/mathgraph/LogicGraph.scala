@@ -135,7 +135,7 @@ class LogicGraph(
       case Apply(next, arg) => {
         val (logicGraphNext, posNext) = symplify(next, args)
         val (logicGraphArg, posArg) = logicGraphNext.symplify(arg, args)
-        logicGraphArg.setApply(posNext, posArg)
+        logicGraphArg.apply(posNext, posArg)
       }
     }
 
@@ -181,12 +181,12 @@ class LogicGraph(
 
   def applyAssociatedSymbol(pos: Int): (LogicGraph, Int) =
     exprForest.getAssociatedSymbol(pos) match {
-      case Some(posSymbol) => setApply(posSymbol, pos)
+      case Some(posSymbol) => apply(posSymbol, pos)
       case None            => (this, pos)
     }
 
-  def setApply(next: Int, arg: Int): (LogicGraph, Int) = {
-    val (newExprForest, pos) = exprForest.setApply(next, arg)
+  def apply(next: Int, arg: Int): (LogicGraph, Int) = {
+    val (newExprForest, pos) = exprForest.apply(next, arg)
     setExprForest(newExprForest)
       .applySymplifyInferenceRuleLoop(pos)
       .link(next, pos, applyIR) match {
@@ -198,7 +198,7 @@ class LogicGraph(
   }
 
   def getFreshSymbol: (LogicGraph, Int) =
-    setApply(defPos, exprForest.size) match {
+    apply(defPos, exprForest.size) match {
       case (newLogicGraph, pos) => (newLogicGraph, pos - 1)
     }
 

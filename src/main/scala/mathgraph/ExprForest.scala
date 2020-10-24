@@ -36,17 +36,17 @@ class ExprForest(
   }
 
   // there is no setSymbol: adding an expr automatically add a symbol at pos = new expr pos - 1
-  def setApply(next: Int, arg: Int): (ExprForest, Int) = {
+  def apply(next: Int, arg: Int): (ExprForest, Int) = {
     require(next >= 0 && next < nextApplyPos && arg >= 0 && arg < nextApplyPos)
 
-    val apply = Apply(next, arg)
-    applyToPos get apply match {
+    val newApply = Apply(next, arg)
+    applyToPos get newApply match {
       case Some(pos) => (this, pos)
       case None =>
         (
           new ExprForest(
-            applies :+ apply,
-            applyToPos + (apply -> nextApplyPos)
+            applies :+ newApply,
+            applyToPos + (newApply -> nextApplyPos)
           ),
           nextApplyPos
         )
@@ -59,9 +59,9 @@ class ExprForest(
       require(pos >= 0 && pos < size)
       pos
     }
-    case apply: Apply => {
-      require(applyToPos contains apply)
-      applyToPos(apply)
+    case a: Apply => {
+      require(applyToPos contains a)
+      applyToPos(a)
     }
   }
 
