@@ -32,6 +32,8 @@ class Printer(
   // print an humain readable expression using exprToString map
   // ---------------------------------------------------------------------------
 
+  // todo: make forall printing more humain friendly (eg: forall x, y, z. P(x, y, z))
+
   /** generate names for Symbol. eg: 0: 'a', 1: 'b', ..., 26: 'a1'
     * gives color to symbol according to
     * - what symbol is left to be fixed (MAGENTA)
@@ -89,7 +91,7 @@ class Printer(
       exprNames get pos match {
         case Some(name) => combineHeadTail(name, argsToString(args))
         case None =>
-          logicGraph.getExprForest.getExpr(pos) match {
+          logicGraph.getExpr(pos) match {
             case Symbol(id) =>
               forallPos match {
                 case Some(p) if p == pos =>
