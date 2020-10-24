@@ -5,7 +5,7 @@ import io.AnsiColor._
 // This exception will be thrown when a fatal error occurs when running the program
 case class FatalError(msg: String) extends Exception(msg)
 
-class Context {
+class Context(val printUids: Boolean = false) {
   // Those are the reporting functionalities that the context provides
   def info(msg: String, pos: Position = NoPosition): Unit =
     report(s"${GREEN}[ info  ]${RESET}", msg, pos)
