@@ -1,7 +1,12 @@
 package mathgraph.repl
 import io.AnsiColor._
+import mathgraph.mathgraph._
+import mathgraph.printer._
 
 object Commands {
+
+  var logicGraph: LogicGraph = new LogicGraph().init
+
   abstract class Command {
     def apply(): Unit = {
       System.out.println(s"${RED}Command not implemented${RESET}")
@@ -33,8 +38,26 @@ object Commands {
   }
 
   case object Ls extends Command {
+
+    def buildList = {
+      val printer = new Printer(logicGraph).init
+      for (pos <- 0 until logicGraph.size)
+        yield (pos, logicGraph.getTruthOf(pos), printer.toAdvString(pos))
+    }
+
+    def lineToString(pos: Int, truth: Option[Boolean], expr: String) = {
+      val truthStr = truth match {
+        case None => "\t\t"
+        case Some(v) => s"[$v]\t"
+      }
+      pos.toString + " "+ truthStr + " " + expr
+    }
+
     override def apply(): Unit = {
-      System.out.println("Ls command recognized")
+      
+      System.out.println(buildList.map{
+        case (p, t, e) => lineToString(p, t, e)
+      }.mkString("\n"))
     }
   }
 

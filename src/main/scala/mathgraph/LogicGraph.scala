@@ -70,6 +70,7 @@ class LogicGraph(
   def implyPos = exprForest.getPos(implySymbol)
   def forallPos = exprForest.getPos(forallSymbol)
 
+  def size = exprForest.size
   def idToPos(id: Int): Int = exprForest.idToPos(id)
   def getExprForest = exprForest
   def getExpr(pos: Int): Expr = exprForest.getExpr(pos)

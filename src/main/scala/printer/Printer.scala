@@ -89,7 +89,7 @@ class Printer(
       }
 
       exprNames get pos match {
-        case Some(name) => combineHeadTail(name, argsToString(args))
+        case Some(name) if Some(pos) != forallPos => combineHeadTail(name, argsToString(args))
         case None =>
           logicGraph.getExpr(pos) match {
             case Symbol(id) =>
