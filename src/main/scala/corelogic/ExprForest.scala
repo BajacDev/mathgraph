@@ -22,7 +22,7 @@ case class Apply(next: Int, arg: Int) extends Expr
 /** applyToPos(a) gives the equivalent of applyToPos indexOf a (but is faster)
   * so we use applyToPos as a speedup mapping
   */
-class ExprForest(
+case class ExprForest(
     applies: Seq[Apply] = Seq(),
     applyToPos: Map[Apply, Int] = Map()
 ) {
@@ -48,7 +48,7 @@ class ExprForest(
       case Some(pos) => (this, pos)
       case None =>
         (
-          new ExprForest(
+          ExprForest(
             applies :+ newApply,
             applyToPos + (newApply -> nextApplyPos)
           ),

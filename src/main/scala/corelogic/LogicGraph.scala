@@ -53,7 +53,7 @@ object ApplyLetSymIR extends InferenceRule
 object SimplifyIR extends InferenceRule
 object Axiom extends InferenceRule
 
-class LogicGraph(
+case class LogicGraph(
     exprForest: ExprForest = new ExprForest,
     truth: Map[Int, Boolean] = Map(),
     imply: Map[Int, Set[Int]] = Map(),
@@ -94,53 +94,8 @@ class LogicGraph(
       (_.freshSymbolAssertEq(TrueSymbol)) |>
       (_.freshSymbolAssertEq(ImplySymbol)) |>
       (_.freshSymbolAssertEq(ForallSymbol)) |>
-      (lg => lg.addTruth(lg.truePos, true)) |>
-      (lg => lg.addTruth(lg.falsePos, false))
-
-  private def setExprForest(newExprForest: ExprForest) =
-    new LogicGraph(
-      newExprForest,
-      truth,
-      imply,
-      isImpliedBy,
-      absurd,
-      truthOrigin,
-      inferences
-    )
-
-  private def addTruth(pos: Int, b: Boolean) =
-    new LogicGraph(
-      exprForest,
-      truth + (pos -> b),
-      imply,
-      isImpliedBy,
-      absurd,
-      truthOrigin,
-      inferences
-    )
-
-  private def addTruth(pos: Int, prev: Int, b: Boolean) = {
-    new LogicGraph(
-      exprForest,
-      truth + (pos -> b),
-      imply,
-      isImpliedBy,
-      absurd,
-      truthOrigin + (pos -> prev),
-      inferences
-    )
-  }
-
-  private def setAbsurd(pos: Int, prev: Int) =
-    new LogicGraph(
-      exprForest,
-      truth,
-      imply,
-      isImpliedBy,
-      Some((pos, prev)),
-      truthOrigin,
-      inferences
-    )
+      (lg => lg.copy(truth = lg.truth + (lg.truePos -> true))) |>
+      (lg => lg.copy(truth = lg.truth + (lg.falsePos -> false)))
 
   def setAxiom(pos: Int, b: Boolean) =
     if (b) link(truePos, pos, Axiom) else link(pos, falsePos, Axiom)
@@ -248,7 +203,7 @@ class LogicGraph(
     */
   def apply(next: Int, arg: Int): (LogicGraph, Int) = {
     val (newExprForest, pos) = exprForest.apply(next, arg)
-    setExprForest(newExprForest)
+    copy(exprForest = newExprForest)
       .symplifyInferenceRuleLoop(pos)
       .link(next, pos, ApplyIR) match {
       case graph =>
@@ -278,10 +233,10 @@ class LogicGraph(
   private def propagate(pos: Int, prev: Int, b: Boolean): LogicGraph = {
     truth get pos match {
       case Some(v) if v == b => this
-      case Some(v) if v != b => setAbsurd(pos, prev)
+      case Some(v) if v != b => copy(absurd=Some((pos, prev)))
       case None => {
 
-        val newLogicGraph = addTruth(pos, prev, b)
+        val newLogicGraph = copy(truth = truth + (pos -> b), truthOrigin = truthOrigin + (pos -> prev))
           .implyInferenceRule(pos)
           .symplifyInferenceRuleLoop(pos)
 
@@ -310,14 +265,10 @@ class LogicGraph(
     require(a < exprForest.size && b < exprForest.size)
 
     val newLogicGraph =
-      new LogicGraph(
-        exprForest,
-        truth,
-        insertPair(a, b, imply),
-        insertPair(b, a, isImpliedBy),
-        absurd,
-        truthOrigin,
-        inferences + ((a, b) -> inferenceRule)
+      copy(
+        imply = insertPair(a, b, imply),
+        isImpliedBy = insertPair(b, a, isImpliedBy),
+        inferences = inferences + ((a, b) -> inferenceRule)
       )
 
     // A => B and A true: we propagate true to B
