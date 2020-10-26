@@ -1,4 +1,4 @@
-package mathgraph.mathgraph
+package mathgraph.corelogic
 
 import mathgraph.util.Pipe._
 

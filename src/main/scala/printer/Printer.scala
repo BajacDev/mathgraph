@@ -1,6 +1,6 @@
 package mathgraph.printer
 
-import mathgraph.mathgraph._
+import mathgraph.corelogic._
 import io.AnsiColor._
 
 class Printer(

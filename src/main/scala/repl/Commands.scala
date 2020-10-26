@@ -1,6 +1,6 @@
 package mathgraph.repl
 import io.AnsiColor._
-import mathgraph.mathgraph._
+import mathgraph.corelogic._
 import mathgraph.printer._
 
 object Commands {
