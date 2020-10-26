@@ -5,7 +5,7 @@ import mathgraph.printer._
 
 object Commands {
 
-  var logicGraph: LogicGraph = new LogicGraph().init
+  var logicGraph: LogicGraph = LogicGraph.init
 
   abstract class Command {
     def apply(): Unit = {
@@ -40,24 +40,28 @@ object Commands {
   case object Ls extends Command {
 
     def buildList = {
-      val printer = new Printer(logicGraph).init
+      val printer = Printer.init(logicGraph)
       for (pos <- 0 until logicGraph.size)
         yield (pos, logicGraph.getTruthOf(pos), printer.toAdvString(pos))
     }
 
     def lineToString(pos: Int, truth: Option[Boolean], expr: String) = {
       val truthStr = truth match {
-        case None => "\t\t"
+        case None    => "\t\t"
         case Some(v) => s"[$v]\t"
       }
-      pos.toString + " "+ truthStr + " " + expr
+      pos.toString + " " + truthStr + " " + expr
     }
 
     override def apply(): Unit = {
-      
-      System.out.println(buildList.map{
-        case (p, t, e) => lineToString(p, t, e)
-      }.mkString("\n"))
+
+      System.out.println(
+        buildList
+          .map { case (p, t, e) =>
+            lineToString(p, t, e)
+          }
+          .mkString("\n")
+      )
     }
   }
 

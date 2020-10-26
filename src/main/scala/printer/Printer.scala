@@ -3,12 +3,8 @@ package mathgraph.printer
 import mathgraph.corelogic._
 import io.AnsiColor._
 
-class Printer(
-    logicGraph: LogicGraph,
-    exprToString: Map[Int, String] = Map()
-) {
-
-  def init(): Printer = {
+object Printer {
+  def init(logicGraph: LogicGraph): Printer = {
     val e2s = Map(
       logicGraph.defPos -> "def",
       logicGraph.falsePos -> "false",
@@ -17,6 +13,12 @@ class Printer(
     )
     new Printer(logicGraph, e2s)
   }
+}
+
+class Printer(
+    logicGraph: LogicGraph,
+    exprToString: Map[Int, String] = Map()
+) {
 
   /** print expression in a simple way * */
   def toSimpleString(pos: Int): String = {
@@ -89,7 +91,8 @@ class Printer(
       }
 
       exprNames get pos match {
-        case Some(name) if Some(pos) != forallPos => combineHeadTail(name, argsToString(args))
+        case Some(name) if Some(pos) != forallPos =>
+          combineHeadTail(name, argsToString(args))
         case None =>
           logicGraph.getExpr(pos) match {
             case Symbol(id) =>

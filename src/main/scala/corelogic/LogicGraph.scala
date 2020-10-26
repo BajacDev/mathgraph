@@ -53,6 +53,17 @@ object ApplyLetSymIR extends InferenceRule
 object SimplifyIR extends InferenceRule
 object Axiom extends InferenceRule
 
+object LogicGraph {
+  def init: LogicGraph =
+    LogicGraph().freshSymbolAssertEq(DefSymbol) |>
+      (_.freshSymbolAssertEq(FalseSymbol)) |>
+      (_.freshSymbolAssertEq(TrueSymbol)) |>
+      (_.freshSymbolAssertEq(ImplySymbol)) |>
+      (_.freshSymbolAssertEq(ForallSymbol)) |>
+      (lg => lg.copy(truth = lg.truth + (lg.truePos -> true))) |>
+      (lg => lg.copy(truth = lg.truth + (lg.falsePos -> false)))
+}
+
 case class LogicGraph(
     exprForest: ExprForest = new ExprForest,
     truth: Map[Int, Boolean] = Map(),
@@ -87,15 +98,6 @@ case class LogicGraph(
         lg
       }
     }
-
-  def init(): LogicGraph =
-    freshSymbolAssertEq(DefSymbol) |>
-      (_.freshSymbolAssertEq(FalseSymbol)) |>
-      (_.freshSymbolAssertEq(TrueSymbol)) |>
-      (_.freshSymbolAssertEq(ImplySymbol)) |>
-      (_.freshSymbolAssertEq(ForallSymbol)) |>
-      (lg => lg.copy(truth = lg.truth + (lg.truePos -> true))) |>
-      (lg => lg.copy(truth = lg.truth + (lg.falsePos -> false)))
 
   def setAxiom(pos: Int, b: Boolean) =
     if (b) link(truePos, pos, Axiom) else link(pos, falsePos, Axiom)
@@ -233,10 +235,13 @@ case class LogicGraph(
   private def propagate(pos: Int, prev: Int, b: Boolean): LogicGraph = {
     truth get pos match {
       case Some(v) if v == b => this
-      case Some(v) if v != b => copy(absurd=Some((pos, prev)))
+      case Some(v) if v != b => copy(absurd = Some((pos, prev)))
       case None => {
 
-        val newLogicGraph = copy(truth = truth + (pos -> b), truthOrigin = truthOrigin + (pos -> prev))
+        val newLogicGraph = copy(
+          truth = truth + (pos -> b),
+          truthOrigin = truthOrigin + (pos -> prev)
+        )
           .implyInferenceRule(pos)
           .symplifyInferenceRuleLoop(pos)
 
