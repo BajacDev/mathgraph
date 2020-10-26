@@ -149,9 +149,9 @@ class Printer(
       }
 
     logicGraph.getTruthOf(orig) match {
-      case None          => Nil
-      case Some(v) if v  => wayToTruthRec(orig).reverse
-      case Some(v) if !v => wayToTruthRec(orig)
+      case None        => Nil
+      case Some(true)  => wayToTruthRec(orig).reverse
+      case Some(false) => wayToTruthRec(orig)
     }
   }
 
@@ -160,9 +160,9 @@ class Printer(
     case None => Nil
     case Some((a, b)) => {
       val way = logicGraph.getTruthOf(a) match {
-        case None          => Nil // todo: assert(false)
-        case Some(v) if v  => wayToTruth(a) ++ wayToTruth(b)
-        case Some(v) if !v => wayToTruth(b) ++ wayToTruth(a)
+        case None        => Nil // todo: assert(false)
+        case Some(true)  => wayToTruth(a) ++ wayToTruth(b)
+        case Some(false) => wayToTruth(b) ++ wayToTruth(a)
       }
       proofFromList(way, "")
     }

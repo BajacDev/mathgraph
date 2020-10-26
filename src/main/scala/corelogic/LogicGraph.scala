@@ -138,9 +138,9 @@ case class LogicGraph(
       case (ImplySymbol, Seq(a, b)) => {
         truth get pos match {
           case None => this
-          case Some(v) if v =>
+          case Some(true) =>
             link(a, b, ImplyIR(true, pos))
-          case Some(v) if !v =>
+          case Some(false) =>
             link(truePos, a, ImplyIR(false, pos))
               .link(b, falsePos, ImplyIR(false, pos))
         }
@@ -278,14 +278,14 @@ case class LogicGraph(
 
     // A => B and A true: we propagate true to B
     val newLogicGraphPropagateOnB = truth get a match {
-      case Some(v) if v => newLogicGraph.propagate(b, a, v)
-      case _            => newLogicGraph
+      case Some(true) => newLogicGraph.propagate(b, a, true)
+      case _          => newLogicGraph
     }
 
     // A => B and B false: we propagate false to A
     val newLogicGraphPropagateOnA = truth get b match {
-      case Some(v) if !v => newLogicGraphPropagateOnB.propagate(a, b, v)
-      case _             => newLogicGraphPropagateOnB
+      case Some(false) => newLogicGraphPropagateOnB.propagate(a, b, false)
+      case _           => newLogicGraphPropagateOnB
     }
 
     newLogicGraphPropagateOnA
