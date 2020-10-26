@@ -60,16 +60,9 @@ class Printer(
   }
 
   def listToMap(stringList: List[String]): Map[Int, String] = {
-    def listToMapRec(
-        l: List[String],
-        id: Int,
-        result: Map[Int, String]
-    ): Map[Int, String] = l match {
-      case Nil => result
-      case x :: xs =>
-        listToMapRec(xs, id + 1, result + (logicGraph.idToPos(id) -> x))
-    }
-    listToMapRec(stringList, 0, Map())
+    stringList.zipWithIndex.map { case (str, idx) =>
+      (logicGraph.idToPos(idx) -> str)
+    }.toMap
   }
 
   /** print the expression at position origin* */
