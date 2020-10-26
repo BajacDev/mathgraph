@@ -10,9 +10,9 @@ import mathgraph.util.Pipe._
   * questions that have risen during the conception:
   *
   * why using '->' as a base Symbol and not 'not', 'or' and 'and'?
-  * - I wanted to have the minimum of symbols. Moreover I wanted the base simbols
+  * - I wanted to have the minimum number of symbols. Moreover I wanted the base symbols
   *   to have a strong relationship with the graph we are manipulating. hence `->`
-  *   directly have a instinclive meaning on the graph (see imply infrence rule).
+  *   have a instinctive meaning on the graph (see imply infrence rule).
   *   It is not based on any performance requirements
   *
   * why ysing false propagation instead of just true propagation ?
@@ -235,7 +235,11 @@ case class LogicGraph(
   private def propagate(pos: Int, prev: Int, b: Boolean): LogicGraph = {
     truth get pos match {
       case Some(v) if v == b => this
-      case Some(v) if v != b => copy(absurd = Some((pos, prev)))
+
+      // when asburd = Some((a,b)) it means a => b
+      case Some(false) if b => copy(absurd = Some((prev, pos)))
+      case Some(true) if !b => copy(absurd = Some((pos, prev)))
+
       case None => {
 
         val newLogicGraph = copy(
@@ -269,26 +273,32 @@ case class LogicGraph(
   private def link(a: Int, b: Int, inferenceRule: InferenceRule): LogicGraph = {
     require(a < exprForest.size && b < exprForest.size)
 
-    val newLogicGraph =
-      copy(
-        imply = insertPair(a, b, imply),
-        isImpliedBy = insertPair(b, a, isImpliedBy),
-        inferences = inferences + ((a, b) -> inferenceRule)
-      )
+    if (a == b) this
+    else {
 
-    // A => B and A true: we propagate true to B
-    val newLogicGraphPropagateOnB = truth get a match {
-      case Some(true) => newLogicGraph.propagate(b, a, true)
-      case _          => newLogicGraph
+      val newLogicGraph =
+        copy(
+          imply = insertPair(a, b, imply),
+          isImpliedBy = insertPair(b, a, isImpliedBy),
+          inferences = inferences + ((a, b) -> inferenceRule)
+        )
+
+      // A => B and A true: we propagate true to B
+      val newLogicGraphPropagateOnB = truth get a match {
+        case Some(true) => newLogicGraph.propagate(b, a, true)
+        case _          => newLogicGraph
+      }
+
+      // A => B and B false: we propagate false to A
+      val newLogicGraphPropagateOnA = truth get b match {
+        case Some(false) => newLogicGraphPropagateOnB.propagate(a, b, false)
+        case _           => newLogicGraphPropagateOnB
+      }
+
+      newLogicGraphPropagateOnA
+
     }
 
-    // A => B and B false: we propagate false to A
-    val newLogicGraphPropagateOnA = truth get b match {
-      case Some(false) => newLogicGraphPropagateOnB.propagate(a, b, false)
-      case _           => newLogicGraphPropagateOnB
-    }
-
-    newLogicGraphPropagateOnA
   }
 
 }

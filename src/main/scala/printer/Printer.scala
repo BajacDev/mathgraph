@@ -157,15 +157,8 @@ class Printer(
 
   /** build the way from true to false and create the proof * */
   def proofAbsurd: List[String] = logicGraph.getAbsurd match {
-    case None => Nil
-    case Some((a, b)) => {
-      val way = logicGraph.getTruthOf(a) match {
-        case None        => Nil // todo: assert(false)
-        case Some(true)  => wayToTruth(a) ++ wayToTruth(b)
-        case Some(false) => wayToTruth(b) ++ wayToTruth(a)
-      }
-      proofFromList(way, "")
-    }
+    case None         => Nil
+    case Some((a, b)) => proofFromList(wayToTruth(a) ++ wayToTruth(b), "")
   }
 
 }
