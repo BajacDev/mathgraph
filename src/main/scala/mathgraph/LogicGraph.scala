@@ -26,16 +26,16 @@ import mathgraph.util.Pipe._
 // -----------------------------------------------------
 
 /** use to build other symbols * */
-object defSymbol extends Symbol(0)
+object DefSymbol extends Symbol(0)
 
-object falseSymbol extends Symbol(1)
-object trueSymbol extends Symbol(2)
+object FalseSymbol extends Symbol(1)
+object TrueSymbol extends Symbol(2)
 
 /** implication symbol (eg: a -> b) * */
-object implySymbol extends Symbol(3)
+object ImplySymbol extends Symbol(3)
 
 /** forall symbol * */
-object forallSymbol extends Symbol(4)
+object ForallSymbol extends Symbol(4)
 
 // -----------------------------------
 // inference rules
@@ -48,10 +48,10 @@ object forallSymbol extends Symbol(4)
 
 trait InferenceRule
 case class ImplyIR(b: Boolean, implyPos: Int) extends InferenceRule
-object applyIR extends InferenceRule
-object applyLetSymIR extends InferenceRule
-object simplifyIR extends InferenceRule
-object axiom extends InferenceRule
+object ApplyIR extends InferenceRule
+object ApplyLetSymIR extends InferenceRule
+object SimplifyIR extends InferenceRule
+object Axiom extends InferenceRule
 
 class LogicGraph(
     exprForest: ExprForest = new ExprForest,
@@ -65,10 +65,10 @@ class LogicGraph(
 ) {
 
   def defPos = 0
-  def falsePos = exprForest.getPos(falseSymbol)
-  def truePos = exprForest.getPos(trueSymbol)
-  def implyPos = exprForest.getPos(implySymbol)
-  def forallPos = exprForest.getPos(forallSymbol)
+  def falsePos = exprForest.getPos(FalseSymbol)
+  def truePos = exprForest.getPos(TrueSymbol)
+  def implyPos = exprForest.getPos(ImplySymbol)
+  def forallPos = exprForest.getPos(ForallSymbol)
 
   def size = exprForest.size
   def idToPos(id: Int): Int = exprForest.idToPos(id)
@@ -89,11 +89,11 @@ class LogicGraph(
     }
 
   def init(): LogicGraph =
-    freshSymbolAssertEq(defSymbol) |>
-      (_.freshSymbolAssertEq(falseSymbol)) |>
-      (_.freshSymbolAssertEq(trueSymbol)) |>
-      (_.freshSymbolAssertEq(implySymbol)) |>
-      (_.freshSymbolAssertEq(forallSymbol)) |>
+    freshSymbolAssertEq(DefSymbol) |>
+      (_.freshSymbolAssertEq(FalseSymbol)) |>
+      (_.freshSymbolAssertEq(TrueSymbol)) |>
+      (_.freshSymbolAssertEq(ImplySymbol)) |>
+      (_.freshSymbolAssertEq(ForallSymbol)) |>
       (lg => lg.addTruth(lg.truePos, true)) |>
       (lg => lg.addTruth(lg.falsePos, false))
 
@@ -143,7 +143,7 @@ class LogicGraph(
     )
 
   def setAxiom(pos: Int, b: Boolean) =
-    if (b) link(truePos, pos, axiom) else link(pos, falsePos, axiom)
+    if (b) link(truePos, pos, Axiom) else link(pos, falsePos, Axiom)
 
   /** returns a new symbol position * */
   def getFreshSymbol: (LogicGraph, Int) =
@@ -154,7 +154,7 @@ class LogicGraph(
   /** unfold forall into (inside, arguments) if any * */
   def unfoldForall(pos: Int): Option[(Int, Seq[Int])] =
     exprForest.getHeadTail(pos) match {
-      case (forallSymbol, inside +: args) => Some((inside, args))
+      case (ForallSymbol, inside +: args) => Some((inside, args))
       case _                              => None
     }
 
@@ -178,7 +178,7 @@ class LogicGraph(
     */
   def implyInferenceRule(pos: Int): LogicGraph = {
     exprForest.getHeadTail(pos) match {
-      case (implySymbol, Seq(a, b)) => {
+      case (ImplySymbol, Seq(a, b)) => {
         truth get pos match {
           case None => this
           case Some(v) if v =>
@@ -224,8 +224,8 @@ class LogicGraph(
         val (logicGraph, newPos) = symplify(inside, args)
         (
           logicGraph
-            .link(newPos, pos, simplifyIR)
-            .link(pos, newPos, simplifyIR),
+            .link(newPos, pos, SimplifyIR)
+            .link(pos, newPos, SimplifyIR),
           newPos
         )
       }
@@ -250,10 +250,10 @@ class LogicGraph(
     val (newExprForest, pos) = exprForest.apply(next, arg)
     setExprForest(newExprForest)
       .symplifyInferenceRuleLoop(pos)
-      .link(next, pos, applyIR) match {
+      .link(next, pos, ApplyIR) match {
       case graph =>
         if (graph.getExprForest.isLetSymbol(next, arg))
-          (graph.link(pos, next, applyLetSymIR), pos)
+          (graph.link(pos, next, ApplyLetSymIR), pos)
         else (graph, pos)
     }
   }
