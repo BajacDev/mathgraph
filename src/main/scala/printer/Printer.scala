@@ -45,7 +45,7 @@ class Printer(
     */
   def generateName(id: Int, numArgs: Option[Int]): String = {
     val char = (id % 26 + 'a'.toInt).toChar
-    val result = if (id < 26) char.toString else char + (id / 26).toString
+    val result = if (id < 26) char.toString else s"$char${(id / 26)}"
     numArgs match {
       case Some(n) if id == n => s"${BLUE}${result}${RESET}"
       case Some(n) if id > n  => s"${MAGENTA}${result}${RESET}"
