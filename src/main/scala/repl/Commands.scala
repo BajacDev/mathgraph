@@ -156,6 +156,21 @@ object Commands {
     }
   }
 
+  case object Undo extends Command {
+    override def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
+      previous match {
+        case p :: ps => {
+          System.out.println("Undo successful")
+          (p, ps)
+        }
+        case Nil => {
+          System.out.println("There is no operation to undo")
+          (current, previous)
+        }
+      }
+    }
+  }
+
   case object UnknownCommand extends Command {
     override def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
       System.out.println(s"Unknown command")

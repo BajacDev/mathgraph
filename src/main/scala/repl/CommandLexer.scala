@@ -7,7 +7,7 @@ import scala.util.{Try, Success, Failure}
 
 object CommandLexer extends RegexParsers with Pipeline[String, Seq[CommandToken]] {
 
-  val keywords = Set(
+  val keywords = List(
     "help",
     "leave",
     "lse",
@@ -23,7 +23,8 @@ object CommandLexer extends RegexParsers with Pipeline[String, Seq[CommandToken]
     "dij",
     "stats",
     "chain",
-    "proof"
+    "proof",
+    "undo"
   )
 
   def keyword: Parser[CommandToken] = positioned {
