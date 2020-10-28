@@ -1,6 +1,7 @@
 package mathgraph
 import util._
 import frontend._
+import corelogic._
 import repl.{CommandLexer, CommandParser}
 import repl.Commands._
 import scala.io.{Source, StdIn}
@@ -25,27 +26,32 @@ object Main {
     val input = Source.fromFile(sourceFile).mkString
 
     try {
-      pipeline.run(input)(ctx)
+      val program = pipeline.run(input)(ctx)
+
+      val initialGraph = LogicGraph.init
+
+      val finalGraph = repl(initialGraph, Nil)(ctx)
+
+      ()
     } catch {
       case FatalError(_) => sys.exit(1)
     }
-
-    do {
-      System.out.print(s"${GREEN}>>> ${RESET}")
-    } while (process(ctx));
   }
 
-  def process(ctx: Context): Boolean = {
-    val pipeline = CommandLexer andThen CommandParser
-    val command = pipeline.run(StdIn.readLine)(ctx)
+  def repl(current: LogicGraph, previous: List[LogicGraph])(implicit ctx: Context): (LogicGraph, List[LogicGraph]) = {
 
-    command.apply()
+    val pipeline = CommandLexer andThen CommandParser
+
+    System.out.print(s"${GREEN}>>> ${RESET}")
+
+    val command = pipeline.run(StdIn.readLine())(ctx)
 
     command match {
-      case Leave => {
-        false
+      case Leave => (current, previous)
+      case _ => {
+        val (newCurrent, newPrevious) = command.apply(current, previous)
+        repl(newCurrent, newPrevious)
       }
-      case _ => true
     }
   }
 }
