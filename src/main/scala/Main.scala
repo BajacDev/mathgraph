@@ -1,12 +1,13 @@
 package mathgraph
-import util._
-import frontend._
 import corelogic._
+import frontend._
+import io.AnsiColor._
+import printer._
 import repl.{CommandLexer, CommandParser}
 import repl.Commands._
 import scala.io.{Source, StdIn}
 import scala.util.{Try, Success, Failure}
-import io.AnsiColor._
+import util._
 
 object Main {
 
@@ -29,8 +30,9 @@ object Main {
       val program = pipeline.run(input)(ctx)
 
       val initialGraph = LogicGraph.init
+      val initialState = LogicState(initialGraph, Printer.init(initialGraph), None)
 
-      val finalGraph = repl(initialGraph, Nil)(ctx)
+      val finalState = repl(initialState)(ctx)
 
       ()
     } catch {
@@ -38,7 +40,7 @@ object Main {
     }
   }
 
-  def repl(current: LogicGraph, previous: List[LogicGraph])(implicit ctx: Context): (LogicGraph, List[LogicGraph]) = {
+  def repl(currentState: LogicState)(implicit ctx: Context): LogicState = {
 
     val pipeline = CommandLexer andThen CommandParser
 
@@ -47,11 +49,8 @@ object Main {
     val command = pipeline.run(StdIn.readLine())(ctx)
 
     command match {
-      case Leave => (current, previous)
-      case _ => {
-        val (newCurrent, newPrevious) = command.apply(current, previous)
-        repl(newCurrent, newPrevious)
-      }
+      case Leave => currentState
+      case _ => repl(command.apply(currentState))
     }
   }
 }

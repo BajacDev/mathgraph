@@ -1,53 +1,54 @@
 package mathgraph.repl
+import CommandLexer._
 import io.AnsiColor._
 import mathgraph.corelogic._
 import mathgraph.printer._
-import CommandLexer._
 
 object Commands {
 
+  case class LogicState(logicGraph: LogicGraph, printer: Printer, previousState: Option[LogicState])
+
   abstract class Command {
-    def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
+    def apply(currentState: LogicState): LogicState = {
       System.out.println(s"${RED}Command not implemented${RESET}")
-      (current, previous)
+      currentState
     }
   }
 
   case object Help extends Command {
-    override def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
+    override def apply(currentState: LogicState): LogicState = {
       System.out.println("List of commands:")
       CommandLexer.keywords.foreach(kw => System.out.println(s"$kw"))
-      (current, previous)
+      currentState
     }
   }
 
   case object Leave extends Command {
-    override def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
+    override def apply(currentState: LogicState): LogicState = {
       System.out.println("Closing application")
-      (current, previous)
+      currentState
     }
   }
 
   case object Lse extends Command {
-    override def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
+    override def apply(currentState: LogicState): LogicState = {
       System.out.println("Lse command recognized")
-      (current, previous)
+      currentState
     }
   }
 
   case object Lss extends Command {
-    override def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
+    override def apply(currentState: LogicState): LogicState = {
       System.out.println("Lss command recognized")
-      (current, previous)
+      currentState
     }
   }
 
   case object Ls extends Command {
 
-    def buildList(current: LogicGraph): IndexedSeq[(Int, Option[Boolean], String)] = {
-      val printer = Printer.init(current)
-      for (pos <- 0 until current.size)
-        yield (pos, current.getTruthOf(pos), printer.toAdvString(pos))
+    def buildList(state: LogicState): IndexedSeq[(Int, Option[Boolean], String)] = {
+      for (pos <- 0 until state.logicGraph.size)
+        yield (pos, state.logicGraph.getTruthOf(pos), state.printer.toAdvString(pos))
     }
 
     def lineToString(pos: Int, truth: Option[Boolean], expr: String): String = {
@@ -58,129 +59,129 @@ object Commands {
       pos.toString + " " + truthStr + " " + expr
     }
 
-    override def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
+    override def apply(currentState: LogicState): LogicState = {
 
       System.out.println(
-        buildList(current)
+        buildList(currentState)
           .map { case (p, t, e) =>
             lineToString(p, t, e)
           }
           .mkString("\n")
       )
 
-      (current, previous)
+      currentState
     }
   }
 
   case object Absurd extends Command {
-    override def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
+    override def apply(currentState: LogicState): LogicState = {
       System.out.println("Absurd command recognized")
-      (current, previous)
+      currentState
     }
   }
 
   case class FixN(arg: Int) extends Command {
-    override def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
+    override def apply(currentState: LogicState): LogicState = {
       System.out.println(s"Fixn command recognized (arg = ${arg})")
-      (current, previous)
+      currentState
     }
   }
 
   case class Fix(arg1: Int, arg2: Int) extends Command {
-    override def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
+    override def apply(currentState: LogicState): LogicState = {
       System.out.println(s"Fix command recognized args = (${arg1}, ${arg2})")
-      (current, previous)
+      currentState
     }
   }
 
   case class Apply(arg: Int) extends Command {
-    override def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
+    override def apply(currentState: LogicState): LogicState = {
       System.out.println(s"Apply command recognized (arg = ${arg})")
-      (current, previous)
+      currentState
     }
   }
 
   case class Why(arg1: Int, arg2: Int) extends Command {
-    override def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
+    override def apply(currentState: LogicState): LogicState = {
       System.out.println(s"Why command recognized args = (${arg1}, ${arg2})")
-      (current, previous)
+      currentState
     }
   }
 
   case object FixAllTrue extends Command {
-    override def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
+    override def apply(currentState: LogicState): LogicState = {
       System.out.println("Fix all true, command recognized")
-      (current, previous)
+      currentState
     }
   }
 
   case object FixAllFalse extends Command {
-    override def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
+    override def apply(currentState: LogicState): LogicState = {
       System.out.println("Fix all false, command recognized")
-      (current, previous)
+      currentState
     }
   }
 
   case object Dij extends Command {
-    override def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
+    override def apply(currentState: LogicState): LogicState = {
       System.out.println("Dij command recognized")
-      (current, previous)
+      currentState
     }
   }
 
   case object Stats extends Command {
-    override def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
+    override def apply(currentState: LogicState): LogicState = {
       System.out.println("Stats command recognized")
-      (current, previous)
+      currentState
     }
   }
 
   case class Ctx(arg: Int) extends Command {
-    override def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
+    override def apply(currentState: LogicState): LogicState = {
       System.out.println(s"Ctx command recognized (arg = ${arg})")
-      (current, previous)
+      currentState
     }
   }
 
   case class Chain(arg: Int) extends Command {
-    override def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
+    override def apply(currentState: LogicState): LogicState = {
       System.out.println(s"Chain command recognized (arg = ${arg})")
-      (current, previous)
+      currentState
     }
   }
 
   case object Proof extends Command {
-    override def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
+    override def apply(currentState: LogicState): LogicState = {
       System.out.println("Proof command recognized")
-      (current, previous)
+      currentState
     }
   }
 
   case object Undo extends Command {
-    override def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
-      previous match {
-        case p :: ps => {
+    override def apply(currentState: LogicState): LogicState = {
+      currentState.previousState match {
+        case Some(previousState) => {
           System.out.println("Undo successful")
-          (p, ps)
+          previousState
         }
-        case Nil => {
+        case None => {
           System.out.println("There is no operation to undo")
-          (current, previous)
+          currentState
         }
       }
     }
   }
 
   case object UnknownCommand extends Command {
-    override def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
+    override def apply(currentState: LogicState): LogicState = {
       System.out.println(s"Unknown command")
-      (current, previous)
+      currentState
     }
   }
 
   case class BadCommand(command: String, n: Int) extends Command {
 
-    override def apply(current: LogicGraph, previous: List[LogicGraph]): (LogicGraph, List[LogicGraph]) = {
+    override def apply(currentState: LogicState): LogicState = {
 
       def printUsage(): Unit = n match {
         case 0 => System.out.println(s"usage: ${command}")
@@ -188,13 +189,13 @@ object Commands {
         case _ if command == "fix" => System.out.println(s"usage: ${command} next pos")
         case _ if command == "why" => System.out.println(s"usage: ${command} a b")
         case _ => {
-          UnknownCommand.apply(current, previous)
+          UnknownCommand.apply(currentState)
           ()
         }
       }
 
       printUsage()
-      (current, previous)
+      currentState
     }
   }
 }
