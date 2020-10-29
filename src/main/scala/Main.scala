@@ -3,10 +3,10 @@ import corelogic._
 import frontend._
 import io.AnsiColor._
 import printer._
-import repl.{CommandLexer, CommandParser}
+import repl.{CommandLexer, CommandParser, Repl}
 import repl.Commands._
-import scala.io.{Source, StdIn}
 import scala.util.{Try, Success, Failure}
+import scala.io.Source
 import util._
 
 object Main {
@@ -32,25 +32,11 @@ object Main {
       val initialGraph = LogicGraph.init
       val initialState = LogicState(initialGraph, Printer.init(initialGraph), None)
 
-      val finalState = repl(initialState)(ctx)
+      val finalState = Repl(initialState)(ctx)
 
       ()
     } catch {
       case FatalError(_) => sys.exit(1)
-    }
-  }
-
-  def repl(currentState: LogicState)(implicit ctx: Context): LogicState = {
-
-    val pipeline = CommandLexer andThen CommandParser
-
-    System.out.print(s"${GREEN}>>> ${RESET}")
-
-    val command = pipeline.run(StdIn.readLine())(ctx)
-
-    command match {
-      case Leave => currentState
-      case _ => repl(command.apply(currentState))
     }
   }
 }
