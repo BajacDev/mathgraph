@@ -22,6 +22,7 @@ object CommandLexer extends RegexParsers with Pipeline[String, Seq[CommandToken]
     "faf",
     "dij",
     "stats",
+    "ctx",
     "chain",
     "proof",
     "undo",
