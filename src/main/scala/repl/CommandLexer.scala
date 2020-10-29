@@ -24,7 +24,8 @@ object CommandLexer extends RegexParsers with Pipeline[String, Seq[CommandToken]
     "stats",
     "chain",
     "proof",
-    "undo"
+    "undo",
+    "clear"
   )
 
   def keyword: Parser[CommandToken] = positioned {

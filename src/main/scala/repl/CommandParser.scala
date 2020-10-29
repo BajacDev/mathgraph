@@ -60,7 +60,8 @@ object CommandParser extends Parsers with Pipeline[Seq[CommandToken], Command] {
       keyword("dij") |
       keyword("stats") |
       keyword("proof") |
-      keyword("undo")
+      keyword("undo") |
+      keyword("clear")
   }
 
   def zeroArgCommand: Parser[Command] = {
@@ -79,6 +80,7 @@ object CommandParser extends Parsers with Pipeline[Seq[CommandToken], Command] {
         case "stats"  => Stats
         case "proof"  => Proof
         case "undo"  => Undo
+        case "clear" => Clear
         case _        => UnknownCommand
       }
     }

@@ -172,6 +172,13 @@ object Commands {
     }
   }
 
+  case object Clear extends Command {
+    override def apply(currentState: LogicState): LogicState = {
+      System.out.print("\u001b[H\u001b[2J");
+      currentState
+    }
+  }
+
   case object UnknownCommand extends Command {
     override def apply(currentState: LogicState): LogicState = {
       System.out.println(s"Unknown command")
