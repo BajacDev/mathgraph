@@ -5,7 +5,9 @@ import scala.util.parsing.combinator.RegexParsers
 import scala.util.parsing.input.CharSequenceReader
 import scala.util.{Try, Success, Failure}
 
-object CommandLexer extends RegexParsers with Pipeline[String, Seq[CommandToken]] {
+object CommandLexer
+    extends RegexParsers
+    with Pipeline[String, Seq[CommandToken]] {
 
   val keywords = List(
     "help",

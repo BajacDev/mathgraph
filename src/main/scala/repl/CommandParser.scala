@@ -33,19 +33,19 @@ object CommandParser extends Parsers with Pipeline[Seq[CommandToken], Command] {
   def oneArg = {
     opt(anyKeyword) ~ opt(number) ^^ {
       case None ~ Some(number) => Some(number)
-      case _ ~ _ => None
+      case _ ~ _               => None
     }
   }
 
   def twoArgs = {
     oneArg ~ oneArg ^^ {
       case Some(arg1) ~ Some(arg2) => Some((arg1, arg2))
-      case _ => None
+      case _                       => None
     }
   }
 
   def command: Parser[Command] = {
-      zeroArgCommand | oneArgCommand | twoArgCommand
+    zeroArgCommand | oneArgCommand | twoArgCommand
   }
 
   def zeroArgKeyword: Parser[String] = {
@@ -67,22 +67,23 @@ object CommandParser extends Parsers with Pipeline[Seq[CommandToken], Command] {
   def zeroArgCommand: Parser[Command] = {
     zeroArgKeyword ~ opt(more) ^^ {
       case cmd ~ Some(rest) => BadCommand(cmd, 0)
-      case cmd ~ None => cmd match {
-        case "help"   => Help
-        case "leave"  => Leave
-        case "lse"    => Lse
-        case "lss"    => Lss
-        case "ls"     => Ls
-        case "absurd" => Absurd
-        case "fat"    => FixAllTrue
-        case "faf"    => FixAllFalse
-        case "dij"    => Dij
-        case "stats"  => Stats
-        case "proof"  => Proof
-        case "undo"  => Undo
-        case "clear" => Clear
-        case _        => UnknownCommand
-      }
+      case cmd ~ None =>
+        cmd match {
+          case "help"   => Help
+          case "leave"  => Leave
+          case "lse"    => Lse
+          case "lss"    => Lss
+          case "ls"     => Ls
+          case "absurd" => Absurd
+          case "fat"    => FixAllTrue
+          case "faf"    => FixAllFalse
+          case "dij"    => Dij
+          case "stats"  => Stats
+          case "proof"  => Proof
+          case "undo"   => Undo
+          case "clear"  => Clear
+          case _        => UnknownCommand
+        }
     }
   }
 
@@ -95,32 +96,34 @@ object CommandParser extends Parsers with Pipeline[Seq[CommandToken], Command] {
 
   def oneArgCommand: Parser[Command] = {
     oneArgKeyword ~ oneArg ~ opt(more) ^^ {
-      case cmd ~ None ~ _ => BadCommand(cmd, 1)
+      case cmd ~ None ~ _               => BadCommand(cmd, 1)
       case cmd ~ Some(arg) ~ Some(rest) => BadCommand(cmd, 1)
-      case cmd ~ Some(arg) ~ None => cmd match {
-        case "fixn"   => FixN(arg.toInt)
-        case "apply"  => Apply(arg.toInt)
-        case "ctx"    => Ctx(arg.toInt)
-        case "chain"  => Chain(arg.toInt)
-        case _        => UnknownCommand
-      }
+      case cmd ~ Some(arg) ~ None =>
+        cmd match {
+          case "fixn"  => FixN(arg.toInt)
+          case "apply" => Apply(arg.toInt)
+          case "ctx"   => Ctx(arg.toInt)
+          case "chain" => Chain(arg.toInt)
+          case _       => UnknownCommand
+        }
     }
   }
 
   def twoArgKeyword: Parser[String] = {
     keyword("fix") |
-    keyword("why")
+      keyword("why")
   }
 
   def twoArgCommand: Parser[Command] = {
     twoArgKeyword ~ twoArgs ~ opt(more) ^^ {
-      case cmd ~ None ~ _ => BadCommand(cmd, 2)
+      case cmd ~ None ~ _                => BadCommand(cmd, 2)
       case cmd ~ Some(args) ~ Some(rest) => BadCommand(cmd, 2)
-      case cmd ~ Some(args) ~ None => cmd match {
-        case "fix" => Fix(args._1.toInt, args._2.toInt)
-        case "why" => Why(args._1.toInt, args._2.toInt)
-        case _     => UnknownCommand
-      }
+      case cmd ~ Some(args) ~ None =>
+        cmd match {
+          case "fix" => Fix(args._1.toInt, args._2.toInt)
+          case "why" => Why(args._1.toInt, args._2.toInt)
+          case _     => UnknownCommand
+        }
     }
   }
 

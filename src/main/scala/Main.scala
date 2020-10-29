@@ -30,7 +30,8 @@ object Main {
       val program = pipeline.run(input)(ctx)
 
       val initialGraph = LogicGraph.init
-      val initialState = LogicState(initialGraph, Printer.init(initialGraph), None)
+      val initialState =
+        LogicState(initialGraph, Printer.init(initialGraph), None)
 
       val finalState = Repl(initialState)(ctx)
 

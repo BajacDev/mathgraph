@@ -17,7 +17,7 @@ object Repl {
 
     command match {
       case Leave => currentState
-      case _ => Repl(command.apply(currentState))
+      case _     => Repl(command.apply(currentState))
     }
   }
 }

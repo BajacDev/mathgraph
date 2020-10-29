@@ -6,7 +6,11 @@ import mathgraph.printer._
 
 object Commands {
 
-  case class LogicState(logicGraph: LogicGraph, printer: Printer, previousState: Option[LogicState])
+  case class LogicState(
+      logicGraph: LogicGraph,
+      printer: Printer,
+      previousState: Option[LogicState]
+  )
 
   abstract class Command {
     def apply(currentState: LogicState): LogicState = {
@@ -46,9 +50,15 @@ object Commands {
 
   case object Ls extends Command {
 
-    def buildList(state: LogicState): IndexedSeq[(Int, Option[Boolean], String)] = {
+    def buildList(
+        state: LogicState
+    ): IndexedSeq[(Int, Option[Boolean], String)] = {
       for (pos <- 0 until state.logicGraph.size)
-        yield (pos, state.logicGraph.getTruthOf(pos), state.printer.toAdvString(pos))
+        yield (
+          pos,
+          state.logicGraph.getTruthOf(pos),
+          state.printer.toAdvString(pos)
+        )
     }
 
     def lineToString(pos: Int, truth: Option[Boolean], expr: String): String = {
@@ -193,8 +203,10 @@ object Commands {
       def printUsage(): Unit = n match {
         case 0 => System.out.println(s"usage: ${command}")
         case 1 => System.out.println(s"usage: ${command} pos")
-        case _ if command == "fix" => System.out.println(s"usage: ${command} next pos")
-        case _ if command == "why" => System.out.println(s"usage: ${command} a b")
+        case _ if command == "fix" =>
+          System.out.println(s"usage: ${command} next pos")
+        case _ if command == "why" =>
+          System.out.println(s"usage: ${command} a b")
         case _ => {
           UnknownCommand.apply(currentState)
           ()
