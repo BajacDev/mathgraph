@@ -92,6 +92,10 @@ case class LogicGraph(
   def getTruthOf(pos: Int) = truth get pos
   def getAbsurd = absurd
   def isAbsurd: Boolean = !absurd.isEmpty
+  def getAllTruth(b: Boolean): Set[Int] = truth.filter(_._2 == b).keySet
+  def getAllTruth: Set[Int] = truth.keySet
+  def getHeadTail(p: Int): (Symbol, Seq[Int]) = exprForest.getHeadTail(p)
+  def getHeadTailInt(p: Int): (Int, Seq[Int]) = exprForest.getHeadTailInt(p)
 
   private def freshSymbolAssertEq(sym: Symbol): LogicGraph =
     getFreshSymbol match {
@@ -116,6 +120,14 @@ case class LogicGraph(
       case (ForallSymbol, inside +: args) => Some((inside, args))
       case _                              => None
     }
+
+  def isFixable(pos: Int):Boolean = 
+  unfoldForall(
+    pos
+  ) match {
+    case None => false
+    case Some((inside, args)) => exprForest.countSymbols(inside) > args.length
+  }
 
   // -------------------------------------------------------------
   // -------------------------------------------------------------

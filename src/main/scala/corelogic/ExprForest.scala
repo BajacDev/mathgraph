@@ -94,6 +94,16 @@ case class ExprForest(
     getHeadTailRec(p, Seq())
   }
 
+  def getHeadTailInt(p: Int): (Int, Seq[Int]) = {
+    def getHeadTailRec(pos: Int, args: Seq[Int]): (Int, Seq[Int]) = getExpr(
+      pos
+    ) match {
+      case Apply(next, arg) => getHeadTailRec(next, arg +: args)
+      case _ => (pos, args)
+    }
+    getHeadTailRec(p, Seq())
+  }
+
   def getHead(pos: Int): Symbol = getHeadTail(pos)._1
 
   def getTail(pos: Int): Seq[Int] = getHeadTail(pos)._2
