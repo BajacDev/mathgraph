@@ -6,13 +6,13 @@ import scala.util.parsing.combinator._
 import scala.io.Source
 import scala.language.implicitConversions
 
-object CommandParser extends Parsers with Pipeline[Seq[Token], Command] {
+object CommandParser extends Parsers with Pipeline[Seq[CommandToken], Command] {
 
-  type Elem = Token
+  type Elem = CommandToken
 
-  def index: Parser[String] = accept(
-    "index",
-    { case IndexToken(n) =>
+  def number: Parser[String] = accept(
+    "integer",
+    { case IntegerToken(n) =>
       n
     }
   )
@@ -24,9 +24,28 @@ object CommandParser extends Parsers with Pipeline[Seq[Token], Command] {
     }
   )
 
+  def anyKeyword: Parser[String] = {
+    zeroArgKeyword | oneArgKeyword | twoArgKeyword
+  }
+
+  def more = rep1(number | anyKeyword)
+
+  def oneArg = {
+    opt(anyKeyword) ~ opt(number) ^^ {
+      case None ~ Some(number) => Some(number)
+      case _ ~ _               => None
+    }
+  }
+
+  def twoArgs = {
+    oneArg ~ oneArg ^^ {
+      case Some(arg1) ~ Some(arg2) => Some((arg1, arg2))
+      case _                       => None
+    }
+  }
+
   def command: Parser[Command] = {
-    badZeroArgCommand | badOneArgCommand | badTwoArgCommand |
-      zeroArgCommand | oneArgCommand | twoArgCommand
+    zeroArgCommand | oneArgCommand | twoArgCommand
   }
 
   def zeroArgKeyword: Parser[String] = {
@@ -40,23 +59,31 @@ object CommandParser extends Parsers with Pipeline[Seq[Token], Command] {
       keyword("faf") |
       keyword("dij") |
       keyword("stats") |
-      keyword("proof")
+      keyword("proof") |
+      keyword("undo") |
+      keyword("clear")
   }
 
   def zeroArgCommand: Parser[Command] = {
-    zeroArgKeyword ^^ {
-      case "help"   => Help
-      case "leave"  => Leave
-      case "lse"    => Lse
-      case "lss"    => Lss
-      case "ls"     => Ls
-      case "absurd" => Absurd
-      case "fat"    => FixAllTrue
-      case "faf"    => FixAllFalse
-      case "dij"    => Dij
-      case "stats"  => Stats
-      case "proof"  => Proof
-      case _        => UnknownCommand
+    zeroArgKeyword ~ opt(more) ^^ {
+      case cmd ~ Some(rest) => BadCommand(cmd, 0)
+      case cmd ~ None =>
+        cmd match {
+          case "help"   => Help
+          case "leave"  => Leave
+          case "lse"    => Lse
+          case "lss"    => Lss
+          case "ls"     => Ls
+          case "absurd" => Absurd
+          case "fat"    => FixAllTrue
+          case "faf"    => FixAllFalse
+          case "dij"    => Dij
+          case "stats"  => Stats
+          case "proof"  => Proof
+          case "undo"   => Undo
+          case "clear"  => Clear
+          case _        => UnknownCommand
+        }
     }
   }
 
@@ -68,12 +95,17 @@ object CommandParser extends Parsers with Pipeline[Seq[Token], Command] {
   }
 
   def oneArgCommand: Parser[Command] = {
-    oneArgKeyword ~ index ^^ {
-      case "fixn" ~ index  => FixN(index.toInt)
-      case "apply" ~ index => Apply(index.toInt)
-      case "ctx" ~ index   => Ctx(index.toInt)
-      case "chain" ~ index => Chain(index.toInt)
-      case _               => UnknownCommand
+    oneArgKeyword ~ oneArg ~ opt(more) ^^ {
+      case cmd ~ None ~ _               => BadCommand(cmd, 1)
+      case cmd ~ Some(arg) ~ Some(rest) => BadCommand(cmd, 1)
+      case cmd ~ Some(arg) ~ None =>
+        cmd match {
+          case "fixn"  => FixN(arg.toInt)
+          case "apply" => Apply(arg.toInt)
+          case "ctx"   => Ctx(arg.toInt)
+          case "chain" => Chain(arg.toInt)
+          case _       => UnknownCommand
+        }
     }
   }
 
@@ -83,45 +115,19 @@ object CommandParser extends Parsers with Pipeline[Seq[Token], Command] {
   }
 
   def twoArgCommand: Parser[Command] = {
-    twoArgKeyword ~ index ~ index ^^ {
-      case "fix" ~ index1 ~ index2 => Fix(index1.toInt, index2.toInt)
-      case "why" ~ index1 ~ index2 => Why(index1.toInt, index2.toInt)
-      case _                       => UnknownCommand
+    twoArgKeyword ~ twoArgs ~ opt(more) ^^ {
+      case cmd ~ None ~ _                => BadCommand(cmd, 2)
+      case cmd ~ Some(args) ~ Some(rest) => BadCommand(cmd, 2)
+      case cmd ~ Some(args) ~ None =>
+        cmd match {
+          case "fix" => Fix(args._1.toInt, args._2.toInt)
+          case "why" => Why(args._1.toInt, args._2.toInt)
+          case _     => UnknownCommand
+        }
     }
   }
 
-  def anyKeyword: Parser[String] = {
-    zeroArgKeyword | oneArgKeyword | twoArgKeyword
-  }
-
-  def more = rep1(index | anyKeyword)
-
-  def keywordAndMore = anyKeyword ~ rep(index | anyKeyword)
-
-  def badZeroArgCommand: Parser[Command] = {
-    zeroArgKeyword ~ more ^^ { case keyword ~ _ =>
-      BadCommand(keyword, 0)
-    }
-  }
-
-  def badOneArgCommand: Parser[Command] = {
-    oneArgKeyword ~ opt(keywordAndMore | (index ~ more)) ^^ {
-      case keyword ~ _ => BadCommand(keyword, 1)
-    }
-  }
-
-  def badTwoArgCommand: Parser[Command] = {
-    twoArgKeyword ~ opt(
-      keywordAndMore |
-        index ~ keywordAndMore |
-        (index ~ index ~ more)
-    ) ^^ { case keyword ~ _ =>
-      BadCommand(keyword, 2)
-    }
-  }
-
-  protected def apply(tokens: Seq[Token])(ctxt: Context): Command = {
-
+  protected def apply(tokens: Seq[CommandToken])(ctxt: Context): Command = {
     if (tokens.contains(UnknownToken)) {
       UnknownCommand
     } else {

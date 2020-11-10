@@ -5,9 +5,11 @@ import scala.util.parsing.combinator.RegexParsers
 import scala.util.parsing.input.CharSequenceReader
 import scala.util.{Try, Success, Failure}
 
-object CommandLexer extends RegexParsers with Pipeline[String, Seq[Token]] {
+object CommandLexer
+    extends RegexParsers
+    with Pipeline[String, Seq[CommandToken]] {
 
-  val keywords = Set(
+  val keywords = List(
     "help",
     "leave",
     "lse",
@@ -22,13 +24,16 @@ object CommandLexer extends RegexParsers with Pipeline[String, Seq[Token]] {
     "faf",
     "dij",
     "stats",
+    "ctx",
     "chain",
-    "proof"
+    "proof",
+    "undo",
+    "clear"
   )
 
-  def keyword: Parser[Token] = positioned {
+  def keyword: Parser[CommandToken] = positioned {
     rep1(
-      acceptIf(c => !c.isWhitespace)(
+      acceptIf(c => !c.isWhitespace && !c.isDigit)(
         "Unexpected" + _
       )
     ) ^^ { cs =>
@@ -38,7 +43,7 @@ object CommandLexer extends RegexParsers with Pipeline[String, Seq[Token]] {
     }
   }
 
-  def number: Parser[Token] = positioned {
+  def number: Parser[CommandToken] = positioned {
     rep1(
       acceptIf(c => c.isDigit)(
         "Unexpected" + _
@@ -47,7 +52,7 @@ object CommandLexer extends RegexParsers with Pipeline[String, Seq[Token]] {
       val str = cs.mkString
       try {
         str.toInt
-        IndexToken(str)
+        IntegerToken(str)
       } catch {
         case e: Exception => UnknownToken
       }
@@ -58,7 +63,7 @@ object CommandLexer extends RegexParsers with Pipeline[String, Seq[Token]] {
     number | keyword
   }
 
-  def apply(str: String)(ctxt: Context): Seq[Token] = {
+  def apply(str: String)(ctxt: Context): Seq[CommandToken] = {
     parseAll(rep(token), str) match {
       case Success(tokens, _) =>
         tokens

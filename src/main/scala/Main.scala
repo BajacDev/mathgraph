@@ -1,11 +1,13 @@
 package mathgraph
-import util._
+import corelogic._
 import frontend._
-import repl.{CommandLexer, CommandParser}
-import repl.Commands._
-import scala.io.{Source, StdIn}
-import scala.util.{Try, Success, Failure}
 import io.AnsiColor._
+import printer._
+import repl.{CommandLexer, CommandParser, Repl}
+import repl.Commands._
+import scala.util.{Try, Success, Failure}
+import scala.io.Source
+import util._
 
 object Main {
 
@@ -25,27 +27,17 @@ object Main {
     val input = Source.fromFile(sourceFile).mkString
 
     try {
-      pipeline.run(input)(ctx)
+      val program = pipeline.run(input)(ctx)
+
+      val initialGraph = LogicGraph.init
+      val initialState =
+        LogicState(initialGraph, Printer.init(initialGraph), None)
+
+      val finalState = Repl(initialState)(ctx)
+
+      ()
     } catch {
       case FatalError(_) => sys.exit(1)
-    }
-
-    do {
-      System.out.print(s"${GREEN}>>> ${RESET}")
-    } while (process(ctx));
-  }
-
-  def process(ctx: Context): Boolean = {
-    val pipeline = CommandLexer andThen CommandParser
-    val command = pipeline.run(StdIn.readLine)(ctx)
-
-    command.apply()
-
-    command match {
-      case Leave => {
-        false
-      }
-      case _ => true
     }
   }
 }
