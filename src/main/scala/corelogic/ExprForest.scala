@@ -99,7 +99,7 @@ case class ExprForest(
       pos
     ) match {
       case Apply(next, arg) => getHeadTailRec(next, arg +: args)
-      case _ => (pos, args)
+      case _                => (pos, args)
     }
     getHeadTailRec(p, Seq())
   }

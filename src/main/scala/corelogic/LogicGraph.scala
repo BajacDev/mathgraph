@@ -121,13 +121,13 @@ case class LogicGraph(
       case _                              => None
     }
 
-  def isFixable(pos: Int):Boolean = 
-  unfoldForall(
-    pos
-  ) match {
-    case None => false
-    case Some((inside, args)) => exprForest.countSymbols(inside) > args.length
-  }
+  def isFixable(pos: Int): Boolean =
+    unfoldForall(
+      pos
+    ) match {
+      case None                 => false
+      case Some((inside, args)) => exprForest.countSymbols(inside) > args.length
+    }
 
   // -------------------------------------------------------------
   // -------------------------------------------------------------
