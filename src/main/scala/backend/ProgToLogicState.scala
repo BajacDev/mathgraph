@@ -35,7 +35,7 @@ object ProgToLogicState extends Pipeline[Program, LogicState] {
       args.foldLeft(head) {
         case ((lg, pos), arg) => {
           val (lg2, argPos) = exprToLogicGraph(arg, stringToExpr, lg)
-          lg2.apply(pos, argPos)
+          lg2.fix(pos, argPos)
         }
       }
     }
@@ -57,7 +57,7 @@ object ProgToLogicState extends Pipeline[Program, LogicState] {
       }.toMap
       val (lg, pos) = exprToLogicGraph(expr, localStringToExpr, logicGraph)
       globals.foldLeft(lg.forall(pos)) { case ((lg2, pos2), arg) =>
-        lg2.apply(pos2, globalstringToExpr(arg))
+        lg2.fix(pos2, globalstringToExpr(arg))
       }
     }
   }

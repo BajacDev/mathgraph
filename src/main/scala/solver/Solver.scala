@@ -36,7 +36,7 @@ object Solver {
       .filter(logicGraph.isFixable)
       .filter(!existsFalseFixer(logicGraph, _))
       .foldLeft(logicGraph) { case (lg, pos) =>
-        lg.applyLetSymbol(pos)._1
+        lg.fixLetSymbol(pos)._1
       }
   }
 
@@ -80,7 +80,7 @@ object Solver {
       argSet: Set[Int]
   ): LogicGraph = {
     argSet.foldLeft(logicGraph) { case (lg, arg) =>
-      lg.apply(pos, arg)._1
+      lg.fix(pos, arg)._1
     }
   }
 

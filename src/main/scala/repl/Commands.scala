@@ -99,7 +99,7 @@ object Commands {
   case class FixN(arg: Int) extends Command {
     override def apply(currentState: LogicState): LogicState = {
       val logicGraph = currentState.logicGraph
-      val (lg, pos) = logicGraph.applyLetSymbol(arg)
+      val (lg, pos) = logicGraph.fixLetSymbol(arg)
       currentState.copy(logicGraph = lg)
     }
   }
@@ -107,7 +107,7 @@ object Commands {
   case class Fix(arg1: Int, arg2: Int) extends Command {
     override def apply(currentState: LogicState): LogicState = {
       val logicGraph = currentState.logicGraph
-      val (lg, pos) = logicGraph.apply(arg1, arg2)
+      val (lg, pos) = logicGraph.fix(arg1, arg2)
       currentState.copy(logicGraph = lg)
     }
   }

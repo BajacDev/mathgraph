@@ -58,8 +58,8 @@ object HeadTail {
 
 trait InferenceRule
 case class ImplyIR(b: Boolean, implyPos: Int) extends InferenceRule
-object ApplyIR extends InferenceRule
-object ApplyLetSymIR extends InferenceRule
+object FixIR extends InferenceRule
+object FixLetSymIR extends InferenceRule
 object SimplifyIR extends InferenceRule
 object Axiom extends InferenceRule
 
@@ -113,7 +113,7 @@ case class LogicGraph(
   }
 
   def isFixOf(fix: Int, pos: Int): Boolean = exprForest.getExpr(fix) match {
-    case Apply(next, _) => next == pos
+    case Fixer(next, _) => next == pos
     case _              => false
   }
 
@@ -135,7 +135,7 @@ case class LogicGraph(
 
   /** returns a new symbol position * */
   def getFreshSymbol: (LogicGraph, Int) =
-    apply(defPos, exprForest.size) match {
+    fix(defPos, exprForest.size) match {
       case (newLogicGraph, pos) => (newLogicGraph, pos - 1)
     }
 
@@ -198,10 +198,10 @@ case class LogicGraph(
       inside
     ) match {
       case Symbol(id) => (this, args(id))
-      case Apply(next, arg) => {
+      case Fixer(next, arg) => {
         val (lgNext, posNext) = symplify(next, args)
         val (lgArg, posArg) = lgNext.symplify(arg, args)
-        lgArg.apply(posNext, posArg)
+        lgArg.fix(posNext, posArg)
       }
     }
 
@@ -235,33 +235,33 @@ case class LogicGraph(
   }
 
   // -------------------------------------------------------------
-  // apply inference rule
+  // fix inference rule
   // -------------------------------------------------------------
 
   // this section contains 2 inference rules
 
-  /** when A is in the graph, then A => Apply(A, B)
+  /** when A is in the graph, then A => Fixer(A, B)
     */
-  def apply(next: Int, arg: Int): (LogicGraph, Int) = {
-    val (newExprForest, pos) = exprForest.apply(next, arg)
+  def fix(next: Int, arg: Int): (LogicGraph, Int) = {
+    val (newExprForest, pos) = exprForest.fix(next, arg)
     copy(exprForest = newExprForest)
       .symplifyInferenceRuleLoop(pos)
-      .link(next, pos, ApplyIR) match {
+      .link(next, pos, FixIR) match {
       case graph =>
         if (graph.getExprForest.isLetSymbol(next, arg))
-          (graph.link(pos, next, ApplyLetSymIR), pos)
+          (graph.link(pos, next, FixLetSymIR), pos)
         else (graph, pos)
     }
   }
 
-  def forall(body: Int): (LogicGraph, Int) = apply(forallPos, body)
+  def forall(body: Int): (LogicGraph, Int) = fix(forallPos, body)
 
   /** when A is in the graph, then it exists a symbol call
-    * the LetSymbol of A (call it a) such that  A <=> Apply(A, a)
+    * the LetSymbol of A (call it a) such that  A <=> Fixer(A, a)
     */
-  def applyLetSymbol(pos: Int): (LogicGraph, Int) =
+  def fixLetSymbol(pos: Int): (LogicGraph, Int) =
     exprForest.getLetSymbol(pos) match {
-      case Some(posSymbol) => apply(pos, posSymbol)
+      case Some(posSymbol) => fix(pos, posSymbol)
       case None            => (this, pos)
     }
 

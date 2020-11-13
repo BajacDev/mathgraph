@@ -11,24 +11,24 @@ abstract class Expr
 case class Symbol(id: Int) extends Expr
 
 /** use Int instead of Expr:
-  *  - for faster hash. (only hash int, not each expression in Apply)
+  *  - for faster hash. (only hash int, not each expression in Fixer)
   *  - Symbols are only instanciated when needed
   *  - my c++ code use int, so I don't have to rethink the code entirely
   * avantage of using Expr instead of Int:
   *  - there is no need to go trough ExprForest to obtain next and arg Expr
   */
-case class Apply(next: Int, arg: Int) extends Expr
+case class Fixer(next: Int, arg: Int) extends Expr
 
-/** applyToPos(a) gives the equivalent of applyToPos indexOf a (but is faster)
-  * so we use applyToPos as a speedup mapping
+/** fixerToPos(a) gives the equivalent of fixerToPos indexOf a (but is faster)
+  * so we use fixerToPos as a speedup mapping
   */
 case class ExprForest(
-    applies: Seq[Apply] = Seq(),
-    applyToPos: Map[Apply, Int] = Map()
+    fixers: Seq[Fixer] = Seq(),
+    fixerToPos: Map[Fixer, Int] = Map()
 ) {
 
-  def size = applies.size * 2
-  def nextApplyPos = size + 1
+  def size = fixers.size * 2
+  def nextFixerPos = size + 1
 
   /** returns expression according to pos
     * note: there is as much symbol as Applies. this is used have enough LetSymbols
@@ -37,24 +37,24 @@ case class ExprForest(
     if (pos % 2 == 0) Symbol(pos / 2)
     else {
       require(pos >= 0 && pos < size)
-      applies(pos / 2)
+      fixers(pos / 2)
     }
   }
 
-  def apply(next: Int, arg: Int): (ExprForest, Int) = {
-    require(next >= 0 && next < nextApplyPos && arg >= 0 && arg < nextApplyPos)
+  def fix(next: Int, arg: Int): (ExprForest, Int) = {
+    require(next >= 0 && next < nextFixerPos && arg >= 0 && arg < nextFixerPos)
 
-    val newApply = Apply(next, arg)
+    val newFixer = Fixer(next, arg)
     // make sure we are not duplicating Applies
-    applyToPos get newApply match {
+    fixerToPos get newFixer match {
       case Some(pos) => (this, pos)
       case None =>
         (
           ExprForest(
-            applies :+ newApply,
-            applyToPos + (newApply -> nextApplyPos)
+            fixers :+ newFixer,
+            fixerToPos + (newFixer -> nextFixerPos)
           ),
-          nextApplyPos
+          nextFixerPos
         )
     }
   }
@@ -64,20 +64,20 @@ case class ExprForest(
       val pos = id * 2
       pos
     }
-    case a: Apply => {
-      require(applyToPos contains a)
-      applyToPos(a)
+    case a: Fixer => {
+      require(fixerToPos contains a)
+      fixerToPos(a)
     }
   }
 
   def idToPos(id: Int): Int = getPos(Symbol(id))
 
-  /** count the number of Apply it would take to fix this expr
+  /** count the number of Fixer it would take to fix this expr
     * eg: returns 4 for 0(3, 1)
     */
   def countSymbols(pos: Int): Int = getExpr(pos) match {
     case Symbol(id)       => id + 1
-    case Apply(next, arg) => max(countSymbols(next), countSymbols(arg))
+    case Fixer(next, arg) => max(countSymbols(next), countSymbols(arg))
   }
 
   /** retun the head and tail of an expression
@@ -89,7 +89,7 @@ case class ExprForest(
       pos
     ) match {
       case s: Symbol        => (s, args)
-      case Apply(next, arg) => getHeadTailRec(next, arg +: args)
+      case Fixer(next, arg) => getHeadTailRec(next, arg +: args)
     }
     getHeadTailRec(p, Seq())
   }
@@ -98,7 +98,7 @@ case class ExprForest(
     def getHeadTailRec(pos: Int, args: Seq[Int]): (Int, Seq[Int]) = getExpr(
       pos
     ) match {
-      case Apply(next, arg) => getHeadTailRec(next, arg +: args)
+      case Fixer(next, arg) => getHeadTailRec(next, arg +: args)
       case _                => (pos, args)
     }
     getHeadTailRec(p, Seq())
