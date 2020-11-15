@@ -4,6 +4,7 @@ import CommandLexer._
 import io.AnsiColor._
 import mathgraph.corelogic._
 import mathgraph.printer._
+import mathgraph.solver._
 
 object Commands {
 
@@ -80,29 +81,33 @@ object Commands {
 
   case object Absurd extends Command {
     override def apply(currentState: LogicState): LogicState = {
-      System.out.println("Absurd command recognized")
+      val logicGraph = currentState.logicGraph
+      System.out.println(s"Is absurd: ${logicGraph.isAbsurd}")
       currentState
     }
   }
 
   case class FixN(arg: Int) extends Command {
     override def apply(currentState: LogicState): LogicState = {
-      System.out.println(s"Fixn command recognized (arg = ${arg})")
-      currentState
+      val logicGraph = currentState.logicGraph
+      val (lg, pos) = logicGraph.applyLetSymbol(arg)
+      currentState.copy(logicGraph = lg)
     }
   }
 
   case class Fix(arg1: Int, arg2: Int) extends Command {
     override def apply(currentState: LogicState): LogicState = {
-      System.out.println(s"Fix command recognized args = (${arg1}, ${arg2})")
-      currentState
+      val logicGraph = currentState.logicGraph
+      val (lg, pos) = logicGraph.apply(arg1, arg2)
+      currentState.copy(logicGraph = lg)
     }
   }
 
-  case class Apply(arg: Int) extends Command {
+  case class Simplify(arg: Int) extends Command {
     override def apply(currentState: LogicState): LogicState = {
-      System.out.println(s"Apply command recognized (arg = ${arg})")
-      currentState
+      val logicGraph = currentState.logicGraph
+      val (lg, pos) = logicGraph.symplifyInferenceRule(arg)
+      currentState.copy(logicGraph = lg)
     }
   }
 
@@ -115,15 +120,17 @@ object Commands {
 
   case object FixAllTrue extends Command {
     override def apply(currentState: LogicState): LogicState = {
-      System.out.println("Fix all true, command recognized")
-      currentState
+      val logicGraph = currentState.logicGraph
+      val lg = Solver.fixAll(logicGraph)
+      currentState.copy(logicGraph = lg)
     }
   }
 
   case object FixAllFalse extends Command {
     override def apply(currentState: LogicState): LogicState = {
-      System.out.println("Fix all false, command recognized")
-      currentState
+      val logicGraph = currentState.logicGraph
+      val lg = Solver.fixLetSym(logicGraph)
+      currentState.copy(logicGraph = lg)
     }
   }
 

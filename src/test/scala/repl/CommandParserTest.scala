@@ -23,14 +23,16 @@ class CommandParserTest extends AnyFunSuite {
 
     def ?(nothing: Unit): Unit = expect(UnknownCommand)
 
-    def !(expected: (String, Int)): Unit = expect(BadCommand(expected._1, expected._2))
+    def !(expected: (String, Int)): Unit = expect(
+      BadCommand(expected._1, expected._2)
+    )
   }
 
   implicit def parse(input: String): TestOutput = {
     TestOutput(pipeline.run(input)(ctx))
   }
 
-  test("unit commands are parsed correctly"){
+  test("unit commands are parsed correctly") {
     "help" ==> Help
     "leave" ==> Leave
     "lse" ==> Lse
@@ -46,13 +48,13 @@ class CommandParserTest extends AnyFunSuite {
     "clear" ==> Clear
   }
 
-  test("consumer commands are parsed correctly"){
+  test("consumer commands are parsed correctly") {
     "fixn 1" ==> FixN(1)
-    "apply 1" ==> Apply(1)
+    "simplify 1" ==> Simplify(1)
     "ctx 1" ==> Ctx(1)
     "chain 1" ==> Chain(1)
 
-    "apply 12" ==> Apply(12)
+    "simplify 12" ==> Simplify(12)
     "ctx 27" ==> Ctx(27)
     "chain 999" ==> Chain(999)
 
@@ -62,7 +64,7 @@ class CommandParserTest extends AnyFunSuite {
     "fixn 5" ==> FixN(5)
   }
 
-  test("biconsumer commands are parsed correctly"){
+  test("biconsumer commands are parsed correctly") {
     "fix 0 0" ==> Fix(0, 0)
     "fix 1 2" ==> Fix(1, 2)
     "fix 402 0" ==> Fix(402, 0)
@@ -75,7 +77,7 @@ class CommandParserTest extends AnyFunSuite {
     "why 1287 0" ==> Why(1287, 0)
   }
 
-  test("wrong usage of unit commands is detected correctly"){
+  test("wrong usage of unit commands is detected correctly") {
     "help 0" ! ("help", 0)
     "leave 1" ! ("leave", 0)
     "lse 45" ! ("lse", 0)
@@ -91,14 +93,14 @@ class CommandParserTest extends AnyFunSuite {
     "faf 1 proof 1" ! ("faf", 0)
   }
 
-  test("wrong usage of consumer commands is detected correctly"){
+  test("wrong usage of consumer commands is detected correctly") {
     "fixn 1 2" ! ("fixn", 1)
-    "apply 123 21371" ! ("apply", 1)
+    "simplify 123 21371" ! ("simplify", 1)
     "ctx 1 12 13" ! ("ctx", 1)
     "chain 13 33" ! ("chain", 1)
 
     "fixn" ! ("fixn", 1)
-    "apply" ! ("apply", 1)
+    "simplify" ! ("simplify", 1)
     "ctx" ! ("ctx", 1)
     "chain" ! ("chain", 1)
 
@@ -111,7 +113,7 @@ class CommandParserTest extends AnyFunSuite {
     "fixn 1 help" ! ("fixn", 1)
   }
 
-  test("wrong usage of biconsumer commands is detected correctly"){
+  test("wrong usage of biconsumer commands is detected correctly") {
     "fix" ! ("fix", 2)
     "why" ! ("why", 2)
 
@@ -130,8 +132,8 @@ class CommandParserTest extends AnyFunSuite {
     "fix fix 12 123" ! ("fix", 2)
     "fix why 12" ! ("fix", 2)
     "fix absurd" ! ("fix", 2)
-    "fix apply" ! ("fix", 2)
-    "fix apply 1" ! ("fix", 2)
+    "fix simplify" ! ("fix", 2)
+    "fix simplify 1" ! ("fix", 2)
 
     "why why" ! ("why", 2)
     "why fix" ! ("why", 2)
@@ -139,8 +141,8 @@ class CommandParserTest extends AnyFunSuite {
     "why fix 12 123" ! ("why", 2)
     "why why 12" ! ("why", 2)
     "why proof" ! ("why", 2)
-    "why apply" ! ("why", 2)
-    "why apply 1" ! ("why", 2)
+    "why simplify" ! ("why", 2)
+    "why simplify 1" ! ("why", 2)
   }
 
   def randomAlphanumeric(): Char = {
@@ -148,14 +150,14 @@ class CommandParserTest extends AnyFunSuite {
   }
 
   def randomLetter(): Char = randomAlphanumeric() match {
-    case c if(c.isDigit) => randomLetter()
-    case c => c
+    case c if (c.isDigit) => randomLetter()
+    case c                => c
   }
 
   def randomNonKeyword(nextChar: () => Char, maxLength: Int): String = {
 
     def randomAcc(acc: String, length: Int): String = {
-      if(length <= 0)
+      if (length <= 0)
         acc
       else
         randomAcc(acc + nextChar(), length - 1)
@@ -163,18 +165,18 @@ class CommandParserTest extends AnyFunSuite {
 
     val random = randomAcc("", Random.nextInt(maxLength))
 
-    if(CommandLexer.keywords.contains(random))
+    if (CommandLexer.keywords.contains(random))
       randomNonKeyword(nextChar, maxLength)
     else
       random
   }
 
-  test("random strings lead to unkown commands"){
+  test("random strings lead to unkown commands") {
 
     val nbTests = Random.nextInt(100)
     val maxLength = 20
 
-    for(i <- 0 until nbTests) yield {
+    for (i <- 0 until nbTests) yield {
       randomNonKeyword(randomLetter, maxLength) ? ()
       randomNonKeyword(randomAlphanumeric, maxLength) ? ()
     }

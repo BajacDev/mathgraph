@@ -89,7 +89,7 @@ object CommandParser extends Parsers with Pipeline[Seq[CommandToken], Command] {
 
   def oneArgKeyword: Parser[String] = {
     keyword("fixn") |
-      keyword("apply") |
+      keyword("simplify") |
       keyword("ctx") |
       keyword("chain")
   }
@@ -100,11 +100,11 @@ object CommandParser extends Parsers with Pipeline[Seq[CommandToken], Command] {
       case cmd ~ Some(arg) ~ Some(rest) => BadCommand(cmd, 1)
       case cmd ~ Some(arg) ~ None =>
         cmd match {
-          case "fixn"  => FixN(arg.toInt)
-          case "apply" => Apply(arg.toInt)
-          case "ctx"   => Ctx(arg.toInt)
-          case "chain" => Chain(arg.toInt)
-          case _       => UnknownCommand
+          case "fixn"     => FixN(arg.toInt)
+          case "simplify" => Simplify(arg.toInt)
+          case "ctx"      => Ctx(arg.toInt)
+          case "chain"    => Chain(arg.toInt)
+          case _          => UnknownCommand
         }
     }
   }

@@ -18,7 +18,7 @@ object CommandLexer
     "absurd",
     "fixn",
     "fix",
-    "apply",
+    "simplify",
     "why",
     "fat",
     "faf",

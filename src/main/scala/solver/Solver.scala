@@ -41,12 +41,14 @@ object Solver {
   }
 
   def existsFalseFixer(logicGraph: LogicGraph, pos: Int): Boolean = {
-    logicGraph.getImplies(pos).exists(
-      other => logicGraph.isFixOf(other, pos) && logicGraph.isTruth(other, false)
-    )
+    logicGraph
+      .getImplies(pos)
+      .exists(other =>
+        logicGraph.isFixOf(other, pos) && logicGraph.isTruth(other, false)
+      )
   }
 
-  /** fix all expressions using stats **/
+  /** fix all expressions using stats * */
   def fixAll(logicGraph: LogicGraph): LogicGraph = {
     val exprSet = logicGraph.getAllTruth
     val stats = getStats(logicGraph, exprSet)
