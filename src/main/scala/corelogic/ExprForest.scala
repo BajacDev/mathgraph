@@ -34,9 +34,11 @@ case class ExprForest(
     * note: there is as much symbol as Applies. this is used have enough LetSymbols
     */
   def getExpr(pos: Int): Expr = {
-    require(pos >= 0 && pos < size)
     if (pos % 2 == 0) Symbol(pos / 2)
-    else applies(pos / 2)
+    else {
+      require(pos >= 0 && pos < size)
+      applies(pos / 2)
+    }
   }
 
   def apply(next: Int, arg: Int): (ExprForest, Int) = {
@@ -60,7 +62,6 @@ case class ExprForest(
   def getPos(expr: Expr): Int = expr match {
     case Symbol(id) => {
       val pos = id * 2
-      require(pos >= 0 && pos < size)
       pos
     }
     case a: Apply => {
