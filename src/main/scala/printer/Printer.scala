@@ -3,25 +3,10 @@ package mathgraph.printer
 import mathgraph.corelogic._
 import io.AnsiColor._
 
-object Printer {
-  def init(logicGraph: LogicGraph): Printer = {
-    val e2s = Map(
-      logicGraph.defPos -> "def",
-      logicGraph.falsePos -> "false",
-      logicGraph.truePos -> "true",
-      logicGraph.implyPos -> "->"
-    )
-    new Printer(logicGraph, e2s)
-  }
-}
-
 case class Printer(
     logicGraph: LogicGraph,
-    exprToString: Map[Int, String] = Map()
+    exprToString: Map[Int, String]
 ) {
-
-  def add(pos: Int, name: String): Printer =
-    copy(exprToString = exprToString + (pos -> name))
 
   /** print expression in a simple way * */
   def toSimpleString(pos: Int): String = {
