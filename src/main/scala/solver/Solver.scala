@@ -34,11 +34,19 @@ object Solver {
     logicGraph
       .getAllTruth(false)
       .filter(logicGraph.isFixable)
+      .filter(!existsFalseFixer(logicGraph, _))
       .foldLeft(logicGraph) { case (lg, pos) =>
         lg.applyLetSymbol(pos)._1
       }
   }
 
+  def existsFalseFixer(logicGraph: LogicGraph, pos: Int): Boolean = {
+    logicGraph.getImplies(pos).exists(
+      other => logicGraph.isFixOf(other, pos) && logicGraph.isTruth(other, false)
+    )
+  }
+
+  /** fix all expressions using stats **/
   def fixAll(logicGraph: LogicGraph): LogicGraph = {
     val exprSet = logicGraph.getAllTruth
     val stats = getStats(logicGraph, exprSet)

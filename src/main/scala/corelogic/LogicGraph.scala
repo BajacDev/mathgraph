@@ -97,7 +97,22 @@ case class LogicGraph(
   def getHeadTail(p: Int): (Symbol, Seq[Int]) = exprForest.getHeadTail(p)
   def getHeadTailInt(p: Int): (Int, Seq[Int]) = exprForest.getHeadTailInt(p)
 
-  private def freshSymbolAssertEq(sym: Symbol): LogicGraph =
+  def getImplies(p: Int): Set[Int] = imply.get(p) match {
+    case None => Set()
+    case Some(set) => set
+  }
+
+  def isFixOf(fix: Int, pos: Int): Boolean = exprForest.getExpr(fix) match {
+    case Apply(next, _) => next == fix
+    case _ => false
+  }
+
+  def isTruth(pos: Int, b: Boolean): Boolean = getTruthOf(pos) match {
+    case Some(r) => r == b
+    case None => false
+  }
+
+  private def freshSymbolAssertEq(sym: Symbol): LogicGraph = 
     getFreshSymbol match {
       case (lg, symbolPos) => {
         assert(lg.getExpr(symbolPos) == sym)
