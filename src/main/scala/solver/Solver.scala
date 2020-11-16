@@ -103,9 +103,7 @@ object Solver {
 
     def getStatsHeadTail(head: Int, tail: Seq[Int], result: Stats): Stats = {
       tail.zipWithIndex.foldLeft(result) { case (map, (arg, idx)) =>
-        tail.foldLeft(insertPair(Context(head, idx), arg, result)) {
-          case (map2, pos) => getStatsPos(pos, map2)
-        }
+        insertPair(Context(head, idx), arg, map) ++ getStatsPos(arg, map)
       }
     }
 
@@ -131,6 +129,7 @@ object Solver {
     * here returns Set(Context({0(1,2)}, 1), Context(+, 2))
     */
   def getContexts(logicGraph: LogicGraph, pos: Int): Set[Context] = {
+
     def getContextsOutside(p: Int): Context = {
       logicGraph.unfoldForall(p) match {
         case None =>
@@ -140,9 +139,10 @@ object Solver {
         case Some((inside, args)) => Context(inside, args.length)
       }
     }
+
     val contexts: Set[Context] = logicGraph.unfoldForall(pos) match {
       case Some((inside, args)) =>
-        getContextsInside(logicGraph, inside, args.map(getContextsOutside _))
+        getContextsInside(logicGraph, inside, args.map(getContextsOutside))
       case _ => Set()
     }
     contexts + getContextsOutside(pos)
