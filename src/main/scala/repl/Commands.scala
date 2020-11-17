@@ -37,35 +37,37 @@ object Commands {
     }
   }
 
-  case object Lss extends Command {
-    def buildList(
-        state: LogicState
-    ): IndexedSeq[(Int, Option[Boolean], String)] = {
-      for (pos <- 0 until state.logicGraph.size)
-        yield (
-          pos,
-          state.logicGraph.getTruthOf(pos),
-          state.printer.toSimpleString(state.logicGraph, pos)
-        )
+  def lineToString(pos: Int, truth: Option[Boolean], expr: String): String = {
+    val truthStr = truth match {
+      case None    => "\t\t"
+      case Some(v) => s"[$v]\t"
     }
+    pos.toString + " " + truthStr + " " + expr
+  }
 
-    def lineToString(pos: Int, truth: Option[Boolean], expr: String): String = {
-      val truthStr = truth match {
-        case None    => "\t\t"
-        case Some(v) => s"[$v]\t"
-      }
-      pos.toString + " " + truthStr + " " + expr
-    }
+  def buildLines(
+      logicGraph: LogicGraph,
+      exprs: Iterable[Int],
+      printFunc: Int => String
+  ): Iterable[(Int, Option[Boolean], String)] = {
+    exprs.map(pos => (
+      pos,
+      logicGraph.getTruthOf(pos),
+      printFunc(pos)
+    ))
+  }
+
+  case object Lss extends Command {
+    
 
     override def apply(currentState: LogicState): LogicState = {
-
-      System.out.println(
-        buildList(currentState)
-          .map { case (p, t, e) =>
-            lineToString(p, t, e)
-          }
-          .mkString("\n")
-      )
+      val lg = currentState.logicGraph
+      val printer = currentState.printer
+      buildLines(lg, 0 until lg.size, printer.toSimpleString(lg, _))
+      .map { case (p, t, e) =>
+        lineToString(p, t, e)
+      }
+      .foreach(System.out.println)
 
       currentState
     }
@@ -73,33 +75,14 @@ object Commands {
 
   case object Ls extends Command {
 
-    def buildList(
-        state: LogicState
-    ): IndexedSeq[(Int, Option[Boolean], String)] = {
-      for (pos <- 0 until state.logicGraph.size)
-        yield (
-          pos,
-          state.logicGraph.getTruthOf(pos),
-          state.printer.toString(state.logicGraph, pos)
-        )
-    }
-
-    def lineToString(pos: Int, truth: Option[Boolean], expr: String): String = {
-      val truthStr = truth match {
-        case None    => "\t\t"
-        case Some(v) => s"[$v]\t"
-      }
-      pos.toString + " " + truthStr + " " + expr
-    }
-
     override def apply(currentState: LogicState): LogicState = {
-      System.out.println(
-        buildList(currentState)
-          .map { case (p, t, e) =>
-            lineToString(p, t, e)
-          }
-          .mkString("\n")
-      )
+      val lg = currentState.logicGraph
+      val printer = currentState.printer
+      buildLines(lg, 0 until lg.size, printer.toString(lg, _))
+      .map { case (p, t, e) =>
+        lineToString(p, t, e)
+      }
+      .foreach(System.out.println)
 
       currentState
     }
@@ -108,7 +91,7 @@ object Commands {
   case object Absurd extends Command {
     override def apply(currentState: LogicState): LogicState = {
       val logicGraph = currentState.logicGraph
-      System.out.println(s"Is absurd: ${logicGraph.isAbsurd}")
+      System.out.println(s"Absurd: ${logicGraph.isAbsurd}")
       currentState
     }
   }

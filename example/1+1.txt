@@ -1,11 +1,10 @@
-let 0,s;
-let +,=;
+let 0, s, +, =;
 
-let and(a,b) = (a -> (b -> false)) -> false;
-let <->(a,b) = (a -> b) and (b -> a);
+let and(a,b) ::= (a -> (b -> false)) -> false;
+let <->(a,b) ::= (a -> b) and (b -> a);
 
-let 1 = s(0);
-let 2 = s(1);
+let 1 ::= s(0);
+let 2 ::= s(1);
 
 n = n;
 (0 + n) = n;
