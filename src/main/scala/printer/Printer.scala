@@ -99,7 +99,7 @@ case class Printer(
                       argsToString(args)
                     )
                 }
-              case Apply(next, arg) =>
+              case Fixer(next, arg) =>
                 toStringRec(next, arg :: args, exprNames, forallPos)
             }
         }
