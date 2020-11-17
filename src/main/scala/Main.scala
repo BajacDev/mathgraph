@@ -16,7 +16,7 @@ object Main {
 
     val defaultExample = "example/test.txt"
     val pipeline =
-      Lexer andThen Parser andThen Simplifier andThen ForallToLets andThen Interpreter
+      Lexer andThen Parser andThen Simplifier andThen ForallToLets andThen ProgToLogicState
     val ctx = new Context()
 
     val sourceFile = if (args.size >= 2) {

@@ -9,7 +9,7 @@ import mathgraph.util.{Context => UtilContext}
 import mathgraph.backend.{BackendContext => Context}
 import mathgraph.printer._
 
-object Interpreter extends Pipeline[Program, LogicState] {
+object ProgToLogicState extends Pipeline[Program, LogicState] {
 
   def globalIdentifiers(
       expr: Expr,
