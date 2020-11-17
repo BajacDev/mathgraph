@@ -7,6 +7,7 @@ object Trees {
   abstract class Tree extends Positional
   abstract class Expr extends Tree
   abstract class Def extends Tree
+  abstract class AbstractForall extends Expr
 
   type Identifier = String
 
@@ -41,7 +42,11 @@ object Trees {
   case class Apply(id: Identifier, args: Seq[Expr]) extends Expr
 
   /** Representation of forall */
-  case class Forall(id: Identifier, body: Expr) extends Expr
+  case class Forall(id: Identifier, body: Expr) extends AbstractForall
+
+  /** Representation of forall with multiple free variable */
+  case class MultiForall(ids: Seq[Identifier], body: Expr)
+      extends AbstractForall
 
   // ----------------------------------------------------
   // Desugared expressions

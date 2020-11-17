@@ -1,16 +1,11 @@
 package mathgraph.repl
+
 import CommandLexer._
 import io.AnsiColor._
 import mathgraph.corelogic._
 import mathgraph.printer._
 
 object Commands {
-
-  case class LogicState(
-      logicGraph: LogicGraph,
-      printer: Printer,
-      previousState: Option[LogicState]
-  )
 
   abstract class Command {
     def apply(currentState: LogicState): LogicState = {

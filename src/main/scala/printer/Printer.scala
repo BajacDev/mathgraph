@@ -3,21 +3,9 @@ package mathgraph.printer
 import mathgraph.corelogic._
 import io.AnsiColor._
 
-object Printer {
-  def init(logicGraph: LogicGraph): Printer = {
-    val e2s = Map(
-      logicGraph.defPos -> "def",
-      logicGraph.falsePos -> "false",
-      logicGraph.truePos -> "true",
-      logicGraph.implyPos -> "->"
-    )
-    new Printer(logicGraph, e2s)
-  }
-}
-
-class Printer(
+case class Printer(
     logicGraph: LogicGraph,
-    exprToString: Map[Int, String] = Map()
+    exprToString: Map[Int, String]
 ) {
 
   /** print expression in a simple way * */
@@ -38,8 +26,8 @@ class Printer(
 
   /** generate names for Symbol. eg: 0: 'a', 1: 'b', ..., 26: 'a1'
     * gives color to symbol according to
-    * - what symbol is left to be fixed (MAGENTA)
-    * - what is the next symbol to be fixed (BLUE)
+    * - what symbol is left to be fixed (BLUE)
+    * - what is the next symbol to be fixed (MAGENTA)
     * id: the symbol id
     * numArg: the number of args outside of the forall (if any)
     */
@@ -47,8 +35,8 @@ class Printer(
     val char = (id % 26 + 'a'.toInt).toChar
     val result = if (id < 26) char.toString else s"$char${(id / 26)}"
     numArgs match {
-      case Some(n) if id == n => s"${BLUE}${result}${RESET}"
-      case Some(n) if id > n  => s"${MAGENTA}${result}${RESET}"
+      case Some(n) if id == n => s"${MAGENTA}${result}${RESET}"
+      case Some(n) if id > n  => s"${BLUE}${result}${RESET}"
       case _                  => result
     }
   }

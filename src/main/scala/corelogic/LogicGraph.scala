@@ -81,6 +81,8 @@ case class LogicGraph(
   def implyPos = exprForest.getPos(ImplySymbol)
   def forallPos = exprForest.getPos(ForallSymbol)
 
+  def implyId = ImplySymbol.id
+
   def size = exprForest.size
   def idToPos(id: Int): Int = exprForest.idToPos(id)
   def getExprForest = exprForest
@@ -214,6 +216,8 @@ case class LogicGraph(
         else (graph, pos)
     }
   }
+
+  def forall(body: Int): (LogicGraph, Int) = apply(forallPos, body)
 
   /** when A is in the graph, then it exists a symbol call
     * the LetSymbol of A (call it a) such that  A <=> Apply(A, a)
