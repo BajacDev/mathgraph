@@ -22,7 +22,7 @@ object CommandLexer
     "why",
     "fat",
     "faf",
-    "dij",
+    "s",
     "stats",
     "ctx",
     "chain",

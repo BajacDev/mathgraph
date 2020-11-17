@@ -57,7 +57,7 @@ object CommandParser extends Parsers with Pipeline[Seq[CommandToken], Command] {
       keyword("absurd") |
       keyword("fat") |
       keyword("faf") |
-      keyword("dij") |
+      keyword("s") |
       keyword("stats") |
       keyword("proof") |
       keyword("undo") |
@@ -77,7 +77,7 @@ object CommandParser extends Parsers with Pipeline[Seq[CommandToken], Command] {
           case "absurd" => Absurd
           case "fat"    => FixAllTrue
           case "faf"    => FixAllFalse
-          case "dij"    => Dij
+          case "s"      => Saturate
           case "stats"  => Stats
           case "proof"  => Proof
           case "undo"   => Undo

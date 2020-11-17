@@ -37,6 +37,16 @@ object ImplySymbol extends Symbol(3)
 /** forall symbol * */
 object ForallSymbol extends Symbol(4)
 
+object Forall {
+  def unapply(pos: Int)(implicit lg: LogicGraph): Option[(Int, Seq[Int])] =
+    lg.unfoldForall(pos)
+}
+
+object HeadTail {
+  def unapply(pos: Int)(implicit lg: LogicGraph): Option[(Int, Seq[Int])] =
+    Some(lg.getHeadTailInt(pos))
+}
+
 // -----------------------------------
 // inference rules
 // -----------------------------------
@@ -103,7 +113,7 @@ case class LogicGraph(
   }
 
   def isFixOf(fix: Int, pos: Int): Boolean = exprForest.getExpr(fix) match {
-    case Apply(next, _) => next == fix
+    case Apply(next, _) => next == pos
     case _              => false
   }
 
@@ -251,7 +261,7 @@ case class LogicGraph(
     */
   def applyLetSymbol(pos: Int): (LogicGraph, Int) =
     exprForest.getLetSymbol(pos) match {
-      case Some(posSymbol) => apply(posSymbol, pos)
+      case Some(posSymbol) => apply(pos, posSymbol)
       case None            => (this, pos)
     }
 

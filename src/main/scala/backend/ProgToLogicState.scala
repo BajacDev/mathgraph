@@ -85,7 +85,7 @@ object ProgToLogicState extends Pipeline[Program, LogicState] {
     }
 
   def contextToLogicState(ctx: Context): LogicState = {
-    val printer = Printer(ctx.logicGraph, ctx.stringToExpr.map(_.swap))
+    val printer = Printer(ctx.stringToExpr.map(_.swap))
     LogicState(ctx.logicGraph, printer, None)
   }
 

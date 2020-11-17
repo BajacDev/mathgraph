@@ -99,7 +99,7 @@ object Solver {
     * eg: expression +(1, f(7)) will return the map
     * Map(Context('+', 0) -> Set('1'), Context('+', 1) -> Set('f(7)'), Context('f', 0) -> Set('7'))
     */
-  def getStats(logicGraph: LogicGraph, exprSet: Set[Int]): Stats = {
+  def getStats(implicit logicGraph: LogicGraph, exprSet: Set[Int]): Stats = {
 
     def getStatsHeadTail(head: Int, tail: Seq[Int], result: Stats): Stats = {
       tail.zipWithIndex.foldLeft(result) { case (map, (arg, idx)) =>
@@ -109,12 +109,9 @@ object Solver {
 
     // return stats from one expression
     def getStatsPos(pos: Int, result: Stats): Stats = {
-      logicGraph.unfoldForall(pos) match {
-        case None =>
-          logicGraph.getHeadTailInt(pos) |> { case (head, tail) =>
-            getStatsHeadTail(head, tail, result)
-          }
-        case Some((inside, args)) => getStatsHeadTail(inside, args, result)
+      pos match {
+        case Forall(inside, args) => getStatsHeadTail(inside, args, result)
+        case HeadTail(head, tail) => getStatsHeadTail(head, tail, result)
       }
     }
 
@@ -128,24 +125,21 @@ object Solver {
     * inside the forall and outside
     * here returns Set(Context({0(1,2)}, 1), Context(+, 2))
     */
-  def getContexts(logicGraph: LogicGraph, pos: Int): Set[Context] = {
+  def getContexts(implicit logicGraph: LogicGraph, pos: Int): Set[Context] = {
 
     def getContextsOutside(p: Int): Context = {
-      logicGraph.unfoldForall(p) match {
-        case None =>
-          logicGraph.getHeadTailInt(p) |> { case (head, tail) =>
-            Context(head, tail.length)
-          }
-        case Some((inside, args)) => Context(inside, args.length)
+      p match {
+        case Forall(inside, args) => Context(inside, args.length)
+        case HeadTail(head, tail) => Context(head, tail.length)
       }
     }
 
-    val contexts: Set[Context] = logicGraph.unfoldForall(pos) match {
-      case Some((inside, args)) =>
+    val contextInside: Set[Context] = pos match {
+      case Forall(inside, args) =>
         getContextsInside(logicGraph, inside, args.map(getContextsOutside))
       case _ => Set()
     }
-    contexts + getContextsOutside(pos)
+    contextInside + getContextsOutside(pos)
   }
 
   def getContextsInside(
@@ -161,18 +155,19 @@ object Solver {
     if (sym.id >= idArg) Set()
     else
       args.zipWithIndex.foldLeft(Set[Context]()) { case (set, (arg, idx)) =>
-        set ++ (logicGraph.getExpr(arg) match {
+        logicGraph.getExpr(arg) match {
 
           // eg: {0(1,2)}(+(a))
           // when we simplify this expression with arg number 1 and 2 fixed, we obtain
           // +(a, arg1). So the arguement number 1 in this context: ('+', 2)
           case Symbol(idSym) if idSym == idArg =>
-            Set(
-              Context(outsideArgs(sym.id).head, idx + outsideArgs(sym.id).idArg)
+            set + Context(
+              outsideArgs(sym.id).head,
+              idx + outsideArgs(sym.id).idArg
             )
 
-          case Apply(_, _) => getContextsInside(logicGraph, arg, outsideArgs)
-        })
+          case _ => set ++ getContextsInside(logicGraph, arg, outsideArgs)
+        }
       }
   }
 

@@ -41,7 +41,7 @@ class CommandParserTest extends AnyFunSuite {
     "absurd" ==> Absurd
     "fat" ==> FixAllTrue
     "faf" ==> FixAllFalse
-    "dij" ==> Dij
+    "s" ==> Saturate
     "stats" ==> Stats
     "proof" ==> Proof
     "undo" ==> Undo

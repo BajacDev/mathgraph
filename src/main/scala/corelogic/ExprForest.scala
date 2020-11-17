@@ -109,8 +109,8 @@ case class ExprForest(
   def getTail(pos: Int): Seq[Int] = getHeadTail(pos)._2
 
   def getLetSymbol(pos: Int): Option[Int] = getExpr(pos) match {
-    case expr: Expr => Some(pos - 1)
-    case _          => None
+    case _: Expr => Some(pos - 1)
+    case _       => None
   }
 
   def isLetSymbol(next: Int, arg: Int): Boolean = getLetSymbol(
