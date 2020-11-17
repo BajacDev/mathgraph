@@ -50,24 +50,25 @@ object Commands {
       exprs: Iterable[Int],
       printFunc: Int => String
   ): Iterable[(Int, Option[Boolean], String)] = {
-    exprs.map(pos => (
-      pos,
-      logicGraph.getTruthOf(pos),
-      printFunc(pos)
-    ))
+    exprs.map(pos =>
+      (
+        pos,
+        logicGraph.getTruthOf(pos),
+        printFunc(pos)
+      )
+    )
   }
 
   case object Lss extends Command {
-    
 
     override def apply(currentState: LogicState): LogicState = {
       val lg = currentState.logicGraph
       val printer = currentState.printer
       buildLines(lg, 0 until lg.size, printer.toSimpleString(lg, _))
-      .map { case (p, t, e) =>
-        lineToString(p, t, e)
-      }
-      .foreach(System.out.println)
+        .map { case (p, t, e) =>
+          lineToString(p, t, e)
+        }
+        .foreach(System.out.println)
 
       currentState
     }
@@ -79,10 +80,10 @@ object Commands {
       val lg = currentState.logicGraph
       val printer = currentState.printer
       buildLines(lg, 0 until lg.size, printer.toString(lg, _))
-      .map { case (p, t, e) =>
-        lineToString(p, t, e)
-      }
-      .foreach(System.out.println)
+        .map { case (p, t, e) =>
+          lineToString(p, t, e)
+        }
+        .foreach(System.out.println)
 
       currentState
     }

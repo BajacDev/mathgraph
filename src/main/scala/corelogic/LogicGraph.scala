@@ -230,7 +230,7 @@ case class LogicGraph(
   /** use symplify in loop until there is nothing to simplify * */
   def symplifyInferenceRuleLoop(pos: Int): LogicGraph = {
     val (newLogicGraph, newPos) = symplifyInferenceRule(pos)
-    if (newPos != pos) newLogicGraph.symplifyInferenceRule(newPos)._1
+    if (newPos != pos) newLogicGraph.symplifyInferenceRuleLoop(newPos)
     else newLogicGraph
   }
 
