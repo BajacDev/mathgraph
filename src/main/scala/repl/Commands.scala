@@ -4,6 +4,7 @@ import CommandLexer._
 import io.AnsiColor._
 import mathgraph.corelogic._
 import mathgraph.printer._
+import mathgraph.solver._
 
 object Commands {
 
@@ -36,43 +37,52 @@ object Commands {
     }
   }
 
+  def lineToString(pos: Int, truth: Option[Boolean], expr: String): String = {
+    val truthStr = truth match {
+      case None    => "\t\t"
+      case Some(v) => s"[$v]\t"
+    }
+    pos.toString + " " + truthStr + " " + expr
+  }
+
+  def buildLines(
+      logicGraph: LogicGraph,
+      exprs: Iterable[Int],
+      printFunc: Int => String
+  ): Iterable[(Int, Option[Boolean], String)] = {
+    exprs.map(pos => (
+      pos,
+      logicGraph.getTruthOf(pos),
+      printFunc(pos)
+    ))
+  }
+
   case object Lss extends Command {
+    
+
     override def apply(currentState: LogicState): LogicState = {
-      System.out.println("Lss command recognized")
+      val lg = currentState.logicGraph
+      val printer = currentState.printer
+      buildLines(lg, 0 until lg.size, printer.toSimpleString(lg, _))
+      .map { case (p, t, e) =>
+        lineToString(p, t, e)
+      }
+      .foreach(System.out.println)
+
       currentState
     }
   }
 
   case object Ls extends Command {
 
-    def buildList(
-        state: LogicState
-    ): IndexedSeq[(Int, Option[Boolean], String)] = {
-      for (pos <- 0 until state.logicGraph.size)
-        yield (
-          pos,
-          state.logicGraph.getTruthOf(pos),
-          state.printer.toAdvString(pos)
-        )
-    }
-
-    def lineToString(pos: Int, truth: Option[Boolean], expr: String): String = {
-      val truthStr = truth match {
-        case None    => "\t\t"
-        case Some(v) => s"[$v]\t"
-      }
-      pos.toString + " " + truthStr + " " + expr
-    }
-
     override def apply(currentState: LogicState): LogicState = {
-
-      System.out.println(
-        buildList(currentState)
-          .map { case (p, t, e) =>
-            lineToString(p, t, e)
-          }
-          .mkString("\n")
-      )
+      val lg = currentState.logicGraph
+      val printer = currentState.printer
+      buildLines(lg, 0 until lg.size, printer.toString(lg, _))
+      .map { case (p, t, e) =>
+        lineToString(p, t, e)
+      }
+      .foreach(System.out.println)
 
       currentState
     }
@@ -80,29 +90,33 @@ object Commands {
 
   case object Absurd extends Command {
     override def apply(currentState: LogicState): LogicState = {
-      System.out.println("Absurd command recognized")
+      val logicGraph = currentState.logicGraph
+      System.out.println(s"Absurd: ${logicGraph.isAbsurd}")
       currentState
     }
   }
 
   case class FixN(arg: Int) extends Command {
     override def apply(currentState: LogicState): LogicState = {
-      System.out.println(s"Fixn command recognized (arg = ${arg})")
-      currentState
+      val logicGraph = currentState.logicGraph
+      val (lg, pos) = logicGraph.applyLetSymbol(arg)
+      currentState.copy(logicGraph = lg)
     }
   }
 
   case class Fix(arg1: Int, arg2: Int) extends Command {
     override def apply(currentState: LogicState): LogicState = {
-      System.out.println(s"Fix command recognized args = (${arg1}, ${arg2})")
-      currentState
+      val logicGraph = currentState.logicGraph
+      val (lg, pos) = logicGraph.apply(arg1, arg2)
+      currentState.copy(logicGraph = lg)
     }
   }
 
-  case class Apply(arg: Int) extends Command {
+  case class Simplify(arg: Int) extends Command {
     override def apply(currentState: LogicState): LogicState = {
-      System.out.println(s"Apply command recognized (arg = ${arg})")
-      currentState
+      val logicGraph = currentState.logicGraph
+      val (lg, pos) = logicGraph.symplifyInferenceRule(arg)
+      currentState.copy(logicGraph = lg)
     }
   }
 
@@ -115,22 +129,25 @@ object Commands {
 
   case object FixAllTrue extends Command {
     override def apply(currentState: LogicState): LogicState = {
-      System.out.println("Fix all true, command recognized")
-      currentState
+      val logicGraph = currentState.logicGraph
+      val lg = Solver.fixAll(logicGraph)
+      currentState.copy(logicGraph = lg)
     }
   }
 
   case object FixAllFalse extends Command {
     override def apply(currentState: LogicState): LogicState = {
-      System.out.println("Fix all false, command recognized")
-      currentState
+      val logicGraph = currentState.logicGraph
+      val lg = Solver.fixLetSym(logicGraph)
+      currentState.copy(logicGraph = lg)
     }
   }
 
-  case object Dij extends Command {
+  case object Saturate extends Command {
     override def apply(currentState: LogicState): LogicState = {
-      System.out.println("Dij command recognized")
-      currentState
+      val lg = Solver.saturation(currentState.logicGraph)
+      val newCtx = currentState.copy(logicGraph = lg)
+      Proof.apply(newCtx)
     }
   }
 
@@ -157,7 +174,9 @@ object Commands {
 
   case object Proof extends Command {
     override def apply(currentState: LogicState): LogicState = {
-      System.out.println("Proof command recognized")
+      val lg = currentState.logicGraph
+      val printer = currentState.printer
+      printer.proofAbsurd(lg).foreach(System.out.println)
       currentState
     }
   }

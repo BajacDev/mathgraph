@@ -37,6 +37,16 @@ object ImplySymbol extends Symbol(3)
 /** forall symbol * */
 object ForallSymbol extends Symbol(4)
 
+object Forall {
+  def unapply(pos: Int)(implicit lg: LogicGraph): Option[(Int, Seq[Int])] =
+    lg.unfoldForall(pos)
+}
+
+object HeadTail {
+  def unapply(pos: Int)(implicit lg: LogicGraph): Option[(Int, Seq[Int])] =
+    Some(lg.getHeadTailInt(pos))
+}
+
 // -----------------------------------
 // inference rules
 // -----------------------------------
@@ -92,6 +102,25 @@ case class LogicGraph(
   def getTruthOf(pos: Int) = truth get pos
   def getAbsurd = absurd
   def isAbsurd: Boolean = !absurd.isEmpty
+  def getAllTruth(b: Boolean): Set[Int] = truth.filter(_._2 == b).keySet
+  def getAllTruth: Set[Int] = truth.keySet
+  def getHeadTail(p: Int): (Symbol, Seq[Int]) = exprForest.getHeadTail(p)
+  def getHeadTailInt(p: Int): (Int, Seq[Int]) = exprForest.getHeadTailInt(p)
+
+  def getImplies(p: Int): Set[Int] = imply.get(p) match {
+    case None      => Set()
+    case Some(set) => set
+  }
+
+  def isFixOf(fix: Int, pos: Int): Boolean = exprForest.getExpr(fix) match {
+    case Apply(next, _) => next == pos
+    case _              => false
+  }
+
+  def isTruth(pos: Int, b: Boolean): Boolean = getTruthOf(pos) match {
+    case Some(r) => r == b
+    case None    => false
+  }
 
   private def freshSymbolAssertEq(sym: Symbol): LogicGraph =
     getFreshSymbol match {
@@ -115,6 +144,14 @@ case class LogicGraph(
     exprForest.getHeadTail(pos) match {
       case (ForallSymbol, inside +: args) => Some((inside, args))
       case _                              => None
+    }
+
+  def isFixable(pos: Int): Boolean =
+    unfoldForall(
+      pos
+    ) match {
+      case None                 => false
+      case Some((inside, args)) => exprForest.countSymbols(inside) > args.length
     }
 
   // -------------------------------------------------------------
@@ -224,7 +261,7 @@ case class LogicGraph(
     */
   def applyLetSymbol(pos: Int): (LogicGraph, Int) =
     exprForest.getLetSymbol(pos) match {
-      case Some(posSymbol) => apply(posSymbol, pos)
+      case Some(posSymbol) => apply(pos, posSymbol)
       case None            => (this, pos)
     }
 

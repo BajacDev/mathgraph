@@ -4,17 +4,18 @@ import mathgraph.corelogic._
 import io.AnsiColor._
 
 case class Printer(
-    logicGraph: LogicGraph,
     exprToString: Map[Int, String]
 ) {
 
   /** print expression in a simple way * */
-  def toSimpleString(pos: Int): String = {
+  def toSimpleString(logicGraph: LogicGraph, pos: Int): String = {
     // todo find a better way to access this function (too much dots)
-    logicGraph.getExprForest.getHeadTail(pos) match {
+    logicGraph.getHeadTail(pos) match {
       case (Symbol(id), Seq()) => id.toString
       case (Symbol(id), seq) =>
-        id.toString + "(" + seq.map(toSimpleString).mkString(", ") + ")"
+        id.toString + "(" + seq
+          .map(toSimpleString(logicGraph, _))
+          .mkString(", ") + ")"
     }
   }
 
@@ -47,57 +48,66 @@ case class Printer(
     case _             => head + "(" + tail.mkString(", ") + ")"
   }
 
-  def listToMap(stringList: List[String]): Map[Int, String] = {
-    stringList.zipWithIndex.map { case (str, idx) =>
-      (logicGraph.idToPos(idx) -> str)
-    }.toMap
-  }
+  def toString(logicGraph: LogicGraph, orig: Int): String = {
 
-  /** print the expression at position origin* */
-  def toAdvString(orig: Int): String = {
-    def toAdvStringRec(
-        pos: Int,
-        args: List[Int],
-        exprNames: Map[Int, String],
-        forallPos: Option[Int]
-    ): String = {
-
-      def numArgs: Option[Int] = forallPos match {
-        case None => Some(exprNames.size)
-        case _    => None
-      }
-
-      def argsToString(argList: List[Int]): List[String] = {
-        argList.map(toAdvStringRec(_, Nil, exprNames, forallPos))
-      }
-
-      exprNames get pos match {
-        case Some(name) if Some(pos) != forallPos =>
-          combineHeadTail(name, argsToString(args))
-        case None =>
-          logicGraph.getExpr(pos) match {
-            case Symbol(id) =>
-              forallPos match {
-                case Some(p) if p == pos =>
-                  args match {
-                    case Nil => combineHeadTail(generateName(id, numArgs), Nil)
-                    case s :: xs =>
-                      "{" + toAdvStringRec(
-                        s,
-                        Nil,
-                        listToMap(argsToString(xs)),
-                        None
-                      ) + "}"
-                  }
-                case _ =>
-                  combineHeadTail(generateName(id, numArgs), argsToString(args))
-              }
-            case Apply(next, arg) =>
-              toAdvStringRec(next, arg :: args, exprNames, forallPos)
-          }
-      }
+    def listToMap(stringList: List[String]): Map[Int, String] = {
+      stringList.zipWithIndex.map { case (str, idx) =>
+        (logicGraph.idToPos(idx) -> str)
+      }.toMap
     }
-    toAdvStringRec(orig, Nil, exprToString, Some(logicGraph.forallPos))
+
+    /** print the expression at position origin* */
+    def toString(orig: Int): String = {
+      def toStringRec(
+          pos: Int,
+          args: List[Int],
+          exprNames: Map[Int, String],
+          forallPos: Option[Int]
+      ): String = {
+
+        def numArgs: Option[Int] = forallPos match {
+          case None => Some(exprNames.size)
+          case _    => None
+        }
+
+        def argsToString(argList: List[Int]): List[String] = {
+          argList.map(toStringRec(_, Nil, exprNames, forallPos))
+        }
+
+        exprNames get pos match {
+          case Some(name) if Some(pos) != forallPos =>
+            combineHeadTail(name, argsToString(args))
+          case None =>
+            logicGraph.getExpr(pos) match {
+              case Symbol(id) =>
+                forallPos match {
+                  case Some(p) if p == pos =>
+                    args match {
+                      case Nil =>
+                        combineHeadTail(generateName(id, numArgs), Nil)
+                      case s :: xs =>
+                        "{" + toStringRec(
+                          s,
+                          Nil,
+                          listToMap(argsToString(xs)),
+                          None
+                        ) + "}"
+                    }
+                  case _ =>
+                    combineHeadTail(
+                      generateName(id, numArgs),
+                      argsToString(args)
+                    )
+                }
+              case Apply(next, arg) =>
+                toStringRec(next, arg :: args, exprNames, forallPos)
+            }
+        }
+      }
+      toStringRec(orig, Nil, exprToString, Some(logicGraph.forallPos))
+    }
+
+    toString(orig)
   }
 
   // ------------------------------------------
@@ -107,29 +117,34 @@ case class Printer(
   // TODO: create a new class. Make it less String dependent
 
   /** list of expressions st way(0) -> way(1) -> ... -> way(n) * */
-  def proofFromList(way: List[Int], alg: String): List[String] = {
+  def proofFromList(
+      lg: LogicGraph,
+      way: List[Int],
+      alg: String
+  ): List[String] = {
     way match {
       case Nil     => Nil
-      case List(a) => List(alg + toAdvString(a))
+      case List(a) => List(alg + toString(lg, a))
       case a :: b :: xs =>
-        logicGraph.getInferenceOf(a, b) match {
+        lg.getInferenceOf(a, b) match {
           case None => Nil // todo: assert(false)
           case Some(ImplyIR(_, implyPos)) =>
-            (alg + toAdvString(a)) :: proofFromPos(
+            (alg + toString(lg, a)) :: proofFromPos(
+              lg,
               implyPos,
-              alg + "|"
-            ) ++ proofFromList(b :: xs, alg)
-          case _ => (alg + toAdvString(a)) :: proofFromList(b :: xs, alg)
+              alg + "\u2193 "
+            ) ++ proofFromList(lg, b :: xs, alg)
+          case _ => (alg + toString(lg, a)) :: proofFromList(lg, b :: xs, alg)
         }
     }
   }
 
-  def proofFromPos(pos: Int, alg: String = ""): List[String] = {
-    proofFromList(wayToTruth(pos), alg)
+  def proofFromPos(lg: LogicGraph, pos: Int, alg: String = ""): List[String] = {
+    proofFromList(lg, wayToTruth(lg, pos), alg)
   }
 
   /** build list of expressions st way(0) -> way(1) -> ... -> way(n) * */
-  def wayToTruth(orig: Int): List[Int] = {
+  def wayToTruth(logicGraph: LogicGraph, orig: Int): List[Int] = {
     def wayToTruthRec(pos: Int): List[Int] =
       logicGraph.getTruthOriginOf(pos) match {
         case None          => List(pos)
@@ -144,9 +159,10 @@ case class Printer(
   }
 
   /** build the way from true to false and create the proof * */
-  def proofAbsurd: List[String] = logicGraph.getAbsurd match {
-    case None         => Nil
-    case Some((a, b)) => proofFromList(wayToTruth(a) ++ wayToTruth(b), "")
+  def proofAbsurd(lg: LogicGraph): List[String] = lg.getAbsurd match {
+    case None => Nil
+    case Some((a, b)) =>
+      proofFromList(lg, wayToTruth(lg, a) ++ wayToTruth(lg, b), "")
   }
 
 }
