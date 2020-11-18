@@ -43,16 +43,14 @@ object SimplifyIR extends InferenceRule
 object Axiom extends InferenceRule
 
 object LogicGraph {
-  def init: LogicGraph = {
-    implicit val logicGraph = LogicGraph()
-    logicGraph.freshSymbolAssertEq(DefSymbol) |>
+  def init: LogicGraph =
+    LogicGraph().freshSymbolAssertEq(DefSymbol) |>
       (_.freshSymbolAssertEq(FalseSymbol)) |>
       (_.freshSymbolAssertEq(TrueSymbol)) |>
       (_.freshSymbolAssertEq(ImplySymbol)) |>
       (_.freshSymbolAssertEq(ForallSymbol)) |>
       (lg => lg.copy(truth = lg.truth + (TrueSymbol -> true))) |>
       (lg => lg.copy(truth = lg.truth + (FalseSymbol -> false)))
-  }
 }
 
 case class LogicGraph(
