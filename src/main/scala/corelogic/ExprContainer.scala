@@ -66,7 +66,3 @@ object Forall {
   def unapply(pos: Int)(implicit ec: ExprContainer): Option[(Int, Seq[Int])] =
     ec.unfoldForall(pos)
 }
-
-/** returns expression according to pos
-  * note: there is as much symbol as Applies. this is used have enough LetSymbols
-  */

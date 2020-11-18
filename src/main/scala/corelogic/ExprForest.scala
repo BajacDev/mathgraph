@@ -6,7 +6,7 @@ import scala.math._
   * The main point of this layer is to obtimize the storage of Expressions
   */
 
-/** use Int instead of Expr:
+/** use Int instead of Expr tree:
   *  - for faster hash. (only hash int, not each expression in Fixer)
   *  - Symbols are only instanciated when needed
   *  - my c++ code use int, so I don't have to rethink the code entirely
