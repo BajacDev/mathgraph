@@ -1,0 +1,9 @@
+let A;
+let B;
+let C;
+
+let or(a, b) = not(a) -> b;
+
+or(A, B);
+or(not(A), C);
+or(B, C) -> false;
