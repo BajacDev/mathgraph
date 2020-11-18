@@ -53,7 +53,7 @@ object ProgToLogicState extends Pipeline[Program, LogicState] {
       val globals = globalIdentifiers(expr, globalstringToExpr.keySet).toSeq
       val freeVar = globals ++ vars
       val localStringToExpr = freeVar.zipWithIndex.map { case (id, symbolId) =>
-        (id, logicGraph.idToPos(symbolId))
+        (id, logicGraph.idToSymbol(symbolId))
       }.toMap
       val (lg, pos) = exprToLogicGraph(expr, localStringToExpr, logicGraph)
       globals.foldLeft(lg.forall(pos)) { case ((lg2, pos2), arg) =>

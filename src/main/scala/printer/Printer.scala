@@ -2,17 +2,18 @@ package mathgraph.printer
 
 import mathgraph.corelogic._
 import io.AnsiColor._
+import mathgraph.corelogic.ExprContainer._
 
 case class Printer(
     exprToString: Map[Int, String]
 ) {
 
   /** print expression in a simple way * */
-  def toSimpleString(logicGraph: LogicGraph, pos: Int): String = {
-    // todo find a better way to access this function (too much dots)
-    logicGraph.getHeadTail(pos) match {
-      case (Symbol(id), Seq()) => id.toString
-      case (Symbol(id), seq) =>
+  def toSimpleString(implicit logicGraph: LogicGraph, pos: Int): String = {
+    println(pos)
+    pos match {
+      case HeadTail(Symbol(id), Seq()) => id.toString
+      case HeadTail(Symbol(id), seq) =>
         id.toString + "(" + seq
           .map(toSimpleString(logicGraph, _))
           .mkString(", ") + ")"
@@ -48,11 +49,11 @@ case class Printer(
     case _             => head + "(" + tail.mkString(", ") + ")"
   }
 
-  def toString(logicGraph: LogicGraph, orig: Int): String = {
+  def toString(implicit logicGraph: LogicGraph, orig: Int): String = {
 
     def listToMap(stringList: List[String]): Map[Int, String] = {
       stringList.zipWithIndex.map { case (str, idx) =>
-        (logicGraph.idToPos(idx) -> str)
+        (logicGraph.idToSymbol(idx) -> str)
       }.toMap
     }
 
@@ -78,7 +79,7 @@ case class Printer(
           case Some(name) if Some(pos) != forallPos =>
             combineHeadTail(name, argsToString(args))
           case None =>
-            logicGraph.getExpr(pos) match {
+            pos match {
               case Symbol(id) =>
                 forallPos match {
                   case Some(p) if p == pos =>
@@ -104,7 +105,7 @@ case class Printer(
             }
         }
       }
-      toStringRec(orig, Nil, exprToString, Some(logicGraph.forallPos))
+      toStringRec(orig, Nil, exprToString, Some(ForallSymbol))
     }
 
     toString(orig)

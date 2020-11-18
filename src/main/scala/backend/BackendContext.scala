@@ -2,6 +2,7 @@ package mathgraph.backend
 
 import mathgraph.corelogic._
 import mathgraph.frontend.Trees._
+import mathgraph.corelogic.ExprContainer._
 
 object BackendContext {
 
@@ -14,10 +15,10 @@ object BackendContext {
   def init = {
     val logicGraph = LogicGraph.init
     val e2s = Map(
-      defIdentifier -> logicGraph.defPos,
-      falseIdentifier -> logicGraph.falsePos,
-      trueIdentifier -> logicGraph.truePos,
-      impliesIdentifier -> logicGraph.implyPos
+      defIdentifier -> DefSymbol,
+      falseIdentifier -> FalseSymbol,
+      trueIdentifier -> TrueSymbol,
+      impliesIdentifier -> ImplySymbol
     )
     BackendContext(logicGraph, e2s)
   }

@@ -142,33 +142,34 @@ object Solver {
     contextInside + getContextsOutside(pos)
   }
 
-  def getContextsInside(
+  def getContextsInside(implicit
       logicGraph: LogicGraph,
       pos: Int,
       // use Context to store (head, tail.size)
       outsideArgs: Seq[Context]
   ): Set[Context] = {
     val idArg = outsideArgs.length
-    val (sym, args) = logicGraph.getHeadTail(pos)
+    pos match {
+      case HeadTail(Symbol(id), _) if id >= idArg => Set()
+      case HeadTail(Symbol(id), args) => {
 
-    // if we want to process 2nd order logic, we must take == case into account
-    if (sym.id >= idArg) Set()
-    else
-      args.zipWithIndex.foldLeft(Set[Context]()) { case (set, (arg, idx)) =>
-        logicGraph.getExpr(arg) match {
+        args.zipWithIndex.foldLeft(Set[Context]()) { case (set, (arg, idx)) =>
+          arg match {
 
-          // eg: {0(1,2)}(+(a))
-          // when we simplify this expression with arg number 1 and 2 fixed, we obtain
-          // +(a, arg1). So the arguement number 1 in this context: ('+', 2)
-          case Symbol(idSym) if idSym == idArg =>
-            set + Context(
-              outsideArgs(sym.id).head,
-              idx + outsideArgs(sym.id).idArg
-            )
+            // eg: {0(1,2)}(+(a))
+            // when we simplify this expression with arg number 1 and 2 fixed, we obtain
+            // +(a, arg1). So the arguement number 1 in this context: ('+', 2)
+            case Symbol(idSym) if idSym == idArg =>
+              set + Context(
+                outsideArgs(id).head,
+                idx + outsideArgs(id).idArg
+              )
 
-          case _ => set ++ getContextsInside(logicGraph, arg, outsideArgs)
+            case _ => set ++ getContextsInside(logicGraph, arg, outsideArgs)
+          }
         }
       }
+    }
   }
 
 }
