@@ -14,13 +14,13 @@ object Main {
 
   def main(args: Array[String]): Unit = {
 
-    val defaultExample = s"example/${args(0)}.txt"
+    val defaultExample = "example/test.txt"
     val pipeline =
       Lexer andThen Parser andThen Simplifier andThen ForallToLets andThen ProgToLogicState
     val ctx = new Context()
 
-    val sourceFile = if (args.size >= 2) {
-      args(1)
+    val sourceFile = if (args.size >= 1) {
+      s"example/${args(0)}.txt"
     } else {
       ctx.info(s"""Using default example: \"${defaultExample}\"""")
       defaultExample
