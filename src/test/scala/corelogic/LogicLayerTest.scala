@@ -4,13 +4,15 @@ import org.scalatest.funsuite.AnyFunSuite
 import mathgraph.corelogic._
 import mathgraph.util.Pipe._
 
+import mathgraph.corelogic.ExprContainer._
+
 class LogicGraphTest extends AnyFunSuite {
 
   test("'true -> false' is absurd") {
 
     val absurd =
-      LogicGraph.init |> (lg => lg.fix(lg.implyPos, lg.truePos)) |> {
-        case (lg, pos) => lg.fix(pos, lg.falsePos)
+      LogicGraph.init |> (lg => lg.fix(ImplySymbol, TrueSymbol)) |> {
+        case (lg, pos) => lg.fix(pos, FalseSymbol)
       } |> { case (lg, pos) =>
         lg.setAxiom(pos, true)
       } |> (_.isAbsurd)
@@ -21,12 +23,12 @@ class LogicGraphTest extends AnyFunSuite {
   test("'(false -> true) -> false' is absurd") {
 
     val absurd =
-      LogicGraph.init |> (lg => lg.fix(lg.implyPos, lg.falsePos)) |> {
-        case (lg, pos) => lg.fix(pos, lg.truePos)
+      LogicGraph.init |> (lg => lg.fix(ImplySymbol, FalseSymbol)) |> {
+        case (lg, pos) => lg.fix(pos, TrueSymbol)
       } |> { case (lg, pos) =>
-        lg.fix(lg.implyPos, pos)
-      } |> { case (lg, pos) => lg.fix(pos, lg.falsePos) } |> {
-        case (lg, pos) => lg.setAxiom(pos, true)
+        lg.fix(ImplySymbol, pos)
+      } |> { case (lg, pos) => lg.fix(pos, FalseSymbol) } |> { case (lg, pos) =>
+        lg.setAxiom(pos, true)
       } |> (_.isAbsurd)
 
     assert(absurd)
@@ -35,14 +37,14 @@ class LogicGraphTest extends AnyFunSuite {
   test("'{0(1, 2)}(->, true, false)' is absurd") {
 
     val absurd =
-      LogicGraph.init |> (lg => lg.fix(lg.idToPos(0), lg.idToPos(1))) |> {
-        case (lg, pos) => lg.fix(pos, lg.idToPos(2))
+      LogicGraph.init |> (lg => lg.fix(lg.idToSymbol(0), lg.idToSymbol(1))) |> {
+        case (lg, pos) => lg.fix(pos, lg.idToSymbol(2))
       } |> { case (lg, pos) =>
-        lg.fix(lg.forallPos, pos)
-      } |> { case (lg, pos) => lg.fix(pos, lg.implyPos) } |> {
-        case (lg, pos) => lg.fix(pos, lg.truePos)
-      } |> { case (lg, pos) => lg.fix(pos, lg.falsePos) } |> {
-        case (lg, pos) => lg.setAxiom(pos, true)
+        lg.fix(ForallSymbol, pos)
+      } |> { case (lg, pos) => lg.fix(pos, ImplySymbol) } |> { case (lg, pos) =>
+        lg.fix(pos, TrueSymbol)
+      } |> { case (lg, pos) => lg.fix(pos, FalseSymbol) } |> { case (lg, pos) =>
+        lg.setAxiom(pos, true)
       } |> (_.isAbsurd)
 
     assert(absurd)

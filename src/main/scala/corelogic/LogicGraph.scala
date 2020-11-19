@@ -1,6 +1,7 @@
 package mathgraph.corelogic
 
 import mathgraph.util.Pipe._
+import mathgraph.corelogic.ExprContainer._
 
 /** The logic layer manage the truth graph of expressions
   * Notation:
@@ -25,28 +26,6 @@ import mathgraph.util.Pipe._
 // Logic Symbols
 // -----------------------------------------------------
 
-/** use to build other symbols * */
-object DefSymbol extends Symbol(0)
-
-object FalseSymbol extends Symbol(1)
-object TrueSymbol extends Symbol(2)
-
-/** implication symbol (eg: a -> b) * */
-object ImplySymbol extends Symbol(3)
-
-/** forall symbol * */
-object ForallSymbol extends Symbol(4)
-
-object Forall {
-  def unapply(pos: Int)(implicit lg: LogicGraph): Option[(Int, Seq[Int])] =
-    lg.unfoldForall(pos)
-}
-
-object HeadTail {
-  def unapply(pos: Int)(implicit lg: LogicGraph): Option[(Int, Seq[Int])] =
-    Some(lg.getHeadTailInt(pos))
-}
-
 // -----------------------------------
 // inference rules
 // -----------------------------------
@@ -70,12 +49,12 @@ object LogicGraph {
       (_.freshSymbolAssertEq(TrueSymbol)) |>
       (_.freshSymbolAssertEq(ImplySymbol)) |>
       (_.freshSymbolAssertEq(ForallSymbol)) |>
-      (lg => lg.copy(truth = lg.truth + (lg.truePos -> true))) |>
-      (lg => lg.copy(truth = lg.truth + (lg.falsePos -> false)))
+      (lg => lg.copy(truth = lg.truth + (TrueSymbol -> true))) |>
+      (lg => lg.copy(truth = lg.truth + (FalseSymbol -> false)))
 }
 
 case class LogicGraph(
-    exprForest: ExprForest = new ExprForest,
+    exprForest: ExprForest = ExprForest(),
     truth: Map[Int, Boolean] = Map(),
     imply: Map[Int, Set[Int]] = Map(),
     isImpliedBy: Map[Int, Set[Int]] = Map(),
@@ -83,20 +62,9 @@ case class LogicGraph(
     // use for proofs
     truthOrigin: Map[Int, Int] = Map(),
     inferences: Map[(Int, Int), InferenceRule] = Map()
-) {
-
-  def defPos = 0
-  def falsePos = exprForest.getPos(FalseSymbol)
-  def truePos = exprForest.getPos(TrueSymbol)
-  def implyPos = exprForest.getPos(ImplySymbol)
-  def forallPos = exprForest.getPos(ForallSymbol)
-
-  def implyId = ImplySymbol.id
+) extends ExprContainer {
 
   def size = exprForest.size
-  def idToPos(id: Int): Int = exprForest.idToPos(id)
-  def getExprForest = exprForest
-  def getExpr(pos: Int): Expr = exprForest.getExpr(pos)
   def getInferenceOf(a: Int, b: Int) = inferences get (a, b)
   def getTruthOriginOf(pos: Int) = truthOrigin get pos
   def getTruthOf(pos: Int) = truth get pos
@@ -104,15 +72,16 @@ case class LogicGraph(
   def isAbsurd: Boolean = !absurd.isEmpty
   def getAllTruth(b: Boolean): Set[Int] = truth.filter(_._2 == b).keySet
   def getAllTruth: Set[Int] = truth.keySet
-  def getHeadTail(p: Int): (Symbol, Seq[Int]) = exprForest.getHeadTail(p)
-  def getHeadTailInt(p: Int): (Int, Seq[Int]) = exprForest.getHeadTailInt(p)
+
+  def getFixer(pos: Int): Option[(Int, Int)] = exprForest.getFixer(pos)
+  def getSymbolId(pos: Int): Option[Int] = exprForest.getSymbolId(pos)
 
   def getImplies(p: Int): Set[Int] = imply.get(p) match {
     case None      => Set()
     case Some(set) => set
   }
 
-  def isFixOf(fix: Int, pos: Int): Boolean = exprForest.getExpr(fix) match {
+  def isFixOf(fix: Int, pos: Int): Boolean = fix match {
     case Fixer(next, _) => next == pos
     case _              => false
   }
@@ -122,36 +91,26 @@ case class LogicGraph(
     case None    => false
   }
 
-  private def freshSymbolAssertEq(sym: Symbol): LogicGraph =
-    getFreshSymbol match {
-      case (lg, symbolPos) => {
-        assert(lg.getExpr(symbolPos) == sym)
-        lg
-      }
-    }
+  private def freshSymbolAssertEq(pos: Int): LogicGraph = {
+    val (lg, symbolPos) = getFreshSymbol
+    assert(symbolPos == pos)
+    lg
+  }
 
   def setAxiom(pos: Int, b: Boolean) =
-    if (b) link(truePos, pos, Axiom) else link(pos, falsePos, Axiom)
+    if (b) link(TrueSymbol, pos, Axiom) else link(pos, FalseSymbol, Axiom)
 
   /** returns a new symbol position * */
-  def getFreshSymbol: (LogicGraph, Int) =
-    fix(defPos, exprForest.size) match {
-      case (newLogicGraph, pos) => (newLogicGraph, pos - 1)
-    }
-
-  /** unfold forall into (inside, arguments) if any * */
-  def unfoldForall(pos: Int): Option[(Int, Seq[Int])] =
-    exprForest.getHeadTail(pos) match {
-      case (ForallSymbol, inside +: args) => Some((inside, args))
-      case _                              => None
-    }
+  def getFreshSymbol: (LogicGraph, Int) = {
+    val pos = exprForest.size
+    val (newLogicGraph, _) = fix(DefSymbol, pos)
+    (newLogicGraph, pos)
+  }
 
   def isFixable(pos: Int): Boolean =
-    unfoldForall(
-      pos
-    ) match {
-      case None                 => false
-      case Some((inside, args)) => exprForest.countSymbols(inside) > args.length
+    pos match {
+      case Forall(inside, args) => exprForest.countSymbols(inside) > args.length
+      case _                    => false
     }
 
   // -------------------------------------------------------------
@@ -173,15 +132,15 @@ case class LogicGraph(
     * - when A -> B is false then B => false
     */
   def implyInferenceRule(pos: Int): LogicGraph = {
-    exprForest.getHeadTail(pos) match {
-      case (ImplySymbol, Seq(a, b)) => {
+    pos match {
+      case HeadTail(ImplySymbol, Seq(a, b)) => {
         truth get pos match {
           case None => this
           case Some(true) =>
             link(a, b, ImplyIR(true, pos))
           case Some(false) =>
-            link(truePos, a, ImplyIR(false, pos))
-              .link(b, falsePos, ImplyIR(false, pos))
+            link(TrueSymbol, a, ImplyIR(false, pos))
+              .link(b, FalseSymbol, ImplyIR(false, pos))
         }
       }
       case _ => this
@@ -194,9 +153,7 @@ case class LogicGraph(
 
   /** replace all symbols with corresponding args * */
   private def symplify(inside: Int, args: Seq[Int]): (LogicGraph, Int) =
-    getExpr(
-      inside
-    ) match {
+    inside match {
       case Symbol(id) => (this, args(id))
       case Fixer(next, arg) => {
         val (lgNext, posNext) = symplify(next, args)
@@ -210,11 +167,8 @@ case class LogicGraph(
     * is of lenght at least n (ie: when all symbols in forall have been fixed)
     * then use simply (see simplify)
     */
-  def symplifyInferenceRule(pos: Int): (LogicGraph, Int) = unfoldForall(
-    pos
-  ) match {
-    case None => (this, pos)
-    case Some((inside, args)) =>
+  def symplifyInferenceRule(pos: Int): (LogicGraph, Int) = pos match {
+    case Forall(inside, args) =>
       if (exprForest.countSymbols(inside) > args.length) (this, pos)
       else {
         val (logicGraph, newPos) = symplify(inside, args)
@@ -225,6 +179,7 @@ case class LogicGraph(
           newPos
         )
       }
+    case _ => (this, pos)
   }
 
   /** use symplify in loop until there is nothing to simplify * */
@@ -248,13 +203,13 @@ case class LogicGraph(
       .symplifyInferenceRuleLoop(pos)
       .link(next, pos, FixIR) match {
       case graph =>
-        if (graph.getExprForest.isLetSymbol(next, arg))
+        if (exprForest.isLetSymbol(next, arg))
           (graph.link(pos, next, FixLetSymIR), pos)
         else (graph, pos)
     }
   }
 
-  def forall(body: Int): (LogicGraph, Int) = fix(forallPos, body)
+  def forall(body: Int): (LogicGraph, Int) = fix(ForallSymbol, body)
 
   /** when A is in the graph, then it exists a symbol call
     * the LetSymbol of A (call it a) such that  A <=> Fixer(A, a)
