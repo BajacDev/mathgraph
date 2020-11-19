@@ -1,6 +1,6 @@
-let and(a, b) = (a -> (b -> false)) -> false;
+let and(a, b) := (a -> (b -> false)) -> false;
 
-let inc(A, B) = forall x. A(x) -> B(x);
+let inc(A, B) := forall x. A(x) -> B(x);
 
 let A;
 let B;

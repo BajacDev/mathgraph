@@ -1,42 +1,62 @@
 package mathgraph.frontend
 import mathgraph.util._
+import java.io.File
 import Tokens._
-import scala.util.parsing.combinator.RegexParsers
-import scala.util.parsing.input.CharSequenceReader
+import silex._
 
 /** A lexer takes as input a string and outputs a sequence of tokens */
-object Lexer extends RegexParsers with Pipeline[String, Seq[Token]] {
-  // Those are all the keywords of the language
-  val keywords = Set("let", "not", "forall", "exists", "->")
-  val delimiters = ".,;()="
+object Lexer extends Lexers with Pipeline[AbstractSource, Iterator[Token]] {
 
-  def idOrKw: Parser[Token] = positioned {
-    rep1(
-      acceptIf(c => !delimiters.contains(c) && !c.isWhitespace)(
-        "Unexpected" + _
-      )
-    ) ^^ { cs =>
-      val str = cs.mkString
-      if (keywords.contains(str)) KwToken(str)
-      else IdToken(str)
+  type Character = Char
+  type Position = SourcePosition
+  type Token = Tokens.Token
+
+  val lexer = Lexer(
+    // Keywords
+    word("let") | word("not") | word("forall") | word("exists") | word(
+      "->"
+    ) |> { (cs, range) =>
+      KwToken(cs.mkString).setPos(range._1)
+    },
+    // Delimiters
+    oneOf(".,;()") | word(":=") |> { (cs, range) =>
+      DelimToken(cs.mkString).setPos(range._1)
+    },
+    // Identifiers
+    many(elem(c => c.isLetterOrDigit)) |> { (cs, range) =>
+      IdToken(cs.mkString).setPos(range._1)
+    },
+    // Whitespace
+    many1(elem(_.isWhitespace)) |> SpaceToken(),
+    // Single-line comments
+    word("//") ~ many(elem(_ != '\n')) |> CommentToken(),
+    // Multiline comments
+    word("/*") ~ (many(
+      elem(_ != '*') | many1(elem('*')) ~ elem(c => c != '/' && c != '*')
+    )) ~ many1(elem('*')) ~ elem('/') |> CommentToken(),
+    // Unclosed multiline comments
+    word("/*") ~ (many(
+      elem(_ != '*') | many1(elem('*')) ~ elem(c => c != '/' && c != '*')
+    )) |> { (cs, range) =>
+      ErrorToken(cs.mkString).setPos(range._1)
     }
+  ).onError { (cs, range) =>
+    ErrorToken(cs.mkString).setPos(range._1)
+  }.onEnd { pos =>
+    EOFToken().setPos(pos)
   }
 
-  def delim: Parser[Token] = positioned {
-    ("." | "," | ";" | "(" | ")" | "=") ^^ DelimToken
-  }
-
-  def token = positioned {
-    idOrKw | delim
-  }
-
-  def apply(str: String)(ctxt: Context): Seq[Token] = {
-    parseAll(rep(token), str) match {
-      case Success(tokens, _) =>
-        tokens
-
-      case e: NoSuccess =>
-        ctxt.fatal(e.msg, e.next.pos)
-    }
+  def apply(source: AbstractSource)(ctxt: Context): Iterator[Token] = {
+    lexer
+      .spawn(Source.fromIterator(source.source, SourcePositioner(source)))
+      .filter {
+        case SpaceToken()   => false
+        case CommentToken() => false
+        case _              => true
+      }
+      .map {
+        case tk @ ErrorToken(err) => ctxt.fatal(s"Invalid token: $err", tk)
+        case tk                   => tk
+      }
   }
 }
