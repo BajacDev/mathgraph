@@ -13,7 +13,7 @@ object Simplifier extends Pipeline[Program, Program] {
     case Implies(lhs, False) =>
       simplifyExpr(lhs) match {
         case Implies(lhs2, False) => lhs2
-        case r @ _                => Apply(impliesIdentifier, Seq(r, False))
+        case r @ _                => Apply(impliesIdentifier, Seq(r, simplifyExpr(False)))
       }
     case Implies(lhs, rhs) =>
       Apply(impliesIdentifier, Seq(simplifyExpr(lhs), simplifyExpr(rhs)))
