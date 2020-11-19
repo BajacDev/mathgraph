@@ -89,13 +89,6 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
         program
 
       case e: NoSuccess =>
-        var rd = e.next
-        while (!rd.atEnd) {
-          println(rd.first)
-          rd = rd.rest
-        }
-        println(e.next.first.pos2)
-        println(e.next)
         ctxt.fatal(
           e.msg
         ) // TODO: when moving to Scallion, add the correct position

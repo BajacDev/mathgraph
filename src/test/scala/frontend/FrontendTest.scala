@@ -11,10 +11,10 @@ class FrontendTests extends AnyFunSuite {
         case Program(lets, axioms) =>
           (lets ++ axioms).map(rec).mkString("", ";\n", ";")
         case Let(name, Seq(), bodyOpt) =>
-          s"let $name" + bodyOpt.map(bd => " = " + rec(bd)).getOrElse("")
+          s"let $name" + bodyOpt.map(bd => " := " + rec(bd)).getOrElse("")
         case Let(name, vars, bodyOpt) =>
           s"let $name(${vars.mkString(", ")})" + bodyOpt
-            .map(bd => " = " + rec(bd))
+            .map(bd => " := " + rec(bd))
             .getOrElse("")
         case Implies(lhs, rhs) => s"(${rec(lhs)} -> ${rec(rhs)})"
         case True              => "true"
@@ -71,8 +71,8 @@ class FrontendTests extends AnyFunSuite {
   test("definitions are parsed correctly") {
     "let x;" ~> Success("let x;")
     "let x(arg);" ~> Success("let x(arg);")
-    "let x := 1;" ~> Success("let x = 1;")
-    "let x(arg) := 1;" ~> Success("let x(arg) = 1;")
+    "let x := 1;" ~> Success("let x := 1;")
+    "let x(arg) := 1;" ~> Success("let x(arg) := 1;")
   }
 
   test("expressions are parsed correctly") {
@@ -89,9 +89,15 @@ class FrontendTests extends AnyFunSuite {
   }
 
   test("invalid syntax is not parsed") {
-    "let a = x" ~> Failure // missing semicolon
+    "let a := x" ~> Failure // missing semicolon
     "(a -> b" ~> Failure // unclosed parenthesis
     "= -> (;" ~> Failure // illegal characters
     "a + b;" ~> Failure // infix operators not allowed
+  }
+
+  test("comments are ignored") {
+    "let a := x; // first line \n plus(a, b);" ~> Success("let a := x;\nplus(a, b);")
+    "let a /* hello */ := x;" ~> Success("let a := x;")
+    "let a /* := x;" ~> Failure // unclosed comment
   }
 }
