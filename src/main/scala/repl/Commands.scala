@@ -154,7 +154,19 @@ object Commands {
 
   case object Stats extends Command {
     override def apply(currentState: LogicState): LogicState = {
-      System.out.println("Stats command recognized")
+      val lg = currentState.logicGraph
+      val printer = currentState.printer
+      val exprSet = lg.getAllTruth
+      val stats = Solver.getStats(lg, exprSet)
+
+      stats.foreach {
+        case (ctx, set) => {
+          System.out.println(s"Context(head: ${ctx.head} ${printer
+            .toString(lg, ctx.head)}, idArg: ${ctx.idArg})")
+          set.map(printer.toString(lg, _)).foreach(System.out.println)
+          System.out.println()
+        }
+      }
       currentState
     }
   }
