@@ -25,8 +25,8 @@ class LogicGraphTest extends AnyFunSuite {
         case (lg, pos) => lg.fix(pos, lg.truePos)
       } |> { case (lg, pos) =>
         lg.fix(lg.implyPos, pos)
-      } |> { case (lg, pos) => lg.fix(pos, lg.falsePos) } |> {
-        case (lg, pos) => lg.setAxiom(pos, true)
+      } |> { case (lg, pos) => lg.fix(pos, lg.falsePos) } |> { case (lg, pos) =>
+        lg.setAxiom(pos, true)
       } |> (_.isAbsurd)
 
     assert(absurd)
@@ -39,10 +39,10 @@ class LogicGraphTest extends AnyFunSuite {
         case (lg, pos) => lg.fix(pos, lg.idToPos(2))
       } |> { case (lg, pos) =>
         lg.fix(lg.forallPos, pos)
-      } |> { case (lg, pos) => lg.fix(pos, lg.implyPos) } |> {
-        case (lg, pos) => lg.fix(pos, lg.truePos)
-      } |> { case (lg, pos) => lg.fix(pos, lg.falsePos) } |> {
-        case (lg, pos) => lg.setAxiom(pos, true)
+      } |> { case (lg, pos) => lg.fix(pos, lg.implyPos) } |> { case (lg, pos) =>
+        lg.fix(pos, lg.truePos)
+      } |> { case (lg, pos) => lg.fix(pos, lg.falsePos) } |> { case (lg, pos) =>
+        lg.setAxiom(pos, true)
       } |> (_.isAbsurd)
 
     assert(absurd)

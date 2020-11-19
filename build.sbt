@@ -1,11 +1,11 @@
 lazy val root = (project in file(".")).settings(
   inThisBuild(
     List(
-      organization := "com.example",
-      scalaVersion := "2.13.3"
+      organization := "ch.epfl",
+      scalaVersion := "2.12.12"
     )
   ),
-  name := "scalatest-example"
+  name := "mathgraph"
 )
 
 scalacOptions += "-deprecation"

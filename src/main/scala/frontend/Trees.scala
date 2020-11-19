@@ -1,10 +1,9 @@
 package mathgraph.frontend
-import scala.util.parsing.input.Positional
-import scala.io
+import mathgraph.util.Positioned
 
 /** This object contains the definition of all the AST in mathgraph */
 object Trees {
-  abstract class Tree extends Positional
+  abstract class Tree extends Positioned
   abstract class Expr extends Tree
   abstract class Def extends Tree
   abstract class AbstractForall extends Expr
