@@ -14,7 +14,7 @@ object Main {
 
   def main(args: Array[String]): Unit = {
 
-    val defaultExample = "example/test.txt"
+    val defaultExample = s"example/${args(0)}.txt"
     val pipeline =
       Lexer andThen Parser andThen Simplifier andThen ForallToLets andThen ProgToLogicState
     val ctx = new Context()
