@@ -9,8 +9,7 @@ case class Printer(
 ) {
 
   /** print expression in a simple way * */
-  def toSimpleString(implicit logicGraph: LogicGraph, pos: Int): String = {
-    println(pos)
+  def toSimpleString(implicit logicGraph: LogicGraph, pos: Int): String =
     pos match {
       case HeadTail(Symbol(id), Seq()) => id.toString
       case HeadTail(Symbol(id), seq) =>
@@ -18,7 +17,6 @@ case class Printer(
           .map(toSimpleString(logicGraph, _))
           .mkString(", ") + ")"
     }
-  }
 
   // ---------------------------------------------------------------------------
   // print an humain readable expression using exprToString map
