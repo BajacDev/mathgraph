@@ -21,7 +21,7 @@ class FrontendTests extends AnyFunSuite {
         case False             => "false"
         case Apply(id, Seq())  => id
         case Apply(id, args)   => s"$id(${args.map(rec).mkString(", ")})"
-        case Forall(id, body)  => s"(forall $id. ${rec(body)})"
+        case Forall(ids, body) => s"(forall ${ids.mkString(" ")}. ${rec(body)})"
       }
 
       rec(prog)
@@ -81,11 +81,20 @@ class FrontendTests extends AnyFunSuite {
     "forall x. has(x, y) -> in(y, x);" ~> Success(
       "(forall x. (has(x, y) -> in(y, x)));"
     )
+    "forall x y z. P(x, y) -> Q(y, z);" ~> Success(
+      "(forall x y z. (P(x, y) -> Q(y, z)));"
+    )
   }
 
   test("syntactic sugar is desugared") {
     "not a -> b;" ~> Success("((a -> false) -> b);")
     "exists x. P(x);" ~> Success("((forall x. (P(x) -> false)) -> false);")
+    "forall x. forall y. P(x, y);" ~> Success("(forall x y. P(x, y));")
+    "exists x. exists y. P(x, y);" ~> Success(
+      "((forall x y. (P(x, y) -> false)) -> false);"
+    )
+    "not (not P(x));" ~> Success("P(x);")
+    "not true;" ~> Success("false;")
   }
 
   test("invalid syntax is not parsed") {
@@ -96,7 +105,9 @@ class FrontendTests extends AnyFunSuite {
   }
 
   test("comments are ignored") {
-    "let a := x; // first line \n plus(a, b);" ~> Success("let a := x;\nplus(a, b);")
+    "let a := x; // first line \n plus(a, b);" ~> Success(
+      "let a := x;\nplus(a, b);"
+    )
     "let a /* hello */ := x;" ~> Success("let a := x;")
     "let a /* := x;" ~> Failure // unclosed comment
   }

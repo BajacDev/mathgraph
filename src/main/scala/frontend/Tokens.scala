@@ -1,7 +1,5 @@
 package mathgraph.frontend
 import mathgraph.util._
-import scala.util.parsing.input.Reader
-import scala.util.parsing.input.{NoPosition => NoPos}
 
 object Tokens {
   // Those are all the tokens of the language
@@ -29,13 +27,5 @@ object Tokens {
     case DelimToken(chars) => DelimKind(chars)
     case EOFToken()        => EOFKind
     case _                 => NoKind
-  }
-
-  // This is a reader of tokens, used by the parser TODO: remove it when parser uses Scallion
-  class TokenReader(tokens: Seq[Token]) extends Reader[Token] {
-    override def first: Token = tokens.head
-    override def atEnd: Boolean = tokens.isEmpty
-    override def pos: scala.util.parsing.input.Position = NoPos
-    override def rest: Reader[Token] = new TokenReader(tokens.tail)
   }
 }
