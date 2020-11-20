@@ -109,7 +109,7 @@ case class LogicGraph(
 
   def isFixable(pos: Int): Boolean =
     pos match {
-      case Forall(inside, args) => exprForest.countSymbols(inside) > args.length
+      case Forall(inside, args) => countSymbols(inside) > args.length
       case _                    => false
     }
 
@@ -169,7 +169,7 @@ case class LogicGraph(
     */
   def simplifyInferenceRule(pos: Int): (LogicGraph, Int) = pos match {
     case Forall(inside, args) =>
-      if (exprForest.countSymbols(inside) > args.length) (this, pos)
+      if (countSymbols(inside) > args.length) (this, pos)
       else {
         val (logicGraph, newPos) = simplify(inside, args)
         (

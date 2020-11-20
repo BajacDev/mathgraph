@@ -1,7 +1,5 @@
 package mathgraph.corelogic
 
-import scala.math._
-
 /** The ExprForest manages Expressions without any logic assumption
   * The main point of this layer is to obtimize the storage of Expressions
   */
@@ -14,12 +12,12 @@ import scala.math._
   *  - there is no need to go trough ExprForest to obtain next and arg Expr
   */
 
-/** fixerToPos(a) gives the equivalent of fixerToPos indexOf a (but is faster)
-  * so we use fixerToPos as a speedup mapping
+/** fixerToPosMap(a) gives the equivalent of fixerToPosMap indexOf a (but is faster)
+  * so we use fixerToPosMap as a speedup mapping
   */
 case class ExprForest(
     fixers: Seq[(Int, Int)] = Seq(),
-    fixerToPos: Map[(Int, Int), Int] = Map()
+    fixerToPosMap: Map[(Int, Int), Int] = Map()
 ) extends ExprContainer {
 
   def size = fixers.size * 2
@@ -38,26 +36,19 @@ case class ExprForest(
 
     val newFixer = (next, arg)
     // make sure we are not duplicating Applies
-    fixerToPos get newFixer match {
+    fixerToPosMap get newFixer match {
       case Some(pos) => (this, pos)
       case None =>
         (
           ExprForest(
             fixers :+ newFixer,
-            fixerToPos + (newFixer -> nextFixerPos)
+            fixerToPosMap + (newFixer -> nextFixerPos)
           ),
           nextFixerPos
         )
     }
   }
 
-  /** count the number of Fixer it would take to fix this expr
-    * eg: returns 4 for 0(3, 1)
-    */
-  def countSymbols(pos: Int): Int = pos match {
-    case Symbol(id)       => id + 1
-    case Fixer(next, arg) => max(countSymbols(next), countSymbols(arg))
-  }
 
   def getLetSymbol(pos: Int): Option[Int] = pos match {
     case Fixer(_, _) => Some(pos - 1)
