@@ -103,14 +103,15 @@ object Solver {
 
     def getStatsHeadTail(head: Int, tail: Seq[Int], result: Stats): Stats = {
       tail.zipWithIndex.foldLeft(result) { case (map, (arg, idx)) =>
-        insertPair(Context(head, idx), arg, map) ++ getStatsPos(arg, map)
+        val newStats = insertPair(Context(head, idx), arg, map)
+        getStatsPos(arg, newStats)
       }
     }
 
     // return stats from one expression
     def getStatsPos(pos: Int, result: Stats): Stats = {
       pos match {
-        case Forall(inside, args) => getStatsHeadTail(inside, args, result)
+        case Forall(_, _)         => result
         case HeadTail(head, tail) => getStatsHeadTail(head, tail, result)
       }
     }
@@ -129,7 +130,6 @@ object Solver {
 
     def getContextsOutside(p: Int): Context = {
       p match {
-        case Forall(inside, args) => Context(inside, args.length)
         case HeadTail(head, tail) => Context(head, tail.length)
       }
     }
