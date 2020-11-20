@@ -49,7 +49,6 @@ case class ExprForest(
     }
   }
 
-
   def getLetSymbol(pos: Int): Option[Int] = pos match {
     case Fixer(_, _) => Some(pos - 1)
     case _           => None
