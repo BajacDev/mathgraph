@@ -67,7 +67,7 @@ object ProgToLogicState extends Pipeline[Program, LogicState] {
     lg.setAxiom(pos, true)
   }
 
-  def interpretDef(definition: Def, context: Context): Context =
+  def interpretDef(definition: Let, context: Context): Context =
     definition match {
       case Let(name, vars, bodyOpt) => {
         val Context(logicGraph, stringToExpr) = context

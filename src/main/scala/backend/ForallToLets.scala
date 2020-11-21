@@ -24,7 +24,7 @@ object ForallToLets extends Pipeline[Program, Program] {
       val newLets = result.flatMap(_._2)
       (newApply, newLets)
     }
-    case MultiForall(seq, body) => {
+    case Forall(seq, body) => {
       val newFreeVars = freeVars ++ seq
       val (letBody, lets) = extractDefFromExpr(body, newFreeVars)
       val letName = createLetName(expr)
@@ -37,7 +37,7 @@ object ForallToLets extends Pipeline[Program, Program] {
   def extractDefFromAxiom(expr: Expr): (Expr, Seq[Let]) =
     extractDefFromExpr(expr, Seq())
 
-  def extractDefFromDef(definition: Def): Seq[Let] = definition match {
+  def extractDefFromDef(definition: Let): Seq[Let] = definition match {
     case r @ Let(name, vars, bodyOpt) =>
       bodyOpt match {
         case None => Seq(r)

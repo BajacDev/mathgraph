@@ -1,7 +1,6 @@
 package mathgraph.util
 import scala.io.Source
 import silex._
-import scala.util.parsing.input.Positional
 
 // Represents an abstract source from which strings can be read
 abstract class AbstractSource {
@@ -20,7 +19,7 @@ case class StringSource(name: String, input: String) extends AbstractSource {
 }
 
 // Position in a file
-abstract class Position { // TODO: remove superclass OffsetPosition when the parser is replaced by Scallion in future PR
+abstract class Position {
   val source: AbstractSource
   val line: Int
   val col: Int
@@ -41,12 +40,11 @@ case object NoPosition extends Position {
 }
 
 // Something that has a position
-trait Positioned extends Positional {
+trait Positioned {
   protected var _pos: Position = NoPosition
-  def pos2 =
-    _pos // TODO replace by pos when Scallion is used and Positional removed
+  def pos = _pos
 
-  def setPos(other: Positioned): this.type = setPos(other.pos2)
+  def setPos(other: Positioned): this.type = setPos(other.pos)
   def setPos(pos: Position): this.type = {
     _pos = pos
     this

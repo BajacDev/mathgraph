@@ -5,8 +5,6 @@ import mathgraph.util.Positioned
 object Trees {
   abstract class Tree extends Positioned
   abstract class Expr extends Tree
-  abstract class Def extends Tree
-  abstract class AbstractForall extends Expr
 
   type Identifier = String
 
@@ -14,7 +12,7 @@ object Trees {
   // Programs
   // ----------------------------------------------------
 
-  case class Program(defs: Seq[Def], axioms: Seq[Expr]) extends Tree
+  case class Program(defs: Seq[Let], axioms: Seq[Expr]) extends Tree
 
   // ----------------------------------------------------
   // Definitions
@@ -22,14 +20,11 @@ object Trees {
 
   /** Representation of let in(x, S) or let inc(A, B) = ... */
   case class Let(name: Identifier, vars: Seq[Identifier], body: Option[Expr])
-      extends Def
+      extends Tree
 
   // ----------------------------------------------------
-  // Expressions
+  // Terms
   // ----------------------------------------------------
-
-  /** Representation of a -> b */
-  case class Implies(lhs: Expr, rhs: Expr) extends Expr
 
   /** Representation of true */
   case object True extends Expr
@@ -40,12 +35,15 @@ object Trees {
   /** Representation of lhs(arg1, ..., argN) or lhs if there are no args */
   case class Apply(id: Identifier, args: Seq[Expr]) extends Expr
 
-  /** Representation of forall */
-  case class Forall(id: Identifier, body: Expr) extends AbstractForall
+  // ----------------------------------------------------
+  // Formulas
+  // ----------------------------------------------------
 
-  /** Representation of forall with multiple free variable */
-  case class MultiForall(ids: Seq[Identifier], body: Expr)
-      extends AbstractForall
+  /** Representation of a -> b */
+  case class Implies(lhs: Expr, rhs: Expr) extends Expr
+
+  /** Representation of forall */
+  case class Forall(ids: Seq[Identifier], body: Expr) extends Expr
 
   // ----------------------------------------------------
   // Desugared expressions
@@ -54,10 +52,20 @@ object Trees {
   /** Syntactic sugar for not */
   object Not {
     def apply(e: Expr): Expr = Implies(e, False)
+    def unapply(e: Expr): Option[Expr] = e match {
+      case Implies(e, False) => Some(e)
+      case _                 => None
+    }
   }
 
   /** Syntactic sugar for existential quantification */
   object Exists {
-    def apply(id: Identifier, body: Expr): Expr = Not(Forall(id, Not(body)))
+    def apply(ids: Seq[Identifier], body: Expr): Expr = Not(
+      Forall(ids, Not(body))
+    )
+    def unapply(e: Expr): Option[(Seq[Identifier], Expr)] = e match {
+      case Not(Forall(ids, Not(body))) => Some((ids, body))
+      case _                           => None
+    }
   }
 }

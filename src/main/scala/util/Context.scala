@@ -23,10 +23,10 @@ class Context {
     throw FatalError(s"$pos: $msg")
   }
 
-  def info(msg: String, pos: Positioned): Unit = info(msg, pos.pos2)
-  def warning(msg: String, pos: Positioned): Unit = warning(msg, pos.pos2)
-  def error(msg: String, pos: Positioned): Unit = error(msg, pos.pos2)
-  def fatal(msg: String, pos: Positioned): Nothing = fatal(msg, pos.pos2)
+  def info(msg: String, pos: Positioned): Unit = info(msg, pos.pos)
+  def warning(msg: String, pos: Positioned): Unit = warning(msg, pos.pos)
+  def error(msg: String, pos: Positioned): Unit = error(msg, pos.pos)
+  def fatal(msg: String, pos: Positioned): Nothing = fatal(msg, pos.pos)
 
   /** This terminates the program if any errors were reported */
   def terminateIfErrors() = {
