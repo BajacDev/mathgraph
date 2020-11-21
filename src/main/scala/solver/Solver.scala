@@ -2,6 +2,7 @@ package mathgraph.solver
 
 import mathgraph.corelogic._
 import mathgraph.util.Pipe._
+import mathgraph.solver.Solver._
 
 object Solver {
 
@@ -16,16 +17,28 @@ object Solver {
     *
     * this does not accept second order logic context yet
     */
-  case class Context(head: Int, idArg: Int)
+  trait Context
+  case class Context1O(head: Int, idArg: Int) extends Context
+  case class Context2O(arg: Int) extends Context
 
   // todo better name
   type Stats = Map[Context, Set[Int]]
 
-  def saturation(logicGraph: LogicGraph): Unit = {
-    if (logicGraph.isAbsurd) logicGraph
+}
+
+case class Solver(stats: Stats = Map[Context, Set[Int]](), size: Int = 0) {
+
+  def updateStats(lg: LogicGraph): Solver = {
+    val exprSet = lg.getAllTruth.filter(_ >= size)
+    val newStats = getStats(lg, exprSet, stats)
+    Solver(newStats, lg.size)
+  }
+
+  def saturation(logicGraph: LogicGraph): (LogicGraph, Solver) = {
+    if (logicGraph.isAbsurd) (logicGraph, this)
     else {
-      fixAll(fixLetSym(logicGraph))
-      saturation(logicGraph)
+      val solver = updateStats(logicGraph)
+      solver.saturation(fixAll(fixLetSym(logicGraph)))
     }
   }
 
@@ -53,11 +66,10 @@ object Solver {
   }
 
   /** fix all expressions using stats * */
-  def fixAll(logicGraph: LogicGraph): Unit = {
-    val stats = getStats(logicGraph, logicGraph.getAllTruth)
-    val exprSet = logicGraph.getAllTruth.filter(logicGraph.isFixable)
-    for (expr <- exprSet) {
-      fixPos(logicGraph, pos, stats)
+  def fixAll(logicGraph: LogicGraph): LogicGraph = {
+    val exprSet = logicGraph.getAllTruth
+    exprSet.filter(logicGraph.isFixable).foldLeft(logicGraph) {
+      case (lg, pos) => fixPos(lg, pos)
     }
   }
 
@@ -65,9 +77,8 @@ object Solver {
     */
   private def fixPos(
       logicGraph: LogicGraph,
-      pos: Int,
-      stats: Stats
-  ): Unit = {
+      pos: Int
+  ): LogicGraph = {
 
     val contextSet: Set[Context] = getContexts(logicGraph, pos)
     for (context <- contextSet) {
@@ -103,11 +114,19 @@ object Solver {
     * eg: expression +(1, f(7)) will return the map
     * Map(Context('+', 0) -> Set('1'), Context('+', 1) -> Set('f(7)'), Context('f', 0) -> Set('7'))
     */
-  def getStats(implicit logicGraph: LogicGraph, exprSet: Set[Int]): Stats = {
+  def getStats(implicit
+      logicGraph: LogicGraph,
+      exprSet: Set[Int],
+      base: Stats
+  ): Stats = {
 
     def getStatsHeadTail(head: Int, tail: Seq[Int], result: Stats): Stats = {
-      tail.zipWithIndex.foldLeft(result) { case (map, (arg, idx)) =>
-        val newStats = insertPair(Context(head, idx), arg, map)
+      val result2 = tail match {
+        case x :: xs => insertPair(Context2O(x), head, result)
+        case Nil     => result
+      }
+      tail.zipWithIndex.foldLeft(result2) { case (map, (arg, idx)) =>
+        val newStats = insertPair(Context1O(head, idx), arg, map)
         getStatsPos(arg, newStats)
       }
     }
@@ -120,7 +139,7 @@ object Solver {
       }
     }
 
-    exprSet.foldLeft(Map[Context, Set[Int]]()) { case (map, pos) =>
+    exprSet.foldLeft(base) { case (map, pos) =>
       getStatsPos(pos, map)
     }
   }
@@ -131,49 +150,59 @@ object Solver {
     * here returns Set(Context({0(1,2)}, 1), Context(+, 2))
     */
   def getContexts(implicit logicGraph: LogicGraph, pos: Int): Set[Context] = {
-
-    def getContextsOutside(p: Int): Context = {
-      p match {
-        case HeadTail(head, tail) => Context(head, tail.length)
-      }
-    }
-
-    val contextInside: Set[Context] = pos match {
+    pos match {
       case Forall(inside, args) =>
-        getContextsInside(logicGraph, inside, args.map(getContextsOutside))
+        getContextsInside(logicGraph, inside, args)
       case _ => Set()
     }
-    contextInside + getContextsOutside(pos)
   }
 
   def getContextsInside(implicit
       logicGraph: LogicGraph,
-      pos: Int,
-      // use Context to store (head, tail.size)
-      outsideArgs: Seq[Context]
+      orig: Int,
+      outsideArgs: Seq[Int]
   ): Set[Context] = {
     val idArg = outsideArgs.length
-    pos match {
-      case HeadTail(Symbol(id), _) if id >= idArg => Set()
-      case HeadTail(Symbol(id), args) => {
 
-        args.zipWithIndex.foldLeft(Set[Context]()) { case (set, (arg, idx)) =>
-          arg match {
+    def contextInsideRec(pos: Int): Set[Context] = {
+      val result: Set[Context] = pos match {
+        case HeadTail(Symbol(id), _) if id > idArg     => Set()
+        case HeadTail(Symbol(id), args) if id == idArg => o2Ctx(args)
+        case HeadTail(Symbol(id), args)                => o1Ctx(id, args)
+      }
 
-            // eg: {0(1,2)}(+(a))
-            // when we simplify this expression with arg number 1 and 2 fixed, we obtain
-            // +(a, arg1). So the arguement number 1 in this context: ('+', 2)
-            case Symbol(idSym) if idSym == idArg =>
-              set + Context(
-                outsideArgs(id).head,
-                idx + outsideArgs(id).idArg
-              )
-
-            case _ => set ++ getContextsInside(logicGraph, arg, outsideArgs)
+      pos match {
+        case HeadTail(_, args) =>
+          args.foldLeft(result) { case (set, arg) =>
+            set ++ contextInsideRec(arg)
           }
+      }
+    }
+
+    def o1Ctx(id: Int, args: Seq[Int]): Set[Context] = {
+      args.zipWithIndex.foldLeft(Set[Context]()) { case (set, (arg, idx)) =>
+        arg match {
+
+          // eg: {0(1,2)}(+(a))
+          // when we simplify this expression with arg number 1 and 2 fixed, we obtain
+          // +(a, arg1). So the arguement number 1 in this context: ('+', 2)
+          case Symbol(idSym) if idSym == idArg =>
+            outsideArgs(id) match {
+              case HeadTail(head, argsOut) =>
+                set + Context1O(head, argsOut.length + idx)
+            }
+
+          case _ => set
         }
       }
     }
+
+    def o2Ctx(args: Seq[Int]): Set[Context] = args match {
+      case Symbol(id) :: _ if id < idArg => Set(Context2O(outsideArgs(id)))
+      case _                             => Set()
+    }
+
+    contextInsideRec(orig)
   }
 
 }
