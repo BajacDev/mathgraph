@@ -7,7 +7,7 @@ import scala.io.Source
 import scala.language.implicitConversions
 
 /** A parser takes as input a sequence of tokens and outputs a program */
-object Parser extends Parsers with Pipeline[Seq[Token], Program] {
+object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
   // The parser takes tokens as input
   type Elem = Token
 
@@ -33,14 +33,15 @@ object Parser extends Parsers with Pipeline[Seq[Token], Program] {
   )
 
   def program: Parser[Program] = positioned {
-    rep(definition <~ ";") ~ rep(expr <~ ";") ^^ { case defs ~ exprs =>
-      Program(defs, exprs)
+    rep(definition <~ ";") ~ rep(expr <~ ";") <~ accept(EOFToken()) ^^ {
+      case defs ~ exprs =>
+        Program(defs, exprs)
     }
   }
 
   def definition: Parser[Def] = positioned {
     kw("let") ~> id ~ opt("(" ~> rep1sep(id, ",") <~ ")") ~ opt(
-      "=" ~> expr
+      ":=" ~> expr
     ) ^^ {
       case id ~ None ~ bodyOpt         => Let(id, Seq(), bodyOpt)
       case id ~ Some(params) ~ bodyOpt => Let(id, params, bodyOpt)
@@ -82,13 +83,15 @@ object Parser extends Parsers with Pipeline[Seq[Token], Program] {
     }
   }
 
-  protected def apply(tokens: Seq[Token])(ctxt: Context): Program = {
-    phrase(program)(new TokenReader(tokens)) match {
+  protected def apply(tokens: Iterator[Token])(ctxt: Context): Program = {
+    phrase(program)(new TokenReader(tokens.toSeq)) match {
       case Success(program, _) =>
         program
 
       case e: NoSuccess =>
-        ctxt.fatal(e.msg, e.next.pos)
+        ctxt.fatal(
+          e.msg
+        ) // TODO: when moving to Scallion, add the correct position
     }
   }
 }

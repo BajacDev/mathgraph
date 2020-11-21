@@ -85,7 +85,8 @@ object ProgToLogicState extends Pipeline[Program, LogicState] {
     }
 
   def contextToLogicState(ctx: Context): LogicState = {
-    val exprToString = ctx.stringToExpr.view.filterKeys(!_.startsWith("__")).map(_.swap).toMap
+    val exprToString =
+      ctx.stringToExpr.filterKeys(!_.startsWith("__")).map(_.swap).toMap
     val printer = Printer(exprToString)
     LogicState(ctx.logicGraph, printer, None)
   }

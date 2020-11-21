@@ -21,7 +21,7 @@ class CommandParserTest extends AnyFunSuite {
 
     def ==>(expected: Command): Unit = expect(expected)
 
-    def ?(nothing: Unit): Unit = expect(UnknownCommand)
+    def ?(): Unit = expect(UnknownCommand)
 
     def !(expected: (String, Int)): Unit = expect(
       BadCommand(expected._1, expected._2)

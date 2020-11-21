@@ -1,5 +1,4 @@
 package mathgraph.repl
-import mathgraph.util._
 import scala.util.parsing.input._
 
 object CommandTokens {

@@ -4,17 +4,17 @@ import mathgraph.util._
 import mathgraph.frontend._
 import java.io.OutputStream
 
-class ParserTest extends AnyFunSuite {
+class FrontendTests extends AnyFunSuite {
   object PrettyPrinter extends Pipeline[Program, String] {
     def apply(prog: Program)(ctxt: Context): String = {
       def rec(tree: Tree): String = tree match {
         case Program(lets, axioms) =>
           (lets ++ axioms).map(rec).mkString("", ";\n", ";")
         case Let(name, Seq(), bodyOpt) =>
-          s"let $name" + bodyOpt.map(bd => " = " + rec(bd)).getOrElse("")
+          s"let $name" + bodyOpt.map(bd => " := " + rec(bd)).getOrElse("")
         case Let(name, vars, bodyOpt) =>
           s"let $name(${vars.mkString(", ")})" + bodyOpt
-            .map(bd => " = " + rec(bd))
+            .map(bd => " := " + rec(bd))
             .getOrElse("")
         case Implies(lhs, rhs) => s"(${rec(lhs)} -> ${rec(rhs)})"
         case True              => "true"
@@ -36,7 +36,9 @@ class ParserTest extends AnyFunSuite {
   def shouldSucceed(input: String, result: String): Unit = {
     try {
       Console.withErr(nullOutputStream) {
-        assert(frontend.run(input)(new Context) == result)
+        assert(
+          frontend.run(StringSource("input", input))(new Context) == result
+        )
       }
     } catch {
       case err: FatalError =>
@@ -47,7 +49,7 @@ class ParserTest extends AnyFunSuite {
   def shouldFail(input: String): Unit = {
     try {
       Console.withErr(nullOutputStream) {
-        frontend.run(input)(new Context)
+        frontend.run(StringSource("input", input))(new Context)
       }
       fail("The frontend was expected to fail.")
     } catch {
@@ -69,8 +71,8 @@ class ParserTest extends AnyFunSuite {
   test("definitions are parsed correctly") {
     "let x;" ~> Success("let x;")
     "let x(arg);" ~> Success("let x(arg);")
-    "let x = 1;" ~> Success("let x = 1;")
-    "let x(arg) = 1;" ~> Success("let x(arg) = 1;")
+    "let x := 1;" ~> Success("let x := 1;")
+    "let x(arg) := 1;" ~> Success("let x(arg) := 1;")
   }
 
   test("expressions are parsed correctly") {
@@ -87,9 +89,15 @@ class ParserTest extends AnyFunSuite {
   }
 
   test("invalid syntax is not parsed") {
-    "let a = x" ~> Failure // missing semicolon
+    "let a := x" ~> Failure // missing semicolon
     "(a -> b" ~> Failure // unclosed parenthesis
     "= -> (;" ~> Failure // illegal characters
     "a + b;" ~> Failure // infix operators not allowed
+  }
+
+  test("comments are ignored") {
+    "let a := x; // first line \n plus(a, b);" ~> Success("let a := x;\nplus(a, b);")
+    "let a /* hello */ := x;" ~> Success("let a := x;")
+    "let a /* := x;" ~> Failure // unclosed comment
   }
 }
