@@ -5,6 +5,7 @@ import io.AnsiColor._
 import mathgraph.corelogic._
 import mathgraph.printer._
 import mathgraph.solver._
+import mathgraph.solver.Solver._
 
 object Commands {
 
