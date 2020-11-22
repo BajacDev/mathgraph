@@ -1,7 +1,7 @@
 package mathgraph.frontend
 import mathgraph.util._
-import mathgraph.frontend.Tokens._
-import mathgraph.frontend.Trees._
+import Tokens._
+import Trees._
 import scala.language.implicitConversions
 import scallion._
 
