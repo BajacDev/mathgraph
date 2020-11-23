@@ -98,8 +98,7 @@
 %----the right operand. Although : is a binary operator syntactically, it is
 %----not a <binary_connective>, and thus a <quantified_formula> is a
 %----<unitary_formula>.
-%----Universal
-example: ! [X,Y] : ((p(X) & p(Y)) => q(X,Y)).
+%----Universal example: ! [X,Y] : ((p(X) & p(Y)) => q(X,Y)).
 %----Existential example: ? [X,Y] : (p(X) & p(Y)) & ~ q(X,Y).
 %----Quantifiers have higher precedence than binary connectives, so in
 %----the existential example the quantifier applies to only (p(X) & p(Y)).
@@ -178,8 +177,7 @@ unknown
 %----Only a <dag_source> can be a <name>, i.e., derived formulae can be
 %----identified by a <name> or an <inference_record>
 <dag_source> :== <name> | <inference_record>
-<inference_record> :== inference(<inference_rule>,<useful_info>,
-                            [<parent_list>])
+<inference_record> :== inference(<inference_rule>,<useful_info>,[<parent_list>])
 <inference_rule> :== <atomic_word>
 %----Examples are deduction | modus_tollens | modus_ponens | rewrite |
 %                 resolution | paramodulation | factorization |

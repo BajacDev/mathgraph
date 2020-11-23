@@ -21,6 +21,8 @@ object Lexer
     // Punctuation
     oneOf("(),.[]:")
       |> { (cs, range) => DelimToken(cs.mkString).setPos(range._1) },
+    // Whitespace
+    many1(elem(_.isWhitespace)) |> SpaceToken(),
     // Operators
     oneOf("!?~&|") | word("<=>") | word("<=") | word("=>") |
       word("<~>") | word("~|") | word("~&")
@@ -37,17 +39,37 @@ object Lexer
       )
     ) ~ many(elem(_ != '*')) ~ many1(elem('*')) ~ elem('/')
       |> { cs => CommentToken() },
+    opt(oneOf("+-")) ~ (
+      elem('0') | (elem(c => c.isDigit && c != '0') ~ many(
+        elem(_.isDigit)
+      )) //Unsigned
+    ) ~ opt(
+      elem('.') ~ many1(elem(_.isDigit)) //Fraction
+    )
+      |> { (cs, range) =>
+        NumberToken(cs.mkString).setPos(range._1)
+      },
     elem('\'') ~ many(
       word("\\\'") | word("\\\\") | many(elem(c => c != '\\' && c != '\''))
     ) ~ elem('\'')
       |> { (cs, range) =>
-        QuotedToken(cs.mkString.drop(1).dropRight(1)).setPos(range._1)
+        SingleQuotedToken(cs.mkString.drop(1).dropRight(1)).setPos(range._1)
       },
     elem('\"') ~ many(
       word("\\\"") | word("\\\\") | many(elem(c => c != '\\' && c != '\"'))
     ) ~ elem('\"')
       |> { (cs, range) =>
-        StringToken(cs.mkString.drop(1).dropRight(1)).setPos(range._1)
+        DistinctObjectToken(cs.mkString.drop(1).dropRight(1)).setPos(range._1)
+      },
+    elem(_.isLetter) ~ many(elem(c => c.isLetter || c.isDigit || c == '_'))
+      |> { (cs, range) =>
+        WordToken(cs.mkString).setPos(range._1)
+      },
+    word("$$") ~ elem(_.isLower) ~ many(
+      elem(c => c.isLetter || c.isDigit || c == '_')
+    )
+      |> { (cs, range) =>
+        DollarWordToken(cs.mkString.drop(2)).setPos(range._1)
       }
   ).onError { (cs, range) =>
     ErrorToken(cs.mkString).setPos(range._1)
@@ -59,7 +81,7 @@ object Lexer
     lexer
       .spawn(Source.fromIterator(source.source, SourcePositioner(source)))
       .filter {
-        case SpaceToken()   => false
+        // case SpaceToken()   => false
         case CommentToken() => false
         case _              => true
       }

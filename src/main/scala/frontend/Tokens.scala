@@ -1,5 +1,6 @@
 package mathgraph.frontend
 import mathgraph.util._
+import scala.util.Try
 
 object Tokens {
   // Those are all the tokens of the language
@@ -11,10 +12,15 @@ object Tokens {
   case class CommentToken() extends Token
   case class EOFToken() extends Token
   case class ErrorToken(error: String) extends Token
+
+  // Those are the additional tokens of the tptp language
   case class OperatorToken(op: String) extends Token
   case class PredicateToken(value: String) extends Token
-  case class QuotedToken(value: String) extends Token
-  case class StringToken(value: String) extends Token
+  case class SingleQuotedToken(value: String) extends Token
+  case class DistinctObjectToken(value: String) extends Token
+  case class DollarWordToken(value: String) extends Token
+  case class WordToken(value: String) extends Token
+  case class NumberToken(value: String) extends Token
 
   // Those are the token kinds used by Scallion
   sealed abstract class TokenKind(text: String)
@@ -23,22 +29,44 @@ object Tokens {
   case class DelimKind(chars: String) extends TokenKind(chars)
   case object EOFKind extends TokenKind("<EOF>")
   case object NoKind extends TokenKind("<???>")
-  // TODO not sure what kinds are really useful
+  case object SpaceKind extends TokenKind("<whitespace>")
+
   case class OperatorKind(value: String) extends TokenKind(value)
   case class PredicateKind(value: String) extends TokenKind(value)
-  case class QuotedKind(value: String) extends TokenKind(value)
-  case class StringKind(value: String) extends TokenKind(value)
+  case object SingleQuotedKind extends TokenKind("single_quoted")
+  case object DistinctObjectKind extends TokenKind("<distinct_object>")
+  case object DollarWordKind extends TokenKind("<dollar_dollar_word>")
+  case object LowerWordKind extends TokenKind("<lower_word>")
+  case object UpperWordKind extends TokenKind("<Upper_word>")
+  case object UnsignedKind extends TokenKind("<unsigned_integer>")
+  case object SignedKind extends TokenKind("<signed_integer>")
+  case object RealKind extends TokenKind("<real>")
 
   // This retrieves the kind of a token for Scallion
   def kindOf(token: Token): TokenKind = token match {
-    case IdToken(_)            => IdKind
-    case KwToken(chars)        => KwKind(chars)
-    case DelimToken(chars)     => DelimKind(chars)
-    case EOFToken()            => EOFKind
-    case OperatorToken(value)  => OperatorKind(value)
-    case PredicateToken(value) => PredicateKind(value)
-    case QuotedToken(value)    => QuotedKind(value)
-    case StringToken(value)    => StringKind(value)
-    case _                     => NoKind
+    case IdToken(_)        => IdKind
+    case KwToken(chars)    => KwKind(chars)
+    case DelimToken(chars) => DelimKind(chars)
+    case EOFToken()        => EOFKind
+    case SpaceToken()      => SpaceKind
+
+    case OperatorToken(value)                                => OperatorKind(value)
+    case PredicateToken(value)                               => PredicateKind(value)
+    case SingleQuotedToken(_)                                => SingleQuotedKind
+    case DistinctObjectToken(_)                              => DistinctObjectKind
+    case DollarWordToken(_)                                  => DollarWordKind
+    case WordToken(value) if value.charAt(0).isLower         => LowerWordKind
+    case WordToken(value) if value.charAt(0).isUpper         => UpperWordKind
+    case NumberToken(value) if Try(value.toDouble).isSuccess => RealKind
+    case NumberToken(value) if Try(value.toInt).isSuccess =>
+      if (value.toInt < 0) SignedKind else UnsignedKind
+
+    case _ => NoKind
   }
 }
+
+/*
+  number
+  lower_word upper_word dollar_dollar_word => WordKind
+  single_quoted distinct_object
+ */
