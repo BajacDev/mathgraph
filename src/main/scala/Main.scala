@@ -1,6 +1,7 @@
 package mathgraph
 import corelogic._
 import frontend._
+import frontend.tptp.{TPTPFrontend}
 import backend._
 import repl._
 import util._
@@ -8,9 +9,8 @@ import util._
 object Main {
 
   def main(args: Array[String]): Unit = {
-    val pipeline =
-      Lexer andThen Parser andThen Simplifier andThen ForallToLets andThen ProgToLogicState
-    val ctxt = new Context
+
+    val ctxt = new Context()
 
     val defaultFile = "example/test.txt"
     val sourceFile = if (args.isEmpty) {
@@ -18,11 +18,21 @@ object Main {
       defaultFile
     } else args(0)
 
-    try {
-      val logicState = pipeline.run(FileSource(sourceFile))(ctxt)
-      Repl.run(logicState)
-    } catch {
-      case FatalError(_) => sys.exit(1)
-    }
+    // val pipeline =
+    //   frontend(sourceFile) andThen Simplifier andThen ForallToLets andThen ProgToLogicState
+    //
+    // try {
+    //   val logicState: LogicState = pipeline.run(FileSource(sourceFile))(ctxt)
+    //   Repl(logicState)(ctxt)
+    // } catch {
+    //   case FatalError(_) => sys.exit(1)
+    // }
+    val res = frontend(sourceFile).run(FileSource(sourceFile))(ctxt)
+    println("Result of frontend is:\n" + res)
+  }
+
+  def frontend(sourceFile: String) = {
+    if(sourceFile.contains(".p")) TPTPFrontend
+    else Lexer andThen Parser
   }
 }
