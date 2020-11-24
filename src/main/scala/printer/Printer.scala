@@ -3,7 +3,7 @@ package mathgraph.printer
 import mathgraph.corelogic._
 import io.AnsiColor._
 import mathgraph.corelogic.ExprContainer._
-import mathgraph.frontend.Trees._
+import mathgraph.frontend.Trees.{Apply, Expr, Forall => ExprForall}
 
 case class Printer(
     exprToString: Map[Int, String]
@@ -64,12 +64,12 @@ case class Printer(
     def replaceRec(expr: Expr, map: Map[String, Expr]): Expr = expr match {
       case Apply(name, Seq()) if map.contains(name) => map(name)
       case Apply(name, seq)                         => Apply(name, seq.map(replaceRec(_, map)))
-      case MultiForall(v, b)                        => MultiForall(v, replaceRec(b, map))
+      case ExprForall(v, b)                         => ExprForall(v, replaceRec(b, map))
     }
 
     val (oldVars, newVars) = vars.splitAt(fixes.length)
     val map = oldVars.zip(fixes).map { case (a, b) => a -> b }.toMap
-    MultiForall(newVars, replaceRec(body, map))
+    ExprForall(newVars, replaceRec(body, map))
   }
 
   /** convert a pos in logicgraph to a string
@@ -81,8 +81,8 @@ case class Printer(
 
       def toExprRec(pos: Int, seq: Seq[Expr]): Expr =
         map.get(pos) match {
-          case Some(Apply(name, args))       => Apply(name, args ++ seq)
-          case Some(MultiForall(vars, body)) => replace(body, vars, seq)
+          case Some(Apply(name, args))      => Apply(name, args ++ seq)
+          case Some(ExprForall(vars, body)) => replace(body, vars, seq)
           case _ =>
             pos match {
               case Fixer(ForallSymbol, arg) => forallToExpr(arg, seq)
@@ -101,23 +101,23 @@ case class Printer(
       val map = varsInside.zipWithIndex.map { case (expr, id) =>
         logicGraph.idToSymbol(id) -> expr
       }.toMap
-      MultiForall(freeVars, toExpr(inside, map))
+      ExprForall(freeVars, toExpr(inside, map))
     }
 
     def simplifyExpr(expr: Expr): Expr = expr match {
       case Apply("->", Seq(lhs, Apply("false", Seq()))) =>
         Apply("not", Seq(lhs))
-      case Apply(id, seq)          => Apply(id, seq.map(simplifyExpr))
-      case MultiForall(vars, body) => MultiForall(vars, simplifyExpr(body))
+      case Apply(id, seq)         => Apply(id, seq.map(simplifyExpr))
+      case ExprForall(vars, body) => ExprForall(vars, simplifyExpr(body))
     }
 
     def toString(expr: Expr): (String, Boolean) = expr match {
       case Apply(head, tail) => combineHeadTail(head, tail.map(toString).toList)
-      case MultiForall(freeVars, body) =>
+      case ExprForall(freeVars, body) =>
         (s"forall ${freeVars.mkString(", ")}. ${toString(body)._1}", false)
     }
 
-    val map = exprToString.view.mapValues(Apply(_, Seq())).toMap
+    val map = exprToString.mapValues(Apply(_, Seq())).toMap
     toString(simplifyExpr(toExpr(orig, map)))._1
   }
 
