@@ -32,15 +32,21 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
 
   // Main grammar definition
   lazy val program: Syntax[Program] =
-    (many(definition ~ ";".skip) ~ many(formula ~ ";".skip) ~ eof.skip).map {
-      case defs ~ fms => Program(defs, fms)
+    (many(manyDefinitions ~ ";".skip) ~ many(formula ~ ";".skip) ~ eof.skip)
+      .map { case defs ~ fms =>
+        Program(defs.flatMap(seq => seq), fms)
+      }
+
+  val manyDefinitions: Syntax[Seq[Let]] =
+    (kw("let") ~ rep1sep(definition, ",")).map { case tk ~ defList =>
+      defList.map(_.setPos(tk))
     }
 
-  val definition: Syntax[Let] = (kw("let") ~ id ~ opt(
+  lazy val definition: Syntax[Let] = (id ~ opt(
     "(".skip ~ rep1sep(id, ",") ~ ")".skip
   ) ~ opt(":=".skip ~ formula)).map {
-    case tk ~ id ~ None ~ bodyOpt         => Let(id, Seq(), bodyOpt).setPos(tk)
-    case tk ~ id ~ Some(params) ~ bodyOpt => Let(id, params, bodyOpt).setPos(tk)
+    case id ~ None ~ bodyOpt         => Let(id, Seq(), bodyOpt)
+    case id ~ Some(params) ~ bodyOpt => Let(id, params, bodyOpt)
   }
 
   // Expressions
