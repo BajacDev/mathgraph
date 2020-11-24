@@ -108,7 +108,7 @@ object Parser extends Parsers with Pipeline[Iterator[FrontendToken], Seq[Tree]] 
   lazy val more_and_formula = op("&").skip ~ " " ~ unitary_formula
 
   lazy val unitary_formula =
-    quanitfied_formula | unary_formula | "(" ~ fof_formula ~ ")" | atomic_formula
+    recursive(quanitfied_formula | unary_formula | "(" ~ fof_formula ~ ")" | atomic_formula)
 
   lazy val quanitfied_formula: Syntax[Expr] =
     (quantifier ~ "[" ~ variable_list ~ "]" ~ " " ~ ":" ~ " " ~ unitary_formula)
@@ -175,7 +175,7 @@ object Parser extends Parsers with Pipeline[Iterator[FrontendToken], Seq[Tree]] 
 
   lazy val system_atom = system_term
 
-  lazy val term = function_term | term_variable
+  lazy val term = recursive(function_term | term_variable)
   lazy val term_variable: Syntax[Expr] = variable.map { case (id, pos) =>
     Apply(id, Seq()).setPos(pos)
   }
@@ -278,9 +278,11 @@ object Parser extends Parsers with Pipeline[Iterator[FrontendToken], Seq[Tree]] 
   lazy val name_list = rep1sep(name, delim(","))
 
   lazy val general_term: Syntax[(Identifier, Position)] =
-    general_list | general_data_term
+    recursive(general_list | general_data_term)
+
   lazy val general_data: Syntax[(Identifier, Position)] =
     atomic_word_with_arguments | number | distinct_object
+
   lazy val general_data_term: Syntax[(Identifier, Position)] =
     (general_data ~ opt(":" ~ general_term)).map {
       case (data, pos) ~ None            => (data, pos)
