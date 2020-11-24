@@ -68,4 +68,29 @@ object Trees {
       case _                           => None
     }
   }
+
+  /** Syntactic sugar for and */
+  object And {
+    def apply(a: Expr, b: Expr): Expr =
+      Implies(Implies(a, Implies(b, False)), False)
+    def unapply(e: Expr): Option[(Expr, Expr)] = e match {
+      case Implies(Implies(a, Implies(b, False)), False) => Some((a, b))
+      case _                                             => None
+    }
+  }
+
+  /** Syntactic sugar for or */
+  object Or {
+    def apply(a: Expr, b: Expr): Expr = Not(And(Not(a), Not(b)))
+    def unapply(e: Expr): Option[(Expr, Expr)] = e match {
+      case Not(And(Not(a), Not(b))) => Some((a, b))
+      case _                        => None
+    }
+  }
+
+  /** TODO implement equality */
+  object Equals {
+    def apply(lhs: Expr, rhs: Expr): Expr = ???
+    def unapply(e: Expr): Option[(Expr, Expr)] = ???
+  }
 }

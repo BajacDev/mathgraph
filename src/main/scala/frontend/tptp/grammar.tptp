@@ -315,7 +315,7 @@ unknown
 
 %----Numbers
 <real>              ::- (<signed_decimal>|<unsigned_decimal>)<fraction_decimal>
-<signed_integer>    ::- d_decimal>)<fraction_decimal>
+<signed_integer>    ::- <sign><unsigned_integer>
 <unsigned_integer>  ::- <unsigned_decimal>
 <signed_decimal>    ::: <sign><unsigned_decimal>
 <sign>              ::: [+-]
