@@ -9,6 +9,7 @@ lazy val root = (project in file(".")).settings(
 )
 
 scalacOptions += "-deprecation"
+parallelExecution in Test := false
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.2" % Test
 libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2"
