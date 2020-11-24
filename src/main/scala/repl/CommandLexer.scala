@@ -34,7 +34,7 @@ object CommandLexer
   def keyword: Parser[CommandToken] = positioned {
     rep1(
       acceptIf(c => !c.isWhitespace && !c.isDigit)(
-        "Unexpected" + _
+        "Unexpected " + _
       )
     ) ^^ { cs =>
       val str = cs.mkString
@@ -46,7 +46,7 @@ object CommandLexer
   def number: Parser[CommandToken] = positioned {
     rep1(
       acceptIf(c => c.isDigit)(
-        "Unexpected" + _
+        "Unexpected " + _
       )
     ) ^^ { cs =>
       val str = cs.mkString

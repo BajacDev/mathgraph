@@ -14,18 +14,20 @@ class CommandParserTest extends AnyFunSuite {
 
   case class TestOutput(command: Command) {
 
-    def expect(expected: Command): Unit = {
-      if (command != expected)
-        fail(s"expected command ${expected} but was ${command}")
+    def expect(predicate: Command => Boolean): Unit = {
+      if (!predicate(command))
+        fail(s"unexpected command ${command}")
     }
 
-    def ==>(expected: Command): Unit = expect(expected)
+    def ==>(expected: Command): Unit = expect(_ == expected)
 
-    def ?(): Unit = expect(UnknownCommand)
+    def ?(): Unit = expect {
+      case BadCommand(_, _) => true
+      case UnknownCommand => true
+      case _ => false
+    }
 
-    def !(expected: (String, Int)): Unit = expect(
-      BadCommand(expected._1, expected._2)
-    )
+    def !(expected: (String, Int)): Unit = expect(_ == BadCommand(expected._1, expected._2))
   }
 
   implicit def parse(input: String): TestOutput = {
@@ -172,17 +174,12 @@ class CommandParserTest extends AnyFunSuite {
   }
 
   test("random strings lead to unkown commands") {
-    // For now we only do manual testing since random inputs are problematic
-    "askdj" ? ()
-    "kdj lkasdf ladf kd" ? ()
+    val nbTests = 100
+    val maxLength = 20
 
-    // This test is problematic because every once in a while, we encounter random strings that yield a BadCommand() result from the parser
-    // val nbTests = 100
-    // val maxLength = 20
-
-    // for (i <- 0 until nbTests) yield {
-    //   randomNonKeyword(randomLetter, maxLength) ? ()
-    //   randomNonKeyword(randomAlphanumeric, maxLength) ? ()
-    // }
+    for (i <- 0 until nbTests) yield {
+      randomNonKeyword(randomLetter, maxLength) ? ()
+      randomNonKeyword(randomAlphanumeric, maxLength) ? ()
+    }
   }
 }
