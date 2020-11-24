@@ -1,4 +1,4 @@
-package mathgraph.frontend.tptp
+package mathgraph.frontend
 
 /* TODO detect free identifiers and introduce Let for them
  *

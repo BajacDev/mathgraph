@@ -5,12 +5,19 @@ import mathgraph.frontend.Trees._
 import scala.language.implicitConversions
 import scallion._
 
-object Parser extends Parsers with Pipeline[Iterator[FrontendToken], Program] {
+object Parser extends Parsers with Pipeline[Iterator[FrontendToken], Seq[Tree]] {
 
   import Implicits._
 
   type Kind = TokenKind
   type Token = FrontendToken
+
+  case class TPTP_Include(filename: String, formulas: Seq[(String, Position)]) extends Tree {
+    def unapply(tree: Tree): Option[(String, Seq[(String, Position)])] = tree match {
+      case TPTP_Include(filename, formulas) => Some((filename, formulas))
+      case _ => None
+    }
+  }
 
   override def getKind(token: Token): TokenKind = kindOf(token)
 
@@ -19,35 +26,39 @@ object Parser extends Parsers with Pipeline[Iterator[FrontendToken], Program] {
   def pred(str: String): Syntax[Token] = elem(PredicateKind(str))
   def delim(str: String): Syntax[Token] = elem(DelimKind(str))
 
-  // implicit def delim(str: String): Syntax[Token] = elem(DelimKind(str)).skip
+  val eof: Syntax[Token] = elem(EOFKind)
+
   implicit def skipped(str: String): Skip = str match {
     case " " => elem(SpaceKind).skip
     case _   => elem(DelimKind(str)).skip
   }
 
-  lazy val tptp_file: Syntax[Program] = many(tptp_input).map { case inputs =>
-    Program(Seq(), inputs.flatten)
+  lazy val tptp_file: Syntax[Seq[Tree]] = (many(tptp_input) ~ eof.skip).map { case inputs =>
+    inputs
   }
 
-  lazy val tptp_input: Syntax[Seq[Expr]] = annotated_formula | include
+  lazy val tptp_input: Syntax[Tree] = annotated_formula | include
 
   lazy val annotated_formula = (fof_annotated | cnf_annotated).map {
-    case formula => Seq(formula)
+    case formula => formula
   }
 
-  lazy val fof_annotated: Syntax[Expr] = (kw(
+  lazy val fof_annotated: Syntax[Tree] = (kw(
     "fof"
   ) ~ "(" ~ name ~ "," ~ formula_role ~ "," ~ fof_formula ~ annotations ~ ")" ~ ".")
     .map {
-      // case fof ~ name ~ ("conjecture", pos) ~ fof_formula ~ annotations => Implies(fof_formula, False).setPos(fof)
-      case fof ~ name ~ formula_role ~ fof_formula ~ annotations =>
-        formula_role match {
+      case fof ~ name ~ formula_role ~ fof_formula ~ annotations => {
+
+        val body = formula_role match {
           case ("conjecture", pos) => Implies(fof_formula, False).setPos(fof)
           case _                   => fof_formula.setPos(fof)
         }
+
+        Let(name._1, Seq(), Some(body)).setPos(fof)
+      }
     }
 
-  lazy val cnf_annotated = (kw(
+  lazy val cnf_annotated: Syntax[Tree] = (kw(
     "cnf"
   ) ~ "(" ~ name ~ "," ~ formula_role ~ "," ~ cnf_formula ~ annotations ~ ")" ~ ".")
     .map { case cnf ~ name ~ formula_role ~ cnf_formula ~ annotations =>
@@ -70,7 +81,7 @@ object Parser extends Parsers with Pipeline[Iterator[FrontendToken], Program] {
       case lhs ~ OperatorToken("<=>") ~ rhs =>
         And(Implies(lhs, rhs), Implies(rhs, lhs)).setPos(lhs)
       case _ ~ OperatorToken(op) ~ _ =>
-        ??? //throw new java.lang.Error("Unsupported operator " + op)
+        ???
     }
 
   lazy val binary_connective =
@@ -170,12 +181,6 @@ object Parser extends Parsers with Pipeline[Iterator[FrontendToken], Program] {
   }
   lazy val function_term = plain_term | defined_term | system_term
 
-  // val plain_term: Syntax[Expr] = (constant | functor ~ "(" ~ arguments ~ ")").map{
-  //   case const => Apply(const._1, Seq()).setPos(const._2)
-  //   case funct ~ args => Apply(funct._1, args).setPos(funct._2)
-  // }
-  // val constant = atomic_word
-  // val functor = atomic_word
   lazy val plain_term: Syntax[Expr] =
     (atomic_word ~ opt("(" ~ arguments ~ ")")).map {
       case (word, pos) ~ None       => Apply(word, Seq()).setPos(pos)
@@ -184,7 +189,7 @@ object Parser extends Parsers with Pipeline[Iterator[FrontendToken], Program] {
 
   lazy val defined_term: Syntax[Expr] = (number | distinct_object).map {
     case (id, pos) =>
-      Apply(id, Seq()).setPos(pos) // TODO Unclear what number really is
+      Apply(id, Seq()).setPos(pos) // TODO Unclear what defined_term really is
   }
 
   lazy val distinct_object: Syntax[(Identifier, Position)] =
@@ -192,9 +197,6 @@ object Parser extends Parsers with Pipeline[Iterator[FrontendToken], Program] {
       (distinct, tk.pos)
     }
 
-  // val system_term = system_constant | system_functor ~ "(" ~ arguments ~ ")"
-  // val system_functor = atomic_system_word
-  // val system_constant = atomic_system_word
   lazy val system_term: Syntax[Expr] =
     (atomic_system_word ~ opt("(" ~ arguments ~ ")")).map {
       case (word, pos) ~ None       => Apply(word, Seq()).setPos(pos)
@@ -267,10 +269,10 @@ object Parser extends Parsers with Pipeline[Iterator[FrontendToken], Program] {
     * %----Useful info for creators is just <general_function>
     */
 
-  lazy val include: Syntax[Seq[Expr]] =
+  lazy val include: Syntax[Tree] =
     (kw("include").skip ~ "(" ~ file_name ~ formula_selection ~ ")" ~ ".").map {
-      case filename ~ None            => ???
-      case filename ~ Some(selection) => ???
+      case (filename, pos) ~ None            => TPTP_Include(filename, Seq()).setPos(pos)
+      case (filename, pos) ~ Some(selection) => TPTP_Include(filename, selection).setPos(pos)
     }
   lazy val formula_selection = opt("," ~ "[" ~ name_list ~ "]")
   lazy val name_list = rep1sep(name, delim(","))
@@ -345,19 +347,39 @@ object Parser extends Parsers with Pipeline[Iterator[FrontendToken], Program] {
       (quoted, tk.pos)
     }
 
-  protected def apply(tokens: Iterator[Token])(ctxt: Context): Program = {
-    // val parser = Parser(program)
-    //
-    // parser(tokens) match {
-    //   case Parsed(result, rest) => result
-    //   case UnexpectedEnd(rest)  => ctxt.fatal("Unexpected end of input.")
-    //   case UnexpectedToken(tk, rest) =>
-    //     ctxt.fatal(
-    //       "Unexpected token: " + tk + ", expected one of: " + rest.first
-    //         .mkString(", "),
-    //       tk
-    //     )
-    // }
-    ???
+  // Ensures the grammar is in LL(1), otherwise prints some counterexamples
+  lazy val checkLL1: Boolean = {
+    println("Checking TPTP grammar...")
+    if (tptp_file.isLL1) {
+      println("Grammar is LL1 !")
+      true
+    } else {
+      println("Debugging grammar...")
+      debug(tptp_file)
+      false
+    }
+  }
+
+  protected def apply(tokens: Iterator[Token])(ctxt: Context): Seq[Tree] = {
+
+    println("Preparing TPTP parser...")
+    if (!checkLL1) {
+      ctxt.fatal("TPTP grammar is not LL1!")
+    }
+
+    println("Creating TPTP parser...")
+    val parser = Parser(tptp_file)
+
+    println("Running TPTP parser...")
+    parser(tokens) match {
+      case Parsed(result, rest) => result
+      case UnexpectedEnd(rest)  => ctxt.fatal("Unexpected end of input.")
+      case UnexpectedToken(tk, rest) =>
+        ctxt.fatal(
+          "Unexpected token: " + tk + ", expected one of: " + rest.first
+            .mkString(", "),
+          tk
+        )
+    }
   }
 }
