@@ -8,19 +8,13 @@ import mathgraph.solver._
 
 object Commands {
 
-  /** Represents the type of parameters to commands */
+  /** Represents the type of parameters to commands (can be extended to floats, booleans, ...) */
   abstract class ParamType
-  case object BooleanT extends ParamType {
-    override def toString: String = "<true|false>"
-  }
   case object IntT extends ParamType {
-    override def toString: String = "<int>"
-  }
-  case object FloatT extends ParamType {
-    override def toString: String = "<float>"
+    override def toString: String = "int"
   }
   case object StringT extends ParamType {
-    override def toString: String = "<string>"
+    override def toString: String = "string"
   }
 
   /** A command takes a logic state and some parameters and returns the new state */
@@ -53,11 +47,11 @@ object Commands {
 
   def printSummary(df: CommandDef): Unit =
     println(s"- ${df.name.padTo(maxCommandLength, ' ')}  ${df.desc
-      .replaceAll("\n", " " * (maxCommandLength + 4))}")
+      .replaceAll("\n", "\n" + " " * (maxCommandLength + 4))}")
 
   def printUsage(df: CommandDef): Unit = {
-    val mandatory = df.mandatoryParams.mkString(" ")
-    val optional = df.optionalParams.map(tpe => s"[$tpe]").mkString(" ")
+    val mandatory = df.mandatoryParams.map(tpe => s"<$tpe>")
+    val optional = df.optionalParams.map(tpe => s"[<$tpe>]")
     println((df.name +: (mandatory ++ optional)).mkString(" "))
     println(df.desc)
   }
