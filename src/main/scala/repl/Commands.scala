@@ -8,240 +8,216 @@ import mathgraph.solver._
 
 object Commands {
 
-  abstract class Command {
-    def apply(currentState: LogicState): LogicState = {
-      System.out.println(s"${RED}Command not implemented${RESET}")
-      currentState
+  /** Represents the type of parameters to commands */
+  abstract class ParamType
+  case object BooleanT extends ParamType {
+    override def toString: String = "<true|false>"
+  }
+  case object IntT extends ParamType {
+    override def toString: String = "<int>"
+  }
+  case object FloatT extends ParamType {
+    override def toString: String = "<float>"
+  }
+  case object StringT extends ParamType {
+    override def toString: String = "<string>"
+  }
+
+  /** A command takes a logic state and some parameters and returns the new state */
+  type Command = LogicState => Seq[Any] => LogicState
+
+  /** Generic class used to define commands */
+  case class CommandDef private (
+      name: String,
+      desc: String,
+      mandatoryParams: Seq[ParamType],
+      optionalParams: Seq[ParamType],
+      command: Command
+  ) {
+    def ~>(params: ParamType*): CommandDef =
+      copy(mandatoryParams = params)
+    def ~>?(params: ParamType*): CommandDef =
+      copy(optionalParams = params)
+    def ??(str: String): CommandDef = copy(desc = str)
+  }
+
+  object CommandDef {
+    def apply(name: String, command: Command): CommandDef =
+      CommandDef(name, "", Seq(), Seq(), command)
+  }
+
+  lazy val maxCommandLength = commands.keys.map(_.length).max
+
+  private def cmdsToMap(defs: CommandDef*): Map[String, CommandDef] =
+    defs.map(df => df.name -> df).toMap
+
+  def printSummary(df: CommandDef): Unit =
+    println(s"- ${df.name.padTo(maxCommandLength, ' ')}  ${df.desc
+      .replaceAll("\n", " " * (maxCommandLength + 4))}")
+
+  def printUsage(df: CommandDef): Unit = {
+    val mandatory = df.mandatoryParams.mkString(" ")
+    val optional = df.optionalParams.map(tpe => s"[$tpe]").mkString(" ")
+    println((df.name +: (mandatory ++ optional)).mkString(" "))
+    println(df.desc)
+  }
+
+  // Prints the logic state to the console
+  def printState(ls: LogicState, simple: Boolean): Unit = {
+    val lg = ls.logicGraph
+    val printer: Int => String =
+      if (simple) ls.printer.toSimpleString(lg, _)
+      else ls.printer.toString(lg, _)
+
+    for (e <- 0 until lg.size) {
+      val truth = lg
+        .getTruthOf(e)
+        .map(t => if (t) "[true]  " else "[false]")
+        .getOrElse("       ")
+      println(f"$e%04d $truth ${printer(e)}")
     }
   }
 
-  case object Help extends Command {
-    override def apply(currentState: LogicState): LogicState = {
-      System.out.println("List of commands:")
-      CommandLexer.keywords.foreach(kw => System.out.println(s"$kw"))
-      currentState
+  val help: Command = { ls =>
+    {
+      case Seq() =>
+        println("Available commands :")
+        commands.values.foreach(printSummary)
+        ls
+      case Seq(cmd: String) =>
+        commands
+          .get(cmd)
+          .map(printUsage)
+          .getOrElse(println(s"Command '$cmd' does not exist"))
+        ls
     }
   }
 
-  case object Leave extends Command {
-    override def apply(currentState: LogicState): LogicState = {
-      System.out.println("Closing application")
-      currentState
+  val lss: Command = { ls =>
+    { case Seq() =>
+      printState(ls, simple = true)
+      ls
     }
   }
 
-  case object Lse extends Command {
-    override def apply(currentState: LogicState): LogicState = {
-      System.out.println("Lse command recognized")
-      currentState
+  val ls: Command = { ls =>
+    { case Seq() =>
+      printState(ls, simple = false)
+      ls
     }
   }
 
-  def lineToString(pos: Int, truth: Option[Boolean], expr: String): String = {
-    val truthStr = truth match {
-      case None    => "\t\t"
-      case Some(v) => s"[$v]\t"
-    }
-    pos.toString + " " + truthStr + " " + expr
-  }
-
-  def buildLines(
-      logicGraph: LogicGraph,
-      exprs: Iterable[Int],
-      printFunc: Int => String
-  ): Iterable[(Int, Option[Boolean], String)] = {
-    exprs.map(pos =>
-      (
-        pos,
-        logicGraph.getTruthOf(pos),
-        printFunc(pos)
-      )
-    )
-  }
-
-  case object Lss extends Command {
-
-    override def apply(currentState: LogicState): LogicState = {
-      val lg = currentState.logicGraph
-      val printer = currentState.printer
-      buildLines(lg, 0 until lg.size, printer.toSimpleString(lg, _))
-        .map { case (p, t, e) =>
-          lineToString(p, t, e)
-        }
-        .foreach(System.out.println)
-
-      currentState
+  val absurd: Command = { ls =>
+    { case Seq() =>
+      val status = if (ls.logicGraph.isAbsurd) "absurd" else "not absurd"
+      println(s"The logic graph is $status")
+      ls
     }
   }
 
-  case object Ls extends Command {
-
-    override def apply(currentState: LogicState): LogicState = {
-      val lg = currentState.logicGraph
-      val printer = currentState.printer
-      buildLines(lg, 0 until lg.size, printer.toString(lg, _))
-        .map { case (p, t, e) =>
-          lineToString(p, t, e)
-        }
-        .foreach(System.out.println)
-
-      currentState
+  val fixN: Command = { ls =>
+    { case Seq(e: Int) =>
+      ls.copy(logicGraph = ls.logicGraph.fixLetSymbol(e)._1)
     }
   }
 
-  case object Absurd extends Command {
-    override def apply(currentState: LogicState): LogicState = {
-      val logicGraph = currentState.logicGraph
-      System.out.println(s"Absurd: ${logicGraph.isAbsurd}")
-      currentState
+  val fix: Command = { ls =>
+    { case Seq(e1: Int, e2: Int) =>
+      ls.copy(logicGraph = ls.logicGraph.fix(e1, e2)._1)
     }
   }
 
-  case class FixN(arg: Int) extends Command {
-    override def apply(currentState: LogicState): LogicState = {
-      val logicGraph = currentState.logicGraph
-      val (lg, pos) = logicGraph.fixLetSymbol(arg)
-      currentState.copy(logicGraph = lg)
+  val simplify: Command = { ls =>
+    { case Seq(e: Int) =>
+      ls.copy(logicGraph = ls.logicGraph.simplifyInferenceRule(e)._1)
     }
   }
 
-  case class Fix(arg1: Int, arg2: Int) extends Command {
-    override def apply(currentState: LogicState): LogicState = {
-      val logicGraph = currentState.logicGraph
-      val (lg, pos) = logicGraph.fix(arg1, arg2)
-      currentState.copy(logicGraph = lg)
+  val fixAllTrue: Command = { ls =>
+    { case Seq() =>
+      ls.copy(logicGraph = Solver.fixAll(ls.logicGraph))
     }
   }
 
-  case class Simplify(arg: Int) extends Command {
-    override def apply(currentState: LogicState): LogicState = {
-      val logicGraph = currentState.logicGraph
-      val (lg, pos) = logicGraph.symplifyInferenceRule(arg)
-      currentState.copy(logicGraph = lg)
+  val fixAllFalse: Command = { ls =>
+    { case Seq() =>
+      ls.copy(logicGraph = Solver.fixLetSym(ls.logicGraph))
     }
   }
 
-  case class Why(arg1: Int, arg2: Int) extends Command {
-    override def apply(currentState: LogicState): LogicState = {
-      System.out.println(s"Why command recognized args = (${arg1}, ${arg2})")
-      currentState
+  val proof: Command = { ls =>
+    { case Seq() =>
+      ls.printer.proofAbsurd(ls.logicGraph).foreach(println)
+      ls
     }
   }
 
-  case object FixAllTrue extends Command {
-    override def apply(currentState: LogicState): LogicState = {
-      val logicGraph = currentState.logicGraph
-      val lg = Solver.fixAll(logicGraph)
-      currentState.copy(logicGraph = lg)
+  val saturate: Command = { ls =>
+    { case Seq() =>
+      proof(ls.copy(logicGraph = Solver.saturation(ls.logicGraph)))(Seq())
     }
   }
 
-  case object FixAllFalse extends Command {
-    override def apply(currentState: LogicState): LogicState = {
-      val logicGraph = currentState.logicGraph
-      val lg = Solver.fixLetSym(logicGraph)
-      currentState.copy(logicGraph = lg)
-    }
-  }
+  val stats: Command = { ls =>
+    { case Seq() =>
+      val lg = ls.logicGraph
+      val printer = ls.printer
+      val exprs = lg.getAllTruth
+      val stats = Solver.getStats(lg, exprs)
 
-  case object Saturate extends Command {
-    override def apply(currentState: LogicState): LogicState = {
-      val lg = Solver.saturation(currentState.logicGraph)
-      val newCtx = currentState.copy(logicGraph = lg)
-      Proof.apply(newCtx)
-    }
-  }
-
-  case object Stats extends Command {
-    override def apply(currentState: LogicState): LogicState = {
-      val lg = currentState.logicGraph
-      val printer = currentState.printer
-      val exprSet = lg.getAllTruth
-      val stats = Solver.getStats(lg, exprSet)
-
-      stats.foreach {
-        case (ctx, set) => {
-          System.out.println(s"Context(head: ${ctx.head} ${printer
-            .toString(lg, ctx.head)}, idArg: ${ctx.idArg})")
-          set.map(printer.toString(lg, _)).foreach(System.out.println)
-          System.out.println()
-        }
+      stats.foreach { case (ctx, set) =>
+        println(
+          s"Context(head: ${ctx.head} ${printer.toString(lg, ctx.head)}, idArg: ${ctx.idArg})"
+        )
+        set.map(printer.toString(lg, _)).foreach(println)
+        println()
       }
-      currentState
+
+      ls
     }
   }
 
-  case class Ctx(arg: Int) extends Command {
-    override def apply(currentState: LogicState): LogicState = {
-      System.out.println(s"Ctx command recognized (arg = ${arg})")
-      currentState
-    }
-  }
-
-  case class Chain(arg: Int) extends Command {
-    override def apply(currentState: LogicState): LogicState = {
-      System.out.println(s"Chain command recognized (arg = ${arg})")
-      currentState
-    }
-  }
-
-  case object Proof extends Command {
-    override def apply(currentState: LogicState): LogicState = {
-      val lg = currentState.logicGraph
-      val printer = currentState.printer
-      printer.proofAbsurd(lg).foreach(System.out.println)
-      currentState
-    }
-  }
-
-  case object Undo extends Command {
-    override def apply(currentState: LogicState): LogicState = {
-      currentState.previousState match {
-        case Some(previousState) => {
-          System.out.println("Undo successful")
-          previousState
-        }
-        case None => {
-          System.out.println("There is no operation to undo")
-          currentState
-        }
+  val undo: Command = { ls =>
+    { case Seq() =>
+      ls.previousState match {
+        case Some(prev) =>
+          println("Undo successful")
+          prev
+        case None =>
+          println("Nothing to undo")
+          ls
       }
     }
   }
 
-  case object Clear extends Command {
-    override def apply(currentState: LogicState): LogicState = {
-      System.out.print("\u001b[H\u001b[2J");
-      currentState
-    }
-  }
-
-  case object UnknownCommand extends Command {
-    override def apply(currentState: LogicState): LogicState = {
-      System.out.println(s"Unknown command")
-      currentState
-    }
-  }
-
-  case class BadCommand(command: String, n: Int) extends Command {
-
-    override def apply(currentState: LogicState): LogicState = {
-
-      def printUsage(): Unit = n match {
-        case 0 => System.out.println(s"usage: ${command}")
-        case 1 => System.out.println(s"usage: ${command} pos")
-        case _ if command == "fix" =>
-          System.out.println(s"usage: ${command} next pos")
-        case _ if command == "why" =>
-          System.out.println(s"usage: ${command} a b")
-        case _ => {
-          UnknownCommand.apply(currentState)
-          ()
-        }
-      }
-
-      printUsage()
-      currentState
-    }
-  }
+  /** Contains the list of all the available commands in the REPL */
+  val commands: Map[String, CommandDef] = cmdsToMap(
+    CommandDef("help", help) ~>? StringT ??
+      """Provides help about commands. Type 'help' for general help
+        |or 'help <cmd>' for help about a specific command.""".stripMargin,
+    CommandDef("exit", ls => _ => ls) ??
+      "Exits the REPL",
+    CommandDef("lss", lss) ??
+      "Displays all the expression in a simple way.",
+    CommandDef("lss", ls) ??
+      "Displays all the expression.",
+    CommandDef("abs", absurd) ??
+      "Displays whether the set of expressions is absurd.",
+    CommandDef("fixn", fixN) ~> IntT ??
+      "Fixes the given symbol with its let-symbol.",
+    CommandDef("fix", fix) ~> (IntT, IntT) ??
+      "Fixes the two symbols given as argument.",
+    CommandDef("simp", simplify) ~> IntT ??
+      "Simplifies the given expression.",
+    CommandDef("fat", fixAllTrue) ??
+      "Fixes all the expressions to true.",
+    CommandDef("faf", fixAllFalse) ??
+      "Fixes all the expressions to false.",
+    CommandDef("proof", proof) ??
+      "Displays a proof by contradiction, if one was found.",
+    CommandDef("sat", saturate) ??
+      "Applies the saturation algorithm to the set of expressions.",
+    CommandDef("stats", stats) ??
+      "Displays statistics about the expressions."
+  )
 }
