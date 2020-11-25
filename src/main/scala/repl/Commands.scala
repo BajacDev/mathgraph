@@ -73,8 +73,8 @@ object Commands {
     for (e <- 0 until lg.size) {
       val truth = lg
         .getTruthOf(e)
-        .map(t => if (t) "[true]  " else "[false]")
-        .getOrElse("       ")
+        .map(t => if (t) "[true]\t" else "[false]\t")
+        .getOrElse("\t\t")
 
       val definition =
         ls.printer.getDefinition(lg, e).map(d => s" := $d").getOrElse("")

@@ -61,15 +61,20 @@ case class Printer(
     */
   def replace(body: Expr, vars: Seq[String], fixes: Seq[Expr]): Expr = {
 
-    def replaceRec(expr: Expr, map: Map[String, Expr]): Expr = expr match {
-      case Apply(name, Seq()) if map.contains(name) => map(name)
-      case Apply(name, seq)                         => Apply(name, seq.map(replaceRec(_, map)))
-      case ExprForall(v, b)                         => ExprForall(v, replaceRec(b, map))
-    }
-
     val (oldVars, newVars) = vars.splitAt(fixes.length)
     val map = oldVars.zip(fixes).map { case (a, b) => a -> b }.toMap
-    ExprForall(newVars, replaceRec(body, map))
+
+    def replaceRec(expr: Expr): Expr = expr match {
+      case Apply(name, seq) if map.contains(name) =>
+        map(name) match {
+          case Apply(n, s)      => Apply(n, s ++ seq.map(replaceRec))
+          case ExprForall(v, b) => replace(b, v, seq.map(replaceRec))
+        }
+      case Apply(name, seq) => Apply(name, seq.map(replaceRec))
+      case ExprForall(v, b) => ExprForall(v, replaceRec(b))
+    }
+
+    ExprForall(newVars, replaceRec(body))
   }
 
   /** convert a pos in logicgraph to a string
