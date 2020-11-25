@@ -17,28 +17,23 @@ object Solver {
     *
     * this does not accept second order logic context yet
     */
-  trait Context
-  case class Context1O(head: Int, idArg: Int) extends Context
-  case class Context2O(arg: Int) extends Context
+  case class Context(head: Int, idArg: Int)
 
   // todo better name
   type Stats = Map[Context, Set[Int]]
+  type Arities = Map[Context, Set[Int]]
 
 }
 
 case class Solver(stats: Stats = Map[Context, Set[Int]](), size: Int = 0) {
 
-  def updateStats(lg: LogicGraph): Solver = {
-    val exprSet = lg.getAllTruth.filter(_ >= size)
-    val newStats = getStats(lg, exprSet, stats)
-    Solver(newStats, lg.size)
-  }
-
-  def saturation(logicGraph: LogicGraph): (LogicGraph, Solver) = {
-    if (logicGraph.isAbsurd) (logicGraph, this)
+  def saturation(lg: LogicGraph): (LogicGraph, Solver) = {
+    if (lg.isAbsurd) (lg, this)
     else {
-      val solver = updateStats(logicGraph)
-      solver.saturation(fixAll(fixLetSym(logicGraph)))
+      val s = updateSolver(lg)
+      val nextLg = s.fixAll(s.fixLetSym(lg))
+      if (nextLg.size == lg.size) (nextLg, s)
+      else s.saturation(nextLg)
     }
   }
 
@@ -114,34 +109,32 @@ case class Solver(stats: Stats = Map[Context, Set[Int]](), size: Int = 0) {
     * eg: expression +(1, f(7)) will return the map
     * Map(Context('+', 0) -> Set('1'), Context('+', 1) -> Set('f(7)'), Context('f', 0) -> Set('7'))
     */
-  def getStats(implicit
-      logicGraph: LogicGraph,
-      exprSet: Set[Int],
-      base: Stats
-  ): Stats = {
+  def updateSolver(implicit
+      lg: LogicGraph
+  ): Solver = {
 
-    def getStatsHeadTail(head: Int, tail: Seq[Int], result: Stats): Stats = {
-      val result2 = tail match {
-        case x :: xs => insertPair(Context2O(x), head, result)
-        case Nil     => result
-      }
-      tail.zipWithIndex.foldLeft(result2) { case (map, (arg, idx)) =>
-        val newStats = insertPair(Context1O(head, idx), arg, map)
-        getStatsPos(arg, newStats)
+    def recHeadTail(head: Int, tail: Seq[Int], result: Stats): Stats = {
+      tail.zipWithIndex.foldLeft(result) { case (map, (arg, idx)) =>
+        val newStats = insertPair(Context(head, idx), arg, map)
+        recPos(arg, newStats)
       }
     }
 
     // return stats from one expression
-    def getStatsPos(pos: Int, result: Stats): Stats = {
+    def recPos(pos: Int, result: Stats): Stats = {
       pos match {
         case Forall(_, _)         => result
-        case HeadTail(head, tail) => getStatsHeadTail(head, tail, result)
+        case HeadTail(head, tail) => recHeadTail(head, tail, result)
       }
     }
 
-    exprSet.foldLeft(base) { case (map, pos) =>
-      getStatsPos(pos, map)
+    val exprSet = lg.getAllTruth.filter(_ >= size)
+
+    val newStats = exprSet.foldLeft(stats) { case (map, pos) =>
+      recPos(pos, map)
     }
+
+    Solver(newStats, lg.size)
   }
 
   /** Return the context of the argument to be fixed
@@ -166,9 +159,8 @@ case class Solver(stats: Stats = Map[Context, Set[Int]](), size: Int = 0) {
 
     def contextInsideRec(pos: Int): Set[Context] = {
       val result: Set[Context] = pos match {
-        case HeadTail(Symbol(id), _) if id > idArg     => Set()
-        case HeadTail(Symbol(id), args) if id == idArg => o2Ctx(args)
-        case HeadTail(Symbol(id), args)                => o1Ctx(id, args)
+        case HeadTail(Symbol(id), _) if id >= idArg => Set()
+        case HeadTail(Symbol(id), args)             => ctx(id, args)
       }
 
       pos match {
@@ -179,7 +171,7 @@ case class Solver(stats: Stats = Map[Context, Set[Int]](), size: Int = 0) {
       }
     }
 
-    def o1Ctx(id: Int, args: Seq[Int]): Set[Context] = {
+    def ctx(id: Int, args: Seq[Int]): Set[Context] = {
       args.zipWithIndex.foldLeft(Set[Context]()) { case (set, (arg, idx)) =>
         arg match {
 
@@ -189,17 +181,12 @@ case class Solver(stats: Stats = Map[Context, Set[Int]](), size: Int = 0) {
           case Symbol(idSym) if idSym == idArg =>
             outsideArgs(id) match {
               case HeadTail(head, argsOut) =>
-                set + Context1O(head, argsOut.length + idx)
+                set + Context(head, argsOut.length + idx)
             }
 
           case _ => set
         }
       }
-    }
-
-    def o2Ctx(args: Seq[Int]): Set[Context] = args match {
-      case Symbol(id) :: _ if id < idArg => Set(Context2O(outsideArgs(id)))
-      case _                             => Set()
     }
 
     contextInsideRec(orig)
