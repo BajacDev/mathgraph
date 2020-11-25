@@ -10,40 +10,46 @@ object Repl {
   case class InvalidCommand(error: String, pos: Position) extends Exception
   object EmptyCommand extends Exception
 
-  def usage(cmd: String): String =
-    s"To get help about '$cmd', you can type 'help $cmd'"
-
   def checkArguments(df: CommandDef, args: Seq[Token]): Unit = {
     def error(msg: String, pos: Position): Nothing =
-      throw InvalidCommand(s"$msg. ${usage(df.name)}.", pos)
+      throw InvalidCommand(
+        s"$msg. To get help about '${df.name}', you can type 'help ${df.name}'.",
+        pos
+      )
+
+    def rec(types: Seq[ParamType], args: Seq[Token], idx: Int): Unit =
+      (types, args) match {
+        case (_, Seq()) =>
+        case (tpe +: _, (tk: StringToken) +: _) if tpe != StringT =>
+          error(
+            s"Argument number $idx of '${df.name}' should be of type $tpe, but a string was given",
+            tk.pos
+          )
+        case (tpe +: _, (tk: IntToken) +: _) if tpe != IntT =>
+          error(
+            s"Argument number $idx of '${df.name}' should be of type $tpe, but an int was given",
+            tk.pos
+          )
+        case (tpe +: _, (tk: ErrorToken) +: _) =>
+          error(s"Invalid token for argument number $idx", tk.pos)
+        case (_ +: typesTail, _ +: argsTail) =>
+          rec(typesTail, argsTail, idx + 1)
+      }
 
     val numMandatory = df.mandatoryParams.length
     val maxArguments = df.optionalParams.length + numMandatory
 
     if (args.length < numMandatory)
-      error(s"'${df.name}' takes at least $numMandatory arguments, but ${args.length} were given", NoPosition)
+      error(
+        s"'${df.name}' takes at least $numMandatory arguments, but ${args.length} were given",
+        NoPosition
+      )
 
     if (args.length > maxArguments)
-      error(s"'${df.name}' takes at most $maxArguments arguments, but ${args.length} were given", NoPosition)
-
-    def rec(types: Seq[ParamType], args: Seq[Token], idx: Int): Unit =
-      (types, args) match {
-        case (_, Seq()) =>
-        case (tpe, tk: StringToken) if tpe != StringT =>
-          error(
-            s"Argument number $idx of '${df.name}' should be of type $tpe, but a string was given",
-            tk.pos
-          )
-        case (tpe, tk: IntToken) if tpe != IntT =>
-          error(
-            s"Argument number $idx of '${df.name}' should be of type $tpe, but an int was given",
-            tk.pos
-          )
-        case (tpe, tk: ErrorToken) =>
-          error(s"Invalid token for argument number $idx", tk.pos)
-        case (_ +: typesTail, _ +: argsTail) =>
-          rec(typesTail, argsTail, idx + 1)
-      }
+      error(
+        s"'${df.name}' takes at most $maxArguments arguments, but ${args.length} were given",
+        NoPosition
+      )
 
     rec(df.mandatoryParams ++ df.optionalParams, args, 1)
   }

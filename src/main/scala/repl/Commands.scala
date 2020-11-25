@@ -72,6 +72,16 @@ object Commands {
     }
   }
 
+  // Helper function to create commands
+  def transformState(f: LogicState => LogicState): Command = { ls =>
+    { case Seq() =>
+      f(ls)
+    }
+  }
+  def consumeState(f: LogicState => Unit): Command = transformState { ls =>
+    f(ls); ls
+  }
+
   val help: Command = { ls =>
     {
       case Seq() =>
@@ -87,26 +97,17 @@ object Commands {
     }
   }
 
-  val lss: Command = { ls =>
-    { case Seq() =>
-      printState(ls, simple = true)
-      ls
-    }
+  val lss: Command = consumeState { ls =>
+    printState(ls, simple = true)
   }
 
-  val ls: Command = { ls =>
-    { case Seq() =>
-      printState(ls, simple = false)
-      ls
-    }
+  val ls: Command = consumeState { ls =>
+    printState(ls, simple = false)
   }
 
-  val absurd: Command = { ls =>
-    { case Seq() =>
-      val status = if (ls.logicGraph.isAbsurd) "absurd" else "not absurd"
-      println(s"The logic graph is $status")
-      ls
-    }
+  val absurd: Command = consumeState { ls =>
+    val status = if (ls.logicGraph.isAbsurd) "absurd" else "not absurd"
+    println(s"The logic graph is $status")
   }
 
   val fixN: Command = { ls =>
@@ -127,60 +128,45 @@ object Commands {
     }
   }
 
-  val fixAllTrue: Command = { ls =>
-    { case Seq() =>
-      ls.copy(logicGraph = Solver.fixAll(ls.logicGraph))
+  val fixAllTrue: Command = transformState { ls =>
+    ls.copy(logicGraph = Solver.fixAll(ls.logicGraph))
+  }
+
+  val fixAllFalse: Command = transformState { ls =>
+    ls.copy(logicGraph = Solver.fixLetSym(ls.logicGraph))
+  }
+
+  val proof: Command = consumeState { ls =>
+    ls.printer.proofAbsurd(ls.logicGraph).foreach(println)
+  }
+
+  val saturate: Command = transformState { ls =>
+    proof(ls.copy(logicGraph = Solver.saturation(ls.logicGraph)))(Seq())
+  }
+
+  val stats: Command = consumeState { ls =>
+    val lg = ls.logicGraph
+    val printer = ls.printer
+    val exprs = lg.getAllTruth
+    val stats = Solver.getStats(lg, exprs)
+
+    stats.foreach { case (ctx, set) =>
+      println(
+        s"Context(head: ${ctx.head} ${printer.toString(lg, ctx.head)}, idArg: ${ctx.idArg})"
+      )
+      set.map(printer.toString(lg, _)).foreach(println)
+      println()
     }
   }
 
-  val fixAllFalse: Command = { ls =>
-    { case Seq() =>
-      ls.copy(logicGraph = Solver.fixLetSym(ls.logicGraph))
-    }
-  }
-
-  val proof: Command = { ls =>
-    { case Seq() =>
-      ls.printer.proofAbsurd(ls.logicGraph).foreach(println)
-      ls
-    }
-  }
-
-  val saturate: Command = { ls =>
-    { case Seq() =>
-      proof(ls.copy(logicGraph = Solver.saturation(ls.logicGraph)))(Seq())
-    }
-  }
-
-  val stats: Command = { ls =>
-    { case Seq() =>
-      val lg = ls.logicGraph
-      val printer = ls.printer
-      val exprs = lg.getAllTruth
-      val stats = Solver.getStats(lg, exprs)
-
-      stats.foreach { case (ctx, set) =>
-        println(
-          s"Context(head: ${ctx.head} ${printer.toString(lg, ctx.head)}, idArg: ${ctx.idArg})"
-        )
-        set.map(printer.toString(lg, _)).foreach(println)
-        println()
-      }
-
-      ls
-    }
-  }
-
-  val undo: Command = { ls =>
-    { case Seq() =>
-      ls.previousState match {
-        case Some(prev) =>
-          println("Undo successful")
-          prev
-        case None =>
-          println("Nothing to undo")
-          ls
-      }
+  val undo: Command = transformState { ls =>
+    ls.previousState match {
+      case Some(prev) =>
+        println("Undo successful")
+        prev
+      case None =>
+        println("Nothing to undo")
+        ls
     }
   }
 
@@ -200,7 +186,7 @@ object Commands {
     CommandDef("fixn", fixN) ~> IntT ??
       "Fixes the given symbol with its let-symbol.",
     CommandDef("fix", fix) ~> (IntT, IntT) ??
-      "Fixes the two symbols given as argument.",
+      "Fixes the two symbols given as arguments.",
     CommandDef("simp", simplify) ~> IntT ??
       "Simplifies the given expression.",
     CommandDef("fat", fixAllTrue) ??
