@@ -23,7 +23,10 @@ object Lexer extends Lexers with Pipeline[AbstractSource, Iterator[Token]] {
       DelimToken(cs.mkString).setPos(range._1)
     },
     // Identifiers
-    many(elem(c => c.isLetterOrDigit)) |> { (cs, range) =>
+    many(
+      elem(c => !c.isWhitespace && !".,;():".contains(c)) |
+        many1(elem(':')) ~ elem(c => !c.isWhitespace && !".,;()=".contains(c))
+    ) |> { (cs, range) =>
       IdToken(cs.mkString).setPos(range._1)
     },
     // Whitespace

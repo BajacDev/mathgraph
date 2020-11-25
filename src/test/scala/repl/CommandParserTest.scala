@@ -23,11 +23,13 @@ class CommandParserTest extends AnyFunSuite {
 
     def ?(): Unit = expect {
       case BadCommand(_, _) => true
-      case UnknownCommand => true
-      case _ => false
+      case UnknownCommand   => true
+      case _                => false
     }
 
-    def !(expected: (String, Int)): Unit = expect(_ == BadCommand(expected._1, expected._2))
+    def !(expected: (String, Int)): Unit = expect(
+      _ == BadCommand(expected._1, expected._2)
+    )
   }
 
   implicit def parse(input: String): TestOutput = {

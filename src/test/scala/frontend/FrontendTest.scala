@@ -73,6 +73,10 @@ class FrontendTests extends AnyFunSuite {
     "let x(arg);" ~> Success("let x(arg);")
     "let x := 1;" ~> Success("let x := 1;")
     "let x(arg) := 1;" ~> Success("let x(arg) := 1;")
+    "let ||(a, b) := not(a) -> b;" ~> Success(
+      "let ||(a, b) := ((a -> false) -> b);"
+    )
+    "let a, b;" ~> Success("let a;\nlet b;")
   }
 
   test("expressions are parsed correctly") {

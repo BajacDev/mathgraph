@@ -1,11 +1,7 @@
-let and(a, b) := (a -> (b -> false)) -> false;
+let <(A, B) := forall x. A(x) -> B(x);
 
-let inc(A, B) := forall x. A(x) -> B(x);
+let A, B, C;
 
-let A;
-let B;
-let C;
-
-inc(A, B);
-inc(B, C);
-inc(A, C) -> false;
+<(A, B);
+<(B, C);
+<(A, C) -> false;
