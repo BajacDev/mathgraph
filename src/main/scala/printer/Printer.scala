@@ -114,7 +114,7 @@ case class Printer(
     def toString(expr: Expr): (String, Boolean) = expr match {
       case Apply(head, tail) => combineHeadTail(head, tail.map(toString).toList)
       case ExprForall(freeVars, body) =>
-        (s"forall ${freeVars.mkString(", ")}. ${toString(body)._1}", false)
+        (s"forall ${freeVars.mkString(" ")}. ${toString(body)._1}", false)
     }
 
     val map = exprToString.mapValues(Apply(_, Seq())).toMap
