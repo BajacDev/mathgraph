@@ -1,6 +1,5 @@
 package mathgraph.frontend
 import mathgraph.util._
-import scala.util.Try
 
 object Tokens {
   // Those are all the tokens of the language
@@ -20,7 +19,9 @@ object Tokens {
   case class DistinctObjectToken(value: String) extends Token
   case class DollarWordToken(value: String) extends Token
   case class WordToken(value: String) extends Token
-  case class NumberToken(value: String) extends Token
+  case class RealToken(value: String) extends Token
+  case class UnsignedToken(value: String) extends Token
+  case class SignedToken(value: String) extends Token
 
   // Those are the token kinds used by Scallion
   sealed abstract class TokenKind(text: String)
@@ -50,16 +51,16 @@ object Tokens {
     case EOFToken()        => EOFKind
     case SpaceToken()      => SpaceKind
 
-    case OperatorToken(value)                                => OperatorKind(value)
-    case PredicateToken(value)                               => PredicateKind(value)
-    case SingleQuotedToken(_)                                => SingleQuotedKind
-    case DistinctObjectToken(_)                              => DistinctObjectKind
-    case DollarWordToken(_)                                  => DollarWordKind
-    case WordToken(value) if value.charAt(0).isLower         => LowerWordKind
-    case WordToken(value) if value.charAt(0).isUpper         => UpperWordKind
-    case NumberToken(value) if Try(value.toDouble).isSuccess => RealKind
-    case NumberToken(value) if Try(value.toInt).isSuccess =>
-      if (value.toInt < 0) SignedKind else UnsignedKind
+    case OperatorToken(value)                        => OperatorKind(value)
+    case PredicateToken(value)                       => PredicateKind(value)
+    case SingleQuotedToken(_)                        => SingleQuotedKind
+    case DistinctObjectToken(_)                      => DistinctObjectKind
+    case DollarWordToken(_)                          => DollarWordKind
+    case WordToken(value) if value.charAt(0).isLower => LowerWordKind
+    case WordToken(value) if value.charAt(0).isUpper => UpperWordKind
+    case RealToken(value)                            => RealKind
+    case UnsignedToken(value)                        => UnsignedKind
+    case SignedToken(value)                          => SignedKind
 
     case _ => NoKind
   }

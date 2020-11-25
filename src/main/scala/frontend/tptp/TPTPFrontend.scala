@@ -12,7 +12,7 @@ object TPTPFrontend extends Pipeline[AbstractSource, Program] {
   def apply(source: AbstractSource)(ctx: Context): Program = {
 
     implicit val context = ctx
-    
+
     val trees = pipeline.run(source)(ctx)
 
     val expressions = trees filterNot isInclude
@@ -24,31 +24,37 @@ object TPTPFrontend extends Pipeline[AbstractSource, Program] {
 
   def isInclude(tree: Tree): Boolean = tree match {
     case TPTP_Include(_, _) => true
-    case _ => false
+    case _                  => false
   }
 
   def toExpr(tree: Tree)(implicit ctx: Context): Expr = tree match {
     case Let(_, _, expr) if expr.isDefined => expr.get
-    case _ => ctx.fatal("Unexpected tree during parsing", tree)
+    case _                                 => ctx.fatal("Unexpected tree during parsing", tree)
   }
 
   def tptpImport(tree: Tree)(implicit ctx: Context): Seq[Tree] = {
 
     val TPTP_Include(filename, toImport) = tree
 
-    val externalTrees = pipeline.run(FileSource(filename))(ctx)
+    val externalTrees = pipeline.run(FileSource(s"example/${filename}"))(ctx)
 
     if (toImport.isEmpty)
       externalTrees filterNot isInclude
 
-    toImport.map{
-      case (formula, pos) =>
-        externalTrees.find(matches(formula)).getOrElse(ctx.fatal(s"Unable to import formula ${formula} from ${filename}. Formula not found.", pos))
+    toImport.map { case (formula, pos) =>
+      externalTrees
+        .find(matches(formula))
+        .getOrElse(
+          ctx.fatal(
+            s"Unable to import formula ${formula} from ${filename}. Formula not found.",
+            pos
+          )
+        )
     }
   }
 
   def matches(formula: String)(tree: Tree): Boolean = tree match {
     case Let(name, _, _) if name == formula => true
-    case _ => false
+    case _                                  => false
   }
 }

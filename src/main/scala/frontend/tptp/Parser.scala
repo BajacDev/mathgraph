@@ -5,18 +5,22 @@ import mathgraph.frontend.Trees._
 import scala.language.implicitConversions
 import scallion._
 
-object Parser extends Parsers with Pipeline[Iterator[FrontendToken], Seq[Tree]] {
+object Parser
+    extends Parsers
+    with Pipeline[Iterator[FrontendToken], Seq[Tree]] {
 
   import Implicits._
 
   type Kind = TokenKind
   type Token = FrontendToken
 
-  case class TPTP_Include(filename: String, formulas: Seq[(String, Position)]) extends Tree {
-    def unapply(tree: Tree): Option[(String, Seq[(String, Position)])] = tree match {
-      case TPTP_Include(filename, formulas) => Some((filename, formulas))
-      case _ => None
-    }
+  case class TPTP_Include(filename: String, formulas: Seq[(String, Position)])
+      extends Tree {
+    def unapply(tree: Tree): Option[(String, Seq[(String, Position)])] =
+      tree match {
+        case TPTP_Include(filename, formulas) => Some((filename, formulas))
+        case _                                => None
+      }
   }
 
   override def getKind(token: Token): TokenKind = kindOf(token)
@@ -33,8 +37,9 @@ object Parser extends Parsers with Pipeline[Iterator[FrontendToken], Seq[Tree]] 
     case _   => elem(DelimKind(str)).skip
   }
 
-  lazy val tptp_file: Syntax[Seq[Tree]] = (many(tptp_input) ~ eof.skip).map { case inputs =>
-    inputs
+  lazy val tptp_file: Syntax[Seq[Tree]] = (many(tptp_input) ~ eof.skip).map {
+    case inputs =>
+      inputs
   }
 
   lazy val tptp_input: Syntax[Tree] = annotated_formula | include
@@ -71,47 +76,54 @@ object Parser extends Parsers with Pipeline[Iterator[FrontendToken], Seq[Tree]] 
 
   lazy val formula_role = lower_word
 
-  lazy val fof_formula: Syntax[Expr] = binary_formula | unitary_formula
-  lazy val binary_formula: Syntax[Expr] = nonassoc_binary | assoc_binary
-
-  lazy val nonassoc_binary: Syntax[Expr] =
-    (unitary_formula ~ " " ~ binary_connective ~ " " ~ unitary_formula).map {
-      case lhs ~ OperatorToken("=>") ~ rhs => Implies(lhs, rhs).setPos(lhs)
-      case lhs ~ OperatorToken("<=") ~ rhs => Implies(rhs, lhs).setPos(lhs)
-      case lhs ~ OperatorToken("<=>") ~ rhs =>
+  lazy val fof_formula: Syntax[Expr] =
+    (unitary_formula ~ opt(assoc_binary_op | non_assoc_binary_op)).map {
+      case unitary ~ None => unitary
+      case lhs ~ Some((OperatorToken("=>"), Seq(rhs))) =>
+        Implies(lhs, rhs).setPos(lhs)
+      case lhs ~ Some((OperatorToken("<="), Seq(rhs))) =>
+        Implies(rhs, lhs).setPos(lhs)
+      case lhs ~ Some((OperatorToken("<=>"), Seq(rhs))) =>
         And(Implies(lhs, rhs), Implies(rhs, lhs)).setPos(lhs)
-      case _ ~ OperatorToken(op) ~ _ =>
-        ???
+
+      case lhs ~ Some((OperatorToken("&"), rhs +: more)) =>
+        (
+          more.foldLeft(And(lhs, rhs))((acc, next) => And(acc, next))
+        ).setPos(lhs)
+      case lhs ~ Some((OperatorToken("|"), rhs +: more)) =>
+        (more.foldLeft(Or(lhs, rhs))((acc, next) => Or(acc, next))).setPos(lhs)
+      case _ ~ _ => UnknownExpr
     }
+
+  lazy val assoc_binary_op: Syntax[(Token, Seq[Expr])] =
+    or_formula | and_formula
+
+  lazy val or_formula: Syntax[(Token, Seq[Expr])] = many1(more_or_formula).map {
+    case formulas => (OperatorToken("|"), formulas)
+  }
+  lazy val more_or_formula = op("|").skip ~ unitary_formula
+
+  lazy val and_formula: Syntax[(Token, Seq[Expr])] =
+    many1(more_and_formula).map { case formulas =>
+      (OperatorToken("&"), formulas)
+    }
+  lazy val more_and_formula = op("&").skip ~ unitary_formula
 
   lazy val binary_connective =
     op("<=>") | op("=>") | op("<=") | op("<~>") | op("~|") | op("~&")
 
-  lazy val assoc_binary: Syntax[Expr] = or_formula | and_formula
-
-  lazy val or_formula: Syntax[Expr] =
-    (unitary_formula ~ " " ~ op("|") ~ " " ~ unitary_formula ~ " " ~ many(
-      more_or_formula
-    )).map { case lhs ~ _ ~ rhs ~ more =>
-      (more.foldLeft(Or(lhs, rhs))((acc, next) => Or(acc, next))).setPos(lhs)
+  lazy val non_assoc_binary_op: Syntax[(Token, Seq[Expr])] =
+    (binary_connective ~ unitary_formula).map { case connective ~ formula =>
+      (connective, Seq(formula))
     }
 
-  lazy val more_or_formula = op("|").skip ~ " " ~ unitary_formula
-
-  lazy val and_formula: Syntax[Expr] =
-    (unitary_formula ~ " " ~ op("&") ~ " " ~ unitary_formula ~ " " ~ many(
-      more_or_formula
-    )).map { case lhs ~ _ ~ rhs ~ more =>
-      (more.foldLeft(And(lhs, rhs))((acc, next) => And(acc, next))).setPos(lhs)
-    }
-
-  lazy val more_and_formula = op("&").skip ~ " " ~ unitary_formula
-
-  lazy val unitary_formula =
-    recursive(quanitfied_formula | unary_formula | "(" ~ fof_formula ~ ")" | atomic_formula)
+  lazy val unitary_formula: Syntax[Expr] =
+    recursive(
+      quanitfied_formula | unary_formula | "(" ~ fof_formula ~ ")" | atomic_formula
+    )
 
   lazy val quanitfied_formula: Syntax[Expr] =
-    (quantifier ~ "[" ~ variable_list ~ "]" ~ " " ~ ":" ~ " " ~ unitary_formula)
+    (quantifier ~ "[" ~ variable_list ~ "]" ~ ":" ~ unitary_formula)
       .map {
         case (op @ OperatorToken("!")) ~ variables ~ formula =>
           Forall(variables, formula).setPos(op)
@@ -127,16 +139,16 @@ object Parser extends Parsers with Pipeline[Iterator[FrontendToken], Seq[Tree]] 
     variables.map(_._1)
   }
 
-  lazy val unary_formula: Syntax[Expr] = (op("~") ~ " " ~ unitary_formula).map {
+  lazy val unary_formula: Syntax[Expr] = (op("~") ~ unitary_formula).map {
     case op ~ formula => Not(formula).setPos(op)
   }
 
   lazy val cnf_formula = "(" ~ disjunction ~ ")" | disjunction
   lazy val disjunction: Syntax[Expr] =
-    (literal ~ " " ~ many(more_disjunction)).map { case lit ~ more =>
+    (literal ~ many(more_disjunction)).map { case lit ~ more =>
       (more.foldLeft(lit)((acc, next) => Or(acc, next))).setPos(lit)
     }
-  lazy val more_disjunction = op("|").skip ~ " " ~ literal
+  lazy val more_disjunction = op("|").skip ~ literal
 
   lazy val literal: Syntax[Expr] =
     (atomic_formula | negated_atomic_formula).map { case formula =>
@@ -146,15 +158,10 @@ object Parser extends Parsers with Pipeline[Iterator[FrontendToken], Seq[Tree]] 
     case op ~ formula => Not(formula).setPos(op)
   }
 
-  lazy val atomic_formula = plain_atom | defined_atom | system_atom
-  lazy val plain_atom = plain_term
+  lazy val atomic_formula = yes | no | plain_system_defined_atom
 
   lazy val arguments = rep1sep(term, delim(",")).map { case args =>
     args
-  }
-
-  lazy val defined_atom: Syntax[Expr] = (yes | no | infix_defined_atom).map {
-    case expr => expr
   }
 
   lazy val yes: Syntax[Expr] = pred("$true").map { case tk =>
@@ -164,32 +171,48 @@ object Parser extends Parsers with Pipeline[Iterator[FrontendToken], Seq[Tree]] 
     False.setPos(tk)
   }
 
-  lazy val infix_defined_atom: Syntax[Expr] =
-    (term ~ " " ~ defined_infix_pred ~ " " ~ term).map {
+  lazy val plain_system_defined_atom: Syntax[Expr] =
+    (defined_term_variable_infix | plain_system_or_defined_infix)
+
+  lazy val defined_infix_pred = pred("=") | pred("!=")
+  lazy val defined_term_variable_infix =
+    ((defined_term | term_variable) ~ defined_infix_pred ~ term).map {
       case lhs ~ PredicateToken("=") ~ rhs  => Equals(lhs, rhs).setPos(lhs)
       case lhs ~ PredicateToken("!=") ~ rhs => Not(Equals(lhs, rhs)).setPos(lhs)
       // defined_infix_pred only match pred("=") | pred("!=") but the compiler can't see that
-      case op ~ variables ~ formula => ???
+      case lhs ~ op ~ rhs => ???
     }
-  lazy val defined_infix_pred = pred("=") | pred("!=")
 
-  lazy val system_atom = system_term
+  lazy val plain_system_or_defined_infix =
+    (plain_or_system_term ~ opt(defined_infix_pred ~ term)).map {
+      case t ~ None                              => t
+      case lhs ~ Some(PredicateToken("=") ~ rhs) => Equals(lhs, rhs).setPos(lhs)
+      case lhs ~ Some(PredicateToken("!=") ~ rhs) =>
+        Not(Equals(lhs, rhs)).setPos(lhs)
+      // defined_infix_pred only match pred("=") | pred("!=") but the compiler can't see that
+      case lhs ~ Some(op ~ rhs) => ???
+    }
 
   lazy val term = recursive(function_term | term_variable)
+
   lazy val term_variable: Syntax[Expr] = variable.map { case (id, pos) =>
     Apply(id, Seq()).setPos(pos)
   }
-  lazy val function_term = plain_term | defined_term | system_term
 
-  lazy val plain_term: Syntax[Expr] =
-    (atomic_word ~ opt("(" ~ arguments ~ ")")).map {
-      case (word, pos) ~ None       => Apply(word, Seq()).setPos(pos)
-      case (word, pos) ~ Some(args) => Apply(word, args).setPos(pos)
-    }
+  lazy val function_term = defined_term | plain_or_system_term
+
+  lazy val plain_or_system_term: Syntax[Expr] = recursive(
+    (lower_word | single_quoted | dollar_dollar_word) ~ opt(
+      "(" ~ arguments ~ ")"
+    )
+  ).map {
+    case (word, pos) ~ None       => Apply(word, Seq()).setPos(pos)
+    case (word, pos) ~ Some(args) => Apply(word, args).setPos(pos)
+  }
 
   lazy val defined_term: Syntax[Expr] = (number | distinct_object).map {
     case (id, pos) =>
-      Apply(id, Seq()).setPos(pos) // TODO Unclear what defined_term really is
+      Apply(id, Seq()).setPos(pos)
   }
 
   lazy val distinct_object: Syntax[(Identifier, Position)] =
@@ -205,74 +228,15 @@ object Parser extends Parsers with Pipeline[Iterator[FrontendToken], Seq[Tree]] 
   lazy val variable = upper_word
 
   lazy val source = general_term
-  //dag_source> | <internal_source> | <external_source> | <unknown>
-
-  /** %----Only a <dag_source> can be a <name>, i.e., derived formulae can be
-    * %----identified by a <name> or an <inference_record>
-    * <dag_source> :== <name> | <inference_record>
-    * <inference_record> :== inference(<inference_rule>,<useful_info>,[<parent_list>])
-    * <inference_rule> :== <atomic_word>
-    * %----Examples are deduction | modus_tollens | modus_ponens | rewrite |
-    * %                 resolution | paramodulation | factorization |
-    * %                 cnf_conversion | cnf_refutation | ...
-    * <parent_list>     :== <parent_info> | <parent_info>,<parent_list>
-    * <parent_info>     :== <source><parent_details>
-    * <parent_details>  :== :<atomic_word> | <null>
-    * <internal_source> :== introduced(<intro_type><optional_info>)
-    * <intro_type>      :== definition | axiom_of_choice | tautology
-    * %----This should be used to record the symbol being defined, or the function
-    * %----for the axiom of choice
-    * <external_source> :== <file_source> | <theory> | <creator_source>
-    * <file_source> :== file(<file_name><file_info>)
-    * <file_info> :== ,<name> | <null>
-    * <theory> :== theory(<theory_name><optional_info>)
-    * <theory_name> :== equality | ac
-    * %----More theory names may be added in the future. The <optional_info> is
-    * %----used to store, e.g., which axioms of equality have been implicitly used,
-    * %----e.g., theory(equality,[rst]). Standard format still to be decided.
-    * <creator_source> :== creator(<creator_name><optional_info>)
-    * <creator_name> :== <atomic_word>
-    */
 
   lazy val optional_info = opt("," ~ useful_info)
   lazy val useful_info = general_term_list
 
-  /** <useful_info> :== [] | [<info_items>]
-    * <info_items> :== <info_item> | <info_item>,<info_items>
-    * <info_item> :== <formula_item> | <inference_item> | <general_function>
-    * %----Useful info for formula records
-    * <formula_item> :== <description_item> | <iquote_item>
-    * <description_item> :== description(<atomic_word>)
-    * <iquote_item> :== iquote(<atomic_word>)
-    * %----<iquote_item>s are used for recording exactly what the system output about
-    * %----the inference step. In the future it is planned to encode this information
-    * %----in standardized forms as <parent_details> in each <inference_record>.
-    * %----Useful info for inference records
-    * <inference_item> :== <inference_status> | <refutation>
-    * <inference_status> :== status(<status_value>) | <inference_info>
-    * %----These are the status values from the SZS ontology
-    * <status_value> :== tau | tac | eqv | thm | sat | cax | noc | csa | cth |
-    *                   ceq | unc | uns | sab | sam | sar | sap | csp | csr |
-    *                   csm | csb
-    * %----The most commonly used status values are:
-    * %---- thm - Every model (and there are some) of the parent formulae is a
-    * %----       model of the inferred formula. Regular logical consequences.
-    * %---- cth - Every model (and there are some) of the parent formulae is a
-    * %----       model of the negation of the inferred formula. Used for negation
-    * %----       of conjectures in FOF to CNF conversion.
-    * %---- sab - There is a bijection between the models (and there are some) of
-    * %----       the parent formulae and models of the inferred formula. Used for
-    * %----       Skolemization steps.
-    * %----For the full hierarchy see the SZSOntology file distributed with the TPTP.
-    * <inference_info> :== <inference_rule>(<atomic_word>,<general_list>)
-    * <refutation> :== refutation(<file_source>)
-    * %----Useful info for creators is just <general_function>
-    */
-
   lazy val include: Syntax[Tree] =
     (kw("include").skip ~ "(" ~ file_name ~ formula_selection ~ ")" ~ ".").map {
-      case (filename, pos) ~ None            => TPTP_Include(filename, Seq()).setPos(pos)
-      case (filename, pos) ~ Some(selection) => TPTP_Include(filename, selection).setPos(pos)
+      case (filename, pos) ~ None => TPTP_Include(filename, Seq()).setPos(pos)
+      case (filename, pos) ~ Some(selection) =>
+        TPTP_Include(filename, selection).setPos(pos)
     }
   lazy val formula_selection = opt("," ~ "[" ~ name_list ~ "]")
   lazy val name_list = rep1sep(name, delim(","))
@@ -321,13 +285,13 @@ object Parser extends Parsers with Pipeline[Iterator[FrontendToken], Seq[Tree]] 
 
   lazy val file_name = atomic_word
 
-  lazy val real = accept(RealKind) { case tk @ NumberToken(value) =>
+  lazy val real = accept(RealKind) { case tk @ RealToken(value) =>
     (value, tk.pos)
   }
   lazy val unsigned_integer = accept(UnsignedKind) {
-    case tk @ NumberToken(value) => (value, tk.pos)
+    case tk @ UnsignedToken(value) => (value, tk.pos)
   }
-  lazy val signed_integer = accept(SignedKind) { case tk @ NumberToken(value) =>
+  lazy val signed_integer = accept(SignedKind) { case tk @ SignedToken(value) =>
     (value, tk.pos)
   }
 
@@ -351,12 +315,9 @@ object Parser extends Parsers with Pipeline[Iterator[FrontendToken], Seq[Tree]] 
 
   // Ensures the grammar is in LL(1), otherwise prints some counterexamples
   lazy val checkLL1: Boolean = {
-    println("Checking TPTP grammar...")
     if (tptp_file.isLL1) {
-      println("Grammar is LL1 !")
       true
     } else {
-      println("Debugging grammar...")
       debug(tptp_file)
       false
     }
@@ -364,15 +325,12 @@ object Parser extends Parsers with Pipeline[Iterator[FrontendToken], Seq[Tree]] 
 
   protected def apply(tokens: Iterator[Token])(ctxt: Context): Seq[Tree] = {
 
-    println("Preparing TPTP parser...")
     if (!checkLL1) {
-      ctxt.fatal("TPTP grammar is not LL1!")
+      ctxt.fatal("TPTP grammar is not LL1! Stopping TPTP parser")
     }
 
-    println("Creating TPTP parser...")
     val parser = Parser(tptp_file)
 
-    println("Running TPTP parser...")
     parser(tokens) match {
       case Parsed(result, rest) => result
       case UnexpectedEnd(rest)  => ctxt.fatal("Unexpected end of input.")

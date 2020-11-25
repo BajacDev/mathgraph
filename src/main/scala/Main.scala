@@ -18,21 +18,19 @@ object Main {
       defaultFile
     } else args(0)
 
-    // val pipeline =
-    //   frontend(sourceFile) andThen Simplifier andThen ForallToLets andThen ProgToLogicState
-    //
-    // try {
-    //   val logicState: LogicState = pipeline.run(FileSource(sourceFile))(ctxt)
-    //   Repl(logicState)(ctxt)
-    // } catch {
-    //   case FatalError(_) => sys.exit(1)
-    // }
-    val res = frontend(sourceFile).run(FileSource(sourceFile))(ctxt)
-    println("Result of frontend is:\n" + res)
+    val pipeline =
+      frontend(sourceFile) andThen Simplifier andThen ForallToLets andThen ProgToLogicState
+
+    try {
+      val logicState: LogicState = pipeline.run(FileSource(sourceFile))(ctxt)
+      Repl(logicState)(ctxt)
+    } catch {
+      case FatalError(_) => sys.exit(1)
+    }
   }
 
   def frontend(sourceFile: String) = {
-    if(sourceFile.contains(".p")) TPTPFrontend
+    if (sourceFile.contains(".p")) TPTPFrontend
     else Lexer andThen Parser
   }
 }
