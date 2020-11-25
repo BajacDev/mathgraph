@@ -152,12 +152,12 @@ case class LogicGraph(
   // -------------------------------------------------------------
 
   /** replace all symbols with corresponding args * */
-  private def symplify(inside: Int, args: Seq[Int]): (LogicGraph, Int) =
+  private def simplify(inside: Int, args: Seq[Int]): (LogicGraph, Int) =
     inside match {
       case Symbol(id) => (this, args(id))
       case Fixer(next, arg) => {
-        val (lgNext, posNext) = symplify(next, args)
-        val (lgArg, posArg) = lgNext.symplify(arg, args)
+        val (lgNext, posNext) = simplify(next, args)
+        val (lgArg, posArg) = lgNext.simplify(arg, args)
         lgArg.fix(posNext, posArg)
       }
     }
@@ -167,11 +167,11 @@ case class LogicGraph(
     * is of lenght at least n (ie: when all symbols in forall have been fixed)
     * then use simply (see simplify)
     */
-  def symplifyInferenceRule(pos: Int): (LogicGraph, Int) = pos match {
+  def simplifyInferenceRule(pos: Int): (LogicGraph, Int) = pos match {
     case Forall(inside, args) =>
       if (exprForest.countSymbols(inside) > args.length) (this, pos)
       else {
-        val (logicGraph, newPos) = symplify(inside, args)
+        val (logicGraph, newPos) = simplify(inside, args)
         (
           logicGraph
             .link(newPos, pos, SimplifyIR)
@@ -182,10 +182,10 @@ case class LogicGraph(
     case _ => (this, pos)
   }
 
-  /** use symplify in loop until there is nothing to simplify * */
-  def symplifyInferenceRuleLoop(pos: Int): LogicGraph = {
-    val (newLogicGraph, newPos) = symplifyInferenceRule(pos)
-    if (newPos != pos) newLogicGraph.symplifyInferenceRuleLoop(newPos)
+  /** use simplify in loop until there is nothing to simplify * */
+  def simplifyInferenceRuleLoop(pos: Int): LogicGraph = {
+    val (newLogicGraph, newPos) = simplifyInferenceRule(pos)
+    if (newPos != pos) newLogicGraph.simplifyInferenceRuleLoop(newPos)
     else newLogicGraph
   }
 
@@ -200,7 +200,7 @@ case class LogicGraph(
   def fix(next: Int, arg: Int): (LogicGraph, Int) = {
     val (newExprForest, pos) = exprForest.fix(next, arg)
     copy(exprForest = newExprForest)
-      .symplifyInferenceRuleLoop(pos)
+      .simplifyInferenceRuleLoop(pos)
       .link(next, pos, FixIR) match {
       case graph =>
         if (exprForest.isLetSymbol(next, arg))
@@ -243,7 +243,7 @@ case class LogicGraph(
           truthOrigin = truthOrigin + (pos -> prev)
         )
           .implyInferenceRule(pos)
-          .symplifyInferenceRuleLoop(pos)
+          .simplifyInferenceRuleLoop(pos)
 
         // propagate truth value to neighbors
         newLogicGraph.getImplyGraphFor(b) get pos match {

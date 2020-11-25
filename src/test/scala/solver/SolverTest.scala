@@ -7,7 +7,7 @@ import mathgraph.frontend._
 import mathgraph.backend._
 import io.AnsiColor._
 import mathgraph.printer._
-import mathgraph.repl.{CommandLexer, CommandParser, Repl, LogicState}
+import mathgraph.repl.LogicState
 import mathgraph.repl.Commands._
 import scala.util.{Try, Success, Failure}
 import scala.io.Source

@@ -1,75 +1,41 @@
 package mathgraph.repl
 import mathgraph.util._
-import mathgraph.repl.CommandTokens._
-import scala.util.parsing.combinator.RegexParsers
-import scala.util.parsing.input.CharSequenceReader
-import scala.util.{Try, Success, Failure}
+import CommandTokens._
+import silex._
 
-object CommandLexer
-    extends RegexParsers
-    with Pipeline[String, Seq[CommandToken]] {
+object CommandLexer extends Lexers {
 
-  val keywords = List(
-    "help",
-    "leave",
-    "lse",
-    "lss",
-    "ls",
-    "absurd",
-    "fixn",
-    "fix",
-    "simplify",
-    "why",
-    "fat",
-    "faf",
-    "s",
-    "stats",
-    "ctx",
-    "chain",
-    "proof",
-    "undo",
-    "clear"
-  )
+  type Character = Char
+  type Position = SourcePosition
+  type Token = CommandTokens.Token
 
-  def keyword: Parser[CommandToken] = positioned {
-    rep1(
-      acceptIf(c => !c.isWhitespace && !c.isDigit)(
-        "Unexpected " + _
-      )
-    ) ^^ { cs =>
-      val str = cs.mkString
-      if (keywords.contains(str)) KeywordToken(str)
-      else UnknownToken
-    }
-  }
-
-  def number: Parser[CommandToken] = positioned {
-    rep1(
-      acceptIf(c => c.isDigit)(
-        "Unexpected " + _
-      )
-    ) ^^ { cs =>
-      val str = cs.mkString
+  val lexer = Lexer(
+    // Int literals
+    many1(elem(_.isDigit)) |> { (cs, range) =>
       try {
-        str.toInt
-        IntegerToken(str)
+        IntToken(cs.mkString.toInt).setPos(range._1)
       } catch {
-        case e: Exception => UnknownToken
+        case e: NumberFormatException =>
+          ErrorToken(cs.mkString).setPos(range._1)
       }
-    }
+    },
+    // String literals
+    many1(elem(!_.isWhitespace)) |> { (cs, range) =>
+      StringToken(cs.mkString).setPos(range._1)
+    },
+    // Whitespace
+    many1(elem(_.isWhitespace)) |> SpaceToken()
+  ).onError { (cs, range) =>
+    ErrorToken(cs.mkString).setPos(range._1)
   }
 
-  def token = positioned {
-    number | keyword
-  }
-
-  def apply(str: String)(ctxt: Context): Seq[CommandToken] = {
-    parseAll(rep(token), str) match {
-      case Success(tokens, _) =>
-        tokens
-
-      case e: NoSuccess =>
-        Seq(UnknownToken)
-    }
+  def apply(input: String): Seq[Token] = {
+    // lexer.spawn could be used to run the lexer on another thread, but that makes tests flaky
+    lexer(
+      Source.fromString(input, SourcePositioner(StringSource("", input)))
+    ).filter {
+      case SpaceToken() => false
+      case _            => true
+    }.toSeq
   }
 }

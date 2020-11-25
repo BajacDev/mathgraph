@@ -34,26 +34,18 @@ class FrontendTests extends AnyFunSuite {
   }
 
   def shouldSucceed(input: String, result: String): Unit = {
-    try {
+    assertResult(result) {
       Console.withErr(nullOutputStream) {
-        assert(
-          frontend.run(StringSource("input", input))(new Context) == result
-        )
+        frontend.run(StringSource("input", input))(new Context)
       }
-    } catch {
-      case err: FatalError =>
-        fail("Unexpected failure of the frontend: " + err, err)
     }
   }
 
   def shouldFail(input: String): Unit = {
-    try {
+    assertThrows[FatalError] {
       Console.withErr(nullOutputStream) {
         frontend.run(StringSource("input", input))(new Context)
       }
-      fail("The frontend was expected to fail.")
-    } catch {
-      case _: FatalError =>
     }
   }
 
