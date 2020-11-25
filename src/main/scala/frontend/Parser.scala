@@ -34,7 +34,7 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
   lazy val program: Syntax[Program] =
     (many(manyDefinitions ~ ";".skip) ~ many(formula ~ ";".skip) ~ eof.skip)
       .map { case defs ~ fms =>
-        Program(defs.flatMap(seq => seq), fms)
+        Program(defs.flatten, fms)
       }
 
   val manyDefinitions: Syntax[Seq[Let]] =
