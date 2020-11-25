@@ -190,7 +190,7 @@ object Commands {
       "Exits the REPL",
     CommandDef("lss", lss) ??
       "Displays all the expression in a simple way.",
-    CommandDef("lss", ls) ??
+    CommandDef("ls", ls) ??
       "Displays all the expression.",
     CommandDef("abs", absurd) ??
       "Displays whether the set of expressions is absurd.",
