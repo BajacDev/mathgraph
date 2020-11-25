@@ -13,7 +13,7 @@ class ReplTest extends AnyFunSuite {
     def isValidCommand(name: String, args: Any*): Unit = {
       val (df, actualArgs) = Repl.parseCommand(CommandLexer(input))
       assertResult(name)(df.name)
-      assertResult(args)(actualArgs) 
+      assertResult(args)(actualArgs)
     }
 
     def isInvalidCommand: Unit = {
@@ -26,7 +26,9 @@ class ReplTest extends AnyFunSuite {
   test("command lexer is correct") {
     "   " yieldsTokens ()
     " 123   456  " yieldsTokens (IntToken(123), IntToken(456))
-    " str   12  lk" yieldsTokens (StringToken("str"), IntToken(12), StringToken("lk"))
+    " str   12  lk" yieldsTokens (StringToken("str"), IntToken(12), StringToken(
+      "lk"
+    ))
     " +''*  abc12" yieldsTokens (StringToken("+''*"), StringToken("abc12"))
     "fix 1 2" yieldsTokens (StringToken("fix"), IntToken(1), IntToken(2))
   }

@@ -10,13 +10,18 @@ object Repl {
   case class InvalidCommand(error: String, pos: Position) extends Exception
   object EmptyCommand extends Exception
 
+  /** This method checks that the given command was called with valid arguments,
+    * and throws an exception if that's not the case
+    */
   def checkArguments(df: CommandDef, args: Seq[Token]): Unit = {
+    // This formats the error messages with some help for the user.
     def error(msg: String, pos: Position): Nothing =
       throw InvalidCommand(
         s"$msg. To get help about '${df.name}', you can type 'help ${df.name}'.",
         pos
       )
 
+    // Checks that the given types match the argument list
     def rec(types: Seq[ParamType], args: Seq[Token], idx: Int): Unit =
       (types, args) match {
         case (_, Seq()) =>
@@ -54,6 +59,9 @@ object Repl {
     rec(df.mandatoryParams ++ df.optionalParams, args, 1)
   }
 
+  /** Parses the given sequence of tokens as a command, returning the corresponding definition,
+    * as well as the parsed arguments, in case of success, or throws an exception in case of failure
+    */
   def parseCommand(tokens: Seq[Token]): (CommandDef, Seq[Any]) = {
     if (tokens.isEmpty)
       throw EmptyCommand
@@ -88,12 +96,14 @@ object Repl {
     try {
       val (df, args) = parseCommand(tokens)
 
+      // Exit must be treated specially, since it
       if (df.name == "exit")
         return
 
       run(df.command(initialState)(args))
     } catch {
       case InvalidCommand(error, pos) =>
+        // We indicate the position to the user to help him, if that's possible
         if (pos != NoPosition)
           println(s"    ${" " * (pos.col - 1)}^")
         println(error)

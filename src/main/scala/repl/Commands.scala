@@ -40,15 +40,22 @@ object Commands {
       CommandDef(name, "", Seq(), Seq(), command)
   }
 
+  // This is used to align all the commands based on the longest command name
   lazy val maxCommandLength = commands.keys.map(_.length).max
 
+  // Transforms a sequence of definitions into a map from name to command def
   private def cmdsToMap(defs: CommandDef*): Map[String, CommandDef] =
     defs.map(df => df.name -> df).toMap
 
-  def printSummary(df: CommandDef): Unit =
-    println(s"- ${df.name.padTo(maxCommandLength, ' ')}  ${df.desc
-      .replaceAll("\n", "\n" + " " * (maxCommandLength + 4))}")
+  // Prints a short summary of what the given command does
+  def printSummary(df: CommandDef): Unit = {
+    val padded = df.name.padTo(maxCommandLength, ' ')
+    val alignedDesc =
+      df.desc.replaceAll("\n", "\n" + " " * (maxCommandLength + 4))
+    println(s"- $padded  $alignedDesc")
+  }
 
+  // Prints a detailed description of the given command
   def printUsage(df: CommandDef): Unit = {
     val mandatory = df.mandatoryParams.map(tpe => s"<$tpe>")
     val optional = df.optionalParams.map(tpe => s"[<$tpe>]")
@@ -81,6 +88,10 @@ object Commands {
   def consumeState(f: LogicState => Unit): Command = transformState { ls =>
     f(ls); ls
   }
+
+  // -------------------------------------------------------------
+  // Command defintions. Add new commands here.
+  // -------------------------------------------------------------
 
   val help: Command = { ls =>
     {
