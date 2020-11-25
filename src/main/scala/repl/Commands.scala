@@ -75,7 +75,10 @@ object Commands {
         .getTruthOf(e)
         .map(t => if (t) "[true]  " else "[false]")
         .getOrElse("       ")
-      println(f"$e%04d $truth ${printer(e)}")
+
+      val definition =
+        ls.printer.getDefinition(lg, e).map(d => s" := $d").getOrElse("")
+      println(f"$e%04d $truth ${printer(e)}$definition")
     }
   }
 

@@ -121,6 +121,12 @@ case class Printer(
     toString(simplifyExpr(toExpr(orig, map)))._1
   }
 
+  def getDefinition(implicit lg: LogicGraph, pos: Int): Option[String] =
+    exprToString.get(pos) match {
+      case None => None
+      case _    => Some(remove(pos).toString(lg, pos))
+    }
+
   // ------------------------------------------
   // function to print a human readable proofs
   // ------------------------------------------
