@@ -146,33 +146,32 @@ object Commands {
     }
   }
 
-  val fixAllTrue: Command = consumeState { ls =>
-    Solver.fixAll(ls.logicGraph)
-    ls
+  val fixAllTrue: Command = transformState { ls =>
+    ls.copy(logicGraph = ls.solver.fixAll(ls.logicGraph))
   }
 
-  val fixAllFalse: Command = consumeState { ls =>
-    Solver.fixLetSym(ls.logicGraph)
-    ls
+  val fixAllFalse: Command = transformState { ls =>
+    ls.copy(logicGraph = ls.solver.fixLetSym(ls.logicGraph))
   }
 
   val proof: Command = consumeState { ls =>
     ls.printer.proofAbsurd(ls.logicGraph).foreach(println)
   }
 
-  val saturate: Command = consumeState { ls => {
-    Solver.saturation(ls.logicGraph)
-    proof(ls)
+  val saturate: Command = transformState { ls =>
+    {
+      val (lg, sol) = ls.solver.saturation(ls.logicGraph)
+      proof(ls.copy(logicGraph = lg, solver = sol))(Seq())
+
     }
   }
 
   val stats: Command = consumeState { ls =>
     val lg = ls.logicGraph
+    val sol = ls.solver.updateSolver(lg)
     val printer = ls.printer
-    val exprs = lg.getAllTruth
-    val stats = Solver.getStats(lg, exprs)
 
-    stats.foreach { case (ctx, set) =>
+    sol.stats.foreach { case (ctx, set) =>
       println(
         s"Context(head: ${ctx.head} ${printer.toString(lg, ctx.head)}, idArg: ${ctx.idArg})"
       )
