@@ -3,7 +3,7 @@ package solvertest
 import org.scalatest.funsuite.AnyFunSuite
 import mathgraph.solver._
 import mathgraph.corelogic._
-import mathgraph.frontend._
+import mathgraph.frontend.mgl._
 import mathgraph.backend._
 import io.AnsiColor._
 import mathgraph.printer._

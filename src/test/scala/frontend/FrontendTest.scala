@@ -1,7 +1,7 @@
 import org.scalatest.funsuite.AnyFunSuite
 import mathgraph.frontend.Trees._
 import mathgraph.util._
-import mathgraph.frontend._
+import mathgraph.frontend.mgl._
 import java.io.OutputStream
 
 class FrontendTests extends AnyFunSuite {
