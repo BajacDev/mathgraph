@@ -45,6 +45,9 @@ object Trees {
   /** Representation of forall */
   case class Forall(ids: Seq[Identifier], body: Expr) extends Expr
 
+  /** TODO Representation of a = b */
+  case class Equals(lhs: Expr, rhs: Expr) extends Expr
+
   // ----------------------------------------------------
   // Desugared expressions
   // ----------------------------------------------------
@@ -87,9 +90,4 @@ object Trees {
       case _                        => None
     }
   }
-
-  /** TODO implement equality */
-  case class Equals(lhs: Expr, rhs: Expr) extends Expr
-
-  case object UnknownExpr extends Expr
 }
