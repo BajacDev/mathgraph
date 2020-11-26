@@ -73,9 +73,12 @@ object Commands {
     for (e <- 0 until lg.size) {
       val truth = lg
         .getTruthOf(e)
-        .map(t => if (t) "[true]  " else "[false]")
-        .getOrElse("       ")
-      println(f"$e%04d $truth ${printer(e)}")
+        .map(t => if (t) "[true]\t" else "[false]\t")
+        .getOrElse("\t\t")
+
+      val definition =
+        ls.printer.getDefinition(lg, e).map(d => s" := $d").getOrElse("")
+      println(f"$e%04d $truth ${printer(e)}$definition")
     }
   }
 
@@ -190,7 +193,7 @@ object Commands {
       "Exits the REPL",
     CommandDef("lss", lss) ??
       "Displays all the expression in a simple way.",
-    CommandDef("lss", ls) ??
+    CommandDef("ls", ls) ??
       "Displays all the expression.",
     CommandDef("abs", absurd) ??
       "Displays whether the set of expressions is absurd.",
@@ -206,7 +209,7 @@ object Commands {
       "Fixes all the expressions to false.",
     CommandDef("proof", proof) ??
       "Displays a proof by contradiction, if one was found.",
-    CommandDef("sat", saturate) ??
+    CommandDef("s", saturate) ??
       "Applies the saturation algorithm to the set of expressions.",
     CommandDef("stats", stats) ??
       "Displays statistics about the expressions."

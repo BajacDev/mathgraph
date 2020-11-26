@@ -1,6 +1,7 @@
 package mathgraph.corelogic
 
 import mathgraph.corelogic.ExprContainer._
+import scala.math._
 
 object ExprContainer {
 
@@ -54,6 +55,15 @@ trait ExprContainer {
       case HeadTail(ForallSymbol, inside +: args) => Some((inside, args))
       case _                                      => None
     }
+
+  /** count the number of Fixer it would take to fix this expr
+    * eg: returns 4 for 0(3, 1)
+    */
+  def countSymbols(pos: Int): Int = pos match {
+    case Symbol(id)       => id + 1
+    case Fixer(next, arg) => max(countSymbols(next), countSymbols(arg))
+  }
+
 }
 
 object Fixer {

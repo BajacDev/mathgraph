@@ -3,10 +3,15 @@ package mathgraph.printer
 import mathgraph.corelogic._
 import io.AnsiColor._
 import mathgraph.corelogic.ExprContainer._
+import mathgraph.frontend.Trees.{Apply, Expr, Forall => ExprForall}
 
 case class Printer(
     exprToString: Map[Int, String]
 ) {
+
+  def get(pos: Int) = exprToString get pos
+
+  def remove(pos: Int): Printer = Printer(exprToString - pos)
 
   /** print expression in a simple way * */
   def toSimpleString(implicit logicGraph: LogicGraph, pos: Int): String =
@@ -22,92 +27,110 @@ case class Printer(
   // print an humain readable expression using exprToString map
   // ---------------------------------------------------------------------------
 
-  // todo: make forall printing more humain friendly (eg: forall x, y, z. P(x, y, z))
-
-  /** generate names for Symbol. eg: 0: 'a', 1: 'b', ..., 26: 'a1'
-    * gives color to symbol according to
-    * - what symbol is left to be fixed (BLUE)
-    * - what is the next symbol to be fixed (MAGENTA)
-    * id: the symbol id
-    * numArg: the number of args outside of the forall (if any)
+  /** generate names for Symbol. eg: 0: 'a0', 1: 'b0', ..., 26: 'a1'
     */
-  def generateName(id: Int, numArgs: Option[Int]): String = {
+  def generateName(id: Int): String = {
     val char = (id % 26 + 'a'.toInt).toChar
-    val result = if (id < 26) char.toString else s"$char${(id / 26)}"
-    numArgs match {
-      case Some(n) if id == n => s"${MAGENTA}${result}${RESET}"
-      case Some(n) if id > n  => s"${BLUE}${result}${RESET}"
-      case _                  => result
+    s"$char${(id / 26)}"
+  }
+
+  def generateNameForall(id: Int): String = {
+    require(id >= 0 && id < 26)
+    (id % 26 + 'a'.toInt).toChar.toString
+  }
+
+  def infix(s: String) = !s.matches("^[a-zA-Z0-9_]*$")
+
+  // apply Parentheses
+  def applyPar(p: (String, Boolean)): String = p match {
+    case (s, true)  => s"($s)"
+    case (s, false) => s
+  }
+
+  def combineHeadTail(
+      head: String,
+      tail: List[(String, Boolean)]
+  ): (String, Boolean) = tail match {
+    case x :: y :: Nil if infix(head) =>
+      (applyPar(x) + " " + head + " " + applyPar(y), true)
+    case Nil => (head, false)
+    case _   => (head + "(" + tail.map(_._1).mkString(", ") + ")", false)
+  }
+
+  /** replace the first vars in body for multiforall by fixes
+    */
+  def replace(body: Expr, vars: Seq[String], fixes: Seq[Expr]): Expr = {
+
+    val (oldVars, newVars) = vars.splitAt(fixes.length)
+    val map = oldVars.zip(fixes).map { case (a, b) => a -> b }.toMap
+
+    def replaceRec(expr: Expr): Expr = expr match {
+      case Apply(name, seq) if map.contains(name) =>
+        map(name) match {
+          case Apply(n, s)      => Apply(n, s ++ seq.map(replaceRec))
+          case ExprForall(v, b) => replace(b, v, seq.map(replaceRec))
+        }
+      case Apply(name, seq) => Apply(name, seq.map(replaceRec))
+      case ExprForall(v, b) => ExprForall(v, replaceRec(b))
     }
+
+    ExprForall(newVars, replaceRec(body))
   }
 
-  def combineHeadTail(head: String, tail: List[String]): String = tail match {
-    case Nil           => head
-    case x :: y :: Nil => "(" + x + " " + head + " " + y + ")"
-    case _             => head + "(" + tail.mkString(", ") + ")"
-  }
-
+  /** convert a pos in logicgraph to a string
+    * first convert to frontend tree, then to String
+    */
   def toString(implicit logicGraph: LogicGraph, orig: Int): String = {
 
-    def listToMap(stringList: List[String]): Map[Int, String] = {
-      stringList.zipWithIndex.map { case (str, idx) =>
-        (logicGraph.idToSymbol(idx) -> str)
-      }.toMap
-    }
+    def toExpr(orig: Int, map: Map[Int, Expr]): Expr = {
 
-    /** print the expression at position origin* */
-    def toString(orig: Int): String = {
-      def toStringRec(
-          pos: Int,
-          args: List[Int],
-          exprNames: Map[Int, String],
-          forallPos: Option[Int]
-      ): String = {
-
-        def numArgs: Option[Int] = forallPos match {
-          case None => Some(exprNames.size)
-          case _    => None
-        }
-
-        def argsToString(argList: List[Int]): List[String] = {
-          argList.map(toStringRec(_, Nil, exprNames, forallPos))
-        }
-
-        exprNames get pos match {
-          case Some(name) if Some(pos) != forallPos =>
-            combineHeadTail(name, argsToString(args))
-          case None =>
+      def toExprRec(pos: Int, seq: Seq[Expr]): Expr =
+        map.get(pos) match {
+          case Some(Apply(name, args))      => Apply(name, args ++ seq)
+          case Some(ExprForall(vars, body)) => replace(body, vars, seq)
+          case _ =>
             pos match {
-              case Symbol(id) =>
-                forallPos match {
-                  case Some(p) if p == pos =>
-                    args match {
-                      case Nil =>
-                        combineHeadTail(generateName(id, numArgs), Nil)
-                      case s :: xs =>
-                        "{" + toStringRec(
-                          s,
-                          Nil,
-                          listToMap(argsToString(xs)),
-                          None
-                        ) + "}"
-                    }
-                  case _ =>
-                    combineHeadTail(
-                      generateName(id, numArgs),
-                      argsToString(args)
-                    )
-                }
-              case Fixer(next, arg) =>
-                toStringRec(next, arg :: args, exprNames, forallPos)
+              case Fixer(ForallSymbol, arg) => forallToExpr(arg, seq)
+              case Fixer(next, arg)         => toExprRec(next, toExpr(arg, map) +: seq)
+              case Symbol(id)               => Apply(generateName(id), seq)
             }
         }
-      }
-      toStringRec(orig, Nil, exprToString, Some(ForallSymbol))
+      toExprRec(orig, Seq())
     }
 
-    toString(orig)
+    def forallToExpr(inside: Int, args: Seq[Expr]): Expr = {
+      val numVars = logicGraph.countSymbols(inside)
+      val numFixedVar = args.length
+      val freeVars = (numFixedVar until numVars).map(generateNameForall)
+      val varsInside = args ++ freeVars.map(Apply(_, Seq()))
+      val map = varsInside.zipWithIndex.map { case (expr, id) =>
+        logicGraph.idToSymbol(id) -> expr
+      }.toMap
+      ExprForall(freeVars, toExpr(inside, map))
+    }
+
+    def simplifyExpr(expr: Expr): Expr = expr match {
+      case Apply("->", Seq(lhs, Apply("false", Seq()))) =>
+        Apply("not", Seq(lhs))
+      case Apply(id, seq)         => Apply(id, seq.map(simplifyExpr))
+      case ExprForall(vars, body) => ExprForall(vars, simplifyExpr(body))
+    }
+
+    def toString(expr: Expr): (String, Boolean) = expr match {
+      case Apply(head, tail) => combineHeadTail(head, tail.map(toString).toList)
+      case ExprForall(freeVars, body) =>
+        (s"forall ${freeVars.mkString(" ")}. ${toString(body)._1}", false)
+    }
+
+    val map = exprToString.mapValues(Apply(_, Seq())).toMap
+    toString(simplifyExpr(toExpr(orig, map)))._1
   }
+
+  def getDefinition(implicit lg: LogicGraph, pos: Int): Option[String] =
+    exprToString.get(pos) match {
+      case None => None
+      case _    => Some(remove(pos).toString(lg, pos))
+    }
 
   // ------------------------------------------
   // function to print a human readable proofs
@@ -121,21 +144,39 @@ case class Printer(
       way: List[Int],
       alg: String
   ): List[String] = {
+
+    def lineToString(pos: Int, inference: String) =
+      alg + toString(lg, pos) + " " + inference
+
     way match {
       case Nil     => Nil
-      case List(a) => List(alg + toString(lg, a))
-      case a :: b :: xs =>
-        lg.getInferenceOf(a, b) match {
-          case None => Nil // todo: assert(false)
+      case List(a) => List(lineToString(a, ""))
+      case a :: b :: xs => {
+
+        val nextProof = proofFromList(lg, b :: xs, alg)
+
+        val nextLayerProof = lg.getInferenceOf(a, b) match {
           case Some(ImplyIR(_, implyPos)) =>
-            (alg + toString(lg, a)) :: proofFromPos(
-              lg,
-              implyPos,
-              alg + "\u2193 "
-            ) ++ proofFromList(lg, b :: xs, alg)
-          case _ => (alg + toString(lg, a)) :: proofFromList(lg, b :: xs, alg)
+            proofFromPos(lg, implyPos, alg + "\u2193 ")
+          case _ => List()
         }
+
+        val inferenceStr = lg.getInferenceOf(a, b) match {
+          case Some(inferenceRule) => s"\t[${inferenceToString(inferenceRule)}]"
+          case None                => ""
+        }
+
+        lineToString(a, inferenceStr) :: (nextLayerProof ++ nextProof)
+      }
     }
+  }
+
+  def inferenceToString(ir: InferenceRule): String = ir match {
+    case ImplyIR(_, _) => "Implies"
+    case FixIR         => "Fix"
+    case FixLetSymIR   => "FixLetSym"
+    case SimplifyIR    => "Simplify"
+    case Axiom         => "Axiom"
   }
 
   def proofFromPos(lg: LogicGraph, pos: Int, alg: String = ""): List[String] = {
