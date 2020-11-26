@@ -33,7 +33,6 @@ object Parser
   val eof: Syntax[Token] = elem(EOFKind)
 
   implicit def skipped(str: String): Skip = str match {
-    case " " => elem(SpaceKind).skip
     case _   => elem(DelimKind(str)).skip
   }
 

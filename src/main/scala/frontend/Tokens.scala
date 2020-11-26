@@ -30,7 +30,6 @@ object Tokens {
   case class DelimKind(chars: String) extends TokenKind(chars)
   case object EOFKind extends TokenKind("<EOF>")
   case object NoKind extends TokenKind("<???>")
-  case object SpaceKind extends TokenKind("<whitespace>")
 
   case class OperatorKind(value: String) extends TokenKind(value)
   case class PredicateKind(value: String) extends TokenKind(value)
@@ -49,7 +48,6 @@ object Tokens {
     case KwToken(chars)    => KwKind(chars)
     case DelimToken(chars) => DelimKind(chars)
     case EOFToken()        => EOFKind
-    case SpaceToken()      => SpaceKind
 
     case OperatorToken(value)                        => OperatorKind(value)
     case PredicateToken(value)                       => PredicateKind(value)
