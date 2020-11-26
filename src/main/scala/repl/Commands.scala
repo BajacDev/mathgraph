@@ -209,7 +209,7 @@ object Commands {
       "Fixes all the expressions to false.",
     CommandDef("proof", proof) ??
       "Displays a proof by contradiction, if one was found.",
-    CommandDef("sat", saturate) ??
+    CommandDef("s", saturate) ??
       "Applies the saturation algorithm to the set of expressions.",
     CommandDef("stats", stats) ??
       "Displays statistics about the expressions."
