@@ -30,12 +30,14 @@ object CommandLexer extends Lexers {
   }
 
   def apply(input: String): Seq[Token] = {
-    // lexer.spawn could be used to run the lexer on another thread, but that makes tests flaky
-    lexer(
-      Source.fromString(input, SourcePositioner(StringSource("", input)))
-    ).filter {
-      case SpaceToken() => false
-      case _            => true
-    }.toSeq
+    lexer
+      .spawn(
+        Source.fromString(input, SourcePositioner(StringSource("", input)))
+      )
+      .filter {
+        case SpaceToken() => false
+        case _            => true
+      }
+      .toSeq
   }
 }
