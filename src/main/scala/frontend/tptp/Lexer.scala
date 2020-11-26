@@ -93,7 +93,7 @@ object Lexer
   }
 
   def apply(source: AbstractSource)(ctxt: Context): Iterator[FrontendToken] = {
-
+    
     val lexerOutput = lexer(
       Source.fromIterator(source.source, SourcePositioner(source))
     )

@@ -67,7 +67,13 @@ object Parser
     "cnf"
   ) ~ "(" ~ name ~ "," ~ formula_role ~ "," ~ cnf_formula ~ annotations ~ ")" ~ ".")
     .map { case cnf ~ name ~ formula_role ~ cnf_formula ~ annotations =>
-      cnf_formula.setPos(cnf)
+
+      val body = formula_role match {
+        case ("conjecture", pos) => Implies(cnf_formula, False).setPos(cnf)
+        case _                   => cnf_formula.setPos(cnf)
+      }
+
+      Let(name._1, Seq(), Some(body)).setPos(cnf)
     }
 
   lazy val annotations = opt("," ~ source ~ optional_info).map { case _ =>
@@ -324,10 +330,6 @@ object Parser
   }
 
   protected def apply(tokens: Iterator[Token])(ctxt: Context): Seq[Tree] = {
-
-    if (!checkLL1) {
-      ctxt.fatal("TPTP grammar is not LL1! Stopping TPTP parser")
-    }
 
     val parser = Parser(tptp_file)
 

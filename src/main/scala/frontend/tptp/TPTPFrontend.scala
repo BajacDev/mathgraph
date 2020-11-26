@@ -29,7 +29,7 @@ object TPTPFrontend extends Pipeline[AbstractSource, Program] {
 
   def toExpr(tree: Tree)(implicit ctx: Context): Expr = tree match {
     case Let(_, _, expr) if expr.isDefined => expr.get
-    case _                                 => ctx.fatal("Unexpected tree during parsing", tree)
+    case _                                 => ctx.fatal(s"Unexpected tree during parsing: $tree", tree)
   }
 
   def tptpImport(tree: Tree)(implicit ctx: Context): Seq[Tree] = {
