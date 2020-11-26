@@ -1,8 +1,8 @@
-package mathgraph.frontend
+package mathgraph.frontend.mgl
 import mathgraph.util._
-import Tokens._
-import Trees._
+import mathgraph.frontend.Trees._
 import scala.language.implicitConversions
+import Tokens._
 import scallion._
 
 /** A parser takes as input a sequence of tokens and outputs a program */

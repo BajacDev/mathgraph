@@ -1,18 +1,18 @@
 package mathgraph.frontend.tptp
 import mathgraph.util._
-import mathgraph.frontend.Tokens.{Token => FrontendToken, _}
 import mathgraph.frontend.Trees._
 import scala.language.implicitConversions
+import Tokens._
 import scallion._
 
 object Parser
     extends Parsers
-    with Pipeline[Iterator[FrontendToken], Seq[Tree]] {
+    with Pipeline[Iterator[Token], Seq[Tree]] {
 
   import Implicits._
 
   type Kind = TokenKind
-  type Token = FrontendToken
+  type Token = Tokens.Token
 
   case class TPTP_Include(filename: String, formulas: Seq[(String, Position)])
       extends Tree {
@@ -76,7 +76,7 @@ object Parser
     }
 
   lazy val annotations = opt("," ~ source ~ optional_info).map { case _ =>
-    None
+    ()
   }
 
   lazy val formula_role = lower_word
@@ -91,13 +91,20 @@ object Parser
       case lhs ~ Some((OperatorToken("<=>"), Seq(rhs))) =>
         And(Implies(lhs, rhs), Implies(rhs, lhs)).setPos(lhs)
 
+      case lhs ~ Some((OperatorToken("<~>"), Seq(rhs))) =>
+        And(Or(lhs, rhs), Or(Not(lhs), Not(rhs))).setPos(lhs)
+
       case lhs ~ Some((OperatorToken("&"), rhs +: more)) =>
-        (
-          more.foldLeft(And(lhs, rhs))((acc, next) => And(acc, next))
+        (more.foldLeft(And(lhs, rhs))((acc, next) => And(acc, next))
         ).setPos(lhs)
       case lhs ~ Some((OperatorToken("|"), rhs +: more)) =>
         (more.foldLeft(Or(lhs, rhs))((acc, next) => Or(acc, next))).setPos(lhs)
-      case _ ~ _ => UnknownExpr
+
+      case lhs ~ Some((OperatorToken("~&"), Seq(rhs))) =>
+        Not(And(lhs, rhs)).setPos(lhs)
+      case lhs ~ Some((OperatorToken("~|"), Seq(rhs))) =>
+        Not(Or(lhs, rhs)).setPos(lhs)
+      case _ ~ _ => ???
     }
 
   lazy val assoc_binary_op: Syntax[(Token, Seq[Expr])] =
@@ -124,18 +131,17 @@ object Parser
 
   lazy val unitary_formula: Syntax[Expr] =
     recursive(
-      quanitfied_formula | unary_formula | "(" ~ fof_formula ~ ")" | atomic_formula
+      quantified_formula | unary_formula | "(" ~ fof_formula ~ ")" | atomic_formula
     )
 
-  lazy val quanitfied_formula: Syntax[Expr] =
+  lazy val quantified_formula: Syntax[Expr] =
     (quantifier ~ "[" ~ variable_list ~ "]" ~ ":" ~ unitary_formula)
       .map {
         case (op @ OperatorToken("!")) ~ variables ~ formula =>
           Forall(variables, formula).setPos(op)
         case (op @ OperatorToken("?")) ~ variables ~ formula =>
           Exists(variables, formula).setPos(op)
-        // quantifier only match op("!") and op("?") but the compiler can't see that
-        case op ~ variables ~ formula => ???
+        case _ ~ _ ~ _ => ???
       }
 
   lazy val quantifier = op("!") | op("?")
@@ -150,10 +156,9 @@ object Parser
 
   lazy val cnf_formula = "(" ~ disjunction ~ ")" | disjunction
   lazy val disjunction: Syntax[Expr] =
-    (literal ~ many(more_disjunction)).map { case lit ~ more =>
-      (more.foldLeft(lit)((acc, next) => Or(acc, next))).setPos(lit)
+    rep1sep(literal, op("|")).map { case lits =>
+      (lits.tail.foldLeft(lits.head)((acc, next) => Or(acc, next))).setPos(lits.head)
     }
-  lazy val more_disjunction = op("|").skip ~ literal
 
   lazy val literal: Syntax[Expr] =
     (atomic_formula | negated_atomic_formula).map { case formula =>
@@ -184,8 +189,7 @@ object Parser
     ((defined_term | term_variable) ~ defined_infix_pred ~ term).map {
       case lhs ~ PredicateToken("=") ~ rhs  => Equals(lhs, rhs).setPos(lhs)
       case lhs ~ PredicateToken("!=") ~ rhs => Not(Equals(lhs, rhs)).setPos(lhs)
-      // defined_infix_pred only match pred("=") | pred("!=") but the compiler can't see that
-      case lhs ~ op ~ rhs => ???
+      case _ ~ _ ~ _ => ???
     }
 
   lazy val plain_system_or_defined_infix =
@@ -194,8 +198,7 @@ object Parser
       case lhs ~ Some(PredicateToken("=") ~ rhs) => Equals(lhs, rhs).setPos(lhs)
       case lhs ~ Some(PredicateToken("!=") ~ rhs) =>
         Not(Equals(lhs, rhs)).setPos(lhs)
-      // defined_infix_pred only match pred("=") | pred("!=") but the compiler can't see that
-      case lhs ~ Some(op ~ rhs) => ???
+      case _ ~ _ => ???
     }
 
   lazy val term = recursive(function_term | term_variable)

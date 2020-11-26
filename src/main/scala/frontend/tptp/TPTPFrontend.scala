@@ -1,11 +1,11 @@
 package mathgraph.frontend.tptp
 import mathgraph.util._
-import mathgraph.frontend.Tokens._
+import Tokens._
 import mathgraph.frontend.Trees._
 import Parser._
 import java.io.File
 
-object TPTPFrontend extends Pipeline[AbstractSource, Program] {
+object Translator extends Pipeline[AbstractSource, Program] {
 
   val pipeline = Lexer andThen Parser
 

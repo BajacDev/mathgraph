@@ -89,12 +89,7 @@ object Trees {
   }
 
   /** TODO implement equality */
-  // object Equals {
-  //   def apply(lhs: Expr, rhs: Expr): Expr = ???
-  //   def unapply(e: Expr): Option[(Expr, Expr)] = ???
-  // }
   case class Equals(lhs: Expr, rhs: Expr) extends Expr
 
-  /** TODO implement <~> ~| and ~& */
   case object UnknownExpr extends Expr
 }

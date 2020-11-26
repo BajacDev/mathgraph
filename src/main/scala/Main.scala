@@ -1,7 +1,7 @@
 package mathgraph
 import corelogic._
-import frontend._
-import frontend.tptp.{TPTPFrontend}
+import frontend.mgl.{Lexer, Parser}
+import frontend.tptp.{Translator}
 import backend._
 import repl._
 import util._
@@ -30,7 +30,7 @@ object Main {
   }
 
   def frontend(sourceFile: String) = {
-    if (sourceFile.contains(".p")) TPTPFrontend
+    if (sourceFile.contains(".p")) Translator
     else Lexer andThen Parser
   }
 }
