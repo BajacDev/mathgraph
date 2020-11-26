@@ -50,8 +50,8 @@ object Lexer extends Lexers with Pipeline[AbstractSource, Iterator[Token]] {
   }
 
   def apply(source: AbstractSource)(ctxt: Context): Iterator[Token] = {
-    // lexer.spawn could be used to run the lexer on another thread, but that makes tests flaky
-    lexer(Source.fromIterator(source.source, SourcePositioner(source)))
+    lexer
+      .spawn(Source.fromIterator(source.source, SourcePositioner(source)))
       .filter {
         case SpaceToken()   => false
         case CommentToken() => false
