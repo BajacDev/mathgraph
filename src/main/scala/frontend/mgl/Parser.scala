@@ -20,6 +20,10 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
     name
   }
 
+  val idInfix: Syntax[Identifier] = accept(IdInfixKind) {
+    case IdInfixToken(name) => name
+  }
+
   val idPos: Syntax[(Identifier, Position)] = accept(IdKind) {
     case tk @ IdToken(name) => (name, tk.pos)
   }
@@ -69,6 +73,10 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
       case (id, pos) ~ Some(fms) => Apply(id, fms).setPos(pos)
     }
 
+  val infixCall: Syntax[Expr] = (prefixed ~ idInfix ~ prefixed).map { 
+    case a ~ id ~ b => Apply(id, Seq(a, b)).setPos(a)
+  }
+
   val literal: Syntax[Expr] = (kw("true") | kw("false")).map {
     case tk @ KwToken("true")  => True.setPos(tk)
     case tk @ KwToken("false") => False.setPos(tk)
@@ -81,7 +89,7 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
 
   val simpleExpr: Syntax[Expr] = variableOrCall | literal | subFormula
 
-  val prefixed: Syntax[Expr] = (opt(kw("not")) ~ simpleExpr).map {
+  lazy val prefixed: Syntax[Expr] = (opt(kw("not")) ~ simpleExpr).map {
     case None ~ fm          => fm
     case Some(tk) ~ False   => True.setPos(tk)
     case Some(tk) ~ True    => False.setPos(tk)

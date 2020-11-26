@@ -11,6 +11,12 @@ object Lexer extends Lexers with Pipeline[AbstractSource, Iterator[Token]] {
   type Position = SourcePosition
   type Token = Tokens.Token
 
+  // Those are the different classes of characters
+  def delimChar(c: Char): Boolean = ".,:;()".contains(c)
+  def nonDelimChar(c: Char): Boolean = !delimChar(c) && !c.isWhitespace
+  def firstIdChar(c: Char): Boolean = c.isLetterOrDigit || c == '_'
+  def firstOpChar(c: Char): Boolean = !firstIdChar(c) && nonDelimChar(c)
+
   val lexer = Lexer(
     // Keywords
     word("let") | word("not") | word("forall") | word("exists") | word(
@@ -23,11 +29,12 @@ object Lexer extends Lexers with Pipeline[AbstractSource, Iterator[Token]] {
       DelimToken(cs.mkString).setPos(range._1)
     },
     // Identifiers
-    many(
-      elem(c => !c.isWhitespace && !".,;():".contains(c)) |
-        many1(elem(':')) ~ elem(c => !c.isWhitespace && !".,;()=".contains(c))
-    ) |> { (cs, range) =>
+    elem(firstIdChar) ~ many(nonDelimChar) |> { (cs, range) =>
       IdToken(cs.mkString).setPos(range._1)
+    },
+    // Operators
+    elem(firstOpChar) ~ many(nonDelimChar) |> { (cs, range) =>
+      OpToken(cs.mkString).setPos(range._1)
     },
     // Whitespace
     many1(elem(_.isWhitespace)) |> SpaceToken(),

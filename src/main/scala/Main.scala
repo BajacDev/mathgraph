@@ -16,7 +16,7 @@ object Main {
     val sourceFile = if (args.isEmpty) {
       ctxt.info(s"Using default input file: $defaultFile")
       defaultFile
-    } else args(0)
+    } else s"example/${args(0)}.txt"
 
     val pipeline =
       frontend(

@@ -2,7 +2,7 @@ package mathgraph.frontend
 import mathgraph.util.Positioned
 
 /** This object contains the definition of all the AST in mathgraph */
-object Trees {
+trait Trees {
   abstract class Tree extends Positioned
   abstract class Expr extends Tree
 
