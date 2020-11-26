@@ -1,5 +1,5 @@
 import org.scalatest.funsuite.AnyFunSuite
-import mathgraph.frontend.Trees._
+import mathgraph.frontend.OpTrees._
 import mathgraph.util._
 import mathgraph.frontend.mgl._
 import java.io.OutputStream

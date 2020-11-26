@@ -29,11 +29,11 @@ object Lexer extends Lexers with Pipeline[AbstractSource, Iterator[Token]] {
       DelimToken(cs.mkString).setPos(range._1)
     },
     // Identifiers
-    elem(firstIdChar) ~ many(nonDelimChar) |> { (cs, range) =>
+    elem(firstIdChar(_)) ~ many(elem(nonDelimChar(_))) |> { (cs, range) =>
       IdToken(cs.mkString).setPos(range._1)
     },
     // Operators
-    elem(firstOpChar) ~ many(nonDelimChar) |> { (cs, range) =>
+    elem(firstOpChar(_)) ~ many(elem(nonDelimChar(_))) |> { (cs, range) =>
       OpToken(cs.mkString).setPos(range._1)
     },
     // Whitespace

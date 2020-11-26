@@ -5,6 +5,7 @@ import mathgraph.util.Positioned
 trait Trees {
   abstract class Tree extends Positioned
   abstract class Expr extends Tree
+  abstract class Definition extends Tree
 
   type Identifier = String
 
@@ -12,7 +13,7 @@ trait Trees {
   // Programs
   // ----------------------------------------------------
 
-  case class Program(defs: Seq[Let], axioms: Seq[Expr]) extends Tree
+  case class Program(defs: Seq[Definition], axioms: Seq[Expr]) extends Tree
 
   // ----------------------------------------------------
   // Definitions
@@ -20,7 +21,7 @@ trait Trees {
 
   /** Representation of let in(x, S) or let inc(A, B) = ... */
   case class Let(name: Identifier, vars: Seq[Identifier], body: Option[Expr])
-      extends Tree
+      extends Definition
 
   // ----------------------------------------------------
   // Terms
@@ -90,4 +91,16 @@ trait Trees {
       case _                        => None
     }
   }
+}
+
+/** Represents the MGL trees where all the higher-level constructs have been lowered */
+object MGLTrees extends Trees
+
+/** Represents trees where operators haven't been parsed yet */
+object OpTrees extends Trees {
+  /** Representation of an operator definition let(<associativity>, <precedence>) a op b [:= <rhs>]; */
+  case class OpLet(assoc: String, prec: Int, lhs: String, op: String, rhs: String, body: Option[Expr]) extends Definition
+  
+  /** Representation of a sequence of operator applications x1 op1 x2 op2 ... xn */
+  case class OpSequence(exprs: Seq[Expr], ops: Seq[String]) extends Expr
 }

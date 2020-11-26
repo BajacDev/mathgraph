@@ -1,6 +1,6 @@
 package mathgraph.backend
 
-import mathgraph.frontend.Trees._
+import mathgraph.frontend.MGLTrees._
 import mathgraph.util._
 import BackendContext._
 
@@ -29,7 +29,7 @@ object Simplifier extends Pipeline[Program, Program] {
   // let and(A, B) = forall x. body
   // is the same as
   // let and(A, B, x) = body
-  def simplifyDef(definition: Let): Let = definition match {
+  def simplifyDef(definition: Definition): Definition = definition match {
     case Let(name, vars, bodyOpt) =>
       bodyOpt match {
         case None => definition
