@@ -23,7 +23,7 @@ object Main {
 
     try {
       val logicState: LogicState = pipeline.run(FileSource(sourceFile))(ctxt)
-      Repl(logicState)(ctxt)
+      Repl.run(logicState)
     } catch {
       case FatalError(_) => sys.exit(1)
     }
