@@ -1,5 +1,5 @@
 package mathgraph.frontend
-import mathgraph.util.Positioned
+import mathgraph.util.{Positioned, Position}
 
 /** This object contains the definition of all the AST in mathgraph */
 trait Trees {
@@ -98,9 +98,18 @@ object MGLTrees extends Trees
 
 /** Represents trees where operators haven't been parsed yet */
 object OpTrees extends Trees {
+
   /** Representation of an operator definition let(<associativity>, <precedence>) a op b [:= <rhs>]; */
-  case class OpLet(assoc: String, prec: Int, lhs: String, op: String, rhs: String, body: Option[Expr]) extends Definition
-  
+  case class OpLet(
+      assoc: String,
+      prec: String,
+      lhs: String,
+      op: String,
+      rhs: String,
+      body: Option[Expr]
+  ) extends Definition
+
   /** Representation of a sequence of operator applications x1 op1 x2 op2 ... xn */
-  case class OpSequence(exprs: Seq[Expr], ops: Seq[String]) extends Expr
+  case class OpSequence(first: Expr, opsAndExprs: Seq[(String, Position, Expr)])
+      extends Expr
 }

@@ -5,7 +5,6 @@ import mathgraph.frontend.OpTrees._ // the parser outputs trees where operators 
 import scala.language.implicitConversions
 import Tokens._
 import scallion._
-import scala.util.Try
 
 /** A parser takes as input a sequence of tokens and outputs a program */
 object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
@@ -50,10 +49,12 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
     case id ~ Some(params) ~ bodyOpt => Let(id, params, bodyOpt)
   }
 
-  lazy val opDef: Syntax[Definition] = ("(" ~ id ~ ",".skip ~ id ~ ")".skip ~ id ~ op ~ id ~ opt(":=".skip ~ formula)).map {
-    case tk ~ assoc ~ prec ~ lhs ~ OpToken(op) ~ rhs ~ bodyOpt =>
-      OpLet(assoc, Try(prec.toInt).getOrElse(-1), lhs, op, rhs, bodyOpt).setPos(tk)
-  }
+  lazy val opDef: Syntax[Definition] =
+    ("(" ~ id ~ ",".skip ~ id ~ ")".skip ~ id ~ op ~ id ~ opt(
+      ":=".skip ~ formula
+    )).map { case tk ~ assoc ~ prec ~ lhs ~ OpToken(op) ~ rhs ~ bodyOpt =>
+      OpLet(assoc, prec, lhs, op, rhs, bodyOpt).setPos(tk)
+    }
 
   // Expressions
   lazy val formula: Syntax[Expr] = recursive(
@@ -95,16 +96,17 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
     case Some(tk) ~ fm      => Not(fm).setPos(tk)
   }
 
-  val operatorExpr: Syntax[Expr] = (prefixed ~ many((kw("->") | op) ~ prefixed)).map {
-    case firstExpr ~ opsAndExprs =>
+  val operatorExpr: Syntax[Expr] =
+    (prefixed ~ many((kw("->") | op) ~ prefixed)).map { case first ~ rest =>
       // In the parser, the operator sequences are parsed in a flat way.
       // It is only in the OpsRewrite phase that they are correctly parsed given their precendences and associativies.
-      val (ops, lastExprs) = opsAndExprs.map {
-        case KwToken("->") ~ e => ("->", e)
-        case OpToken(op) ~ e => (op, e)
-      }.unzip
-      OpSequence(firstExpr +: lastExprs, ops).setPos(firstExpr)
-  }
+      val opsAndExprs = rest.map {
+        case (tk @ KwToken("->")) ~ e => ("->", tk.pos, e)
+        case (tk @ OpToken(op)) ~ e   => (op, tk.pos, e)
+        case _                        => ???
+      }
+      OpSequence(first, opsAndExprs).setPos(first)
+    }
 
   protected def apply(tokens: Iterator[Token])(ctxt: Context): Program = {
     val parser = Parser(program)
