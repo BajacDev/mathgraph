@@ -37,9 +37,7 @@ class FrontendTests extends AnyFunSuite {
 
   def shouldSucceed(input: String, result: String): Unit = {
     assertResult(result) {
-      Console.withErr(nullOutputStream) {
-        frontend.run(StringSource("input", input))(new Context)
-      }
+      frontend.run(StringSource("input", input))(new Context)
     }
   }
 
@@ -105,5 +103,22 @@ class FrontendTests extends AnyFunSuite {
     )
     "let a /* hello */ := x;" ~> Success("let a := x;")
     "let a /* := x;" ~> Failure // unclosed comment
+  }
+
+  test("operators are correctly parsed") {
+    "let(left, 20) a + b, (left, 30) a * b, (right, 40) a ^ b; 1 + 2 * 3 + 2 ^ 2 ^ 2 * 2 + 1;" ~> Success(
+      "let +(a, b);\nlet *(a, b);\nlet ^(a, b);\n+(+(+(1, *(2, 3)), *(^(2, ^(2, 2)), 2)), 1);"
+    )
+    "let(left, 5) a & b, (left, 15) a | b; a -> b & c; a -> b | c;" ~> Success(
+      "let &(a, b);\nlet |(a, b);\n&((a -> b), c);\n(a -> |(b, c));"
+    )
+  }
+
+  test("invalid operators are rejected") {
+    "let(abc, 1) a + b;" ~> Failure
+    "let(left, abc) a + b;" ~> Failure
+    "a + b;" ~> Failure
+    "let(left, 10) a -> b;" ~> Failure
+    "let(left, 10) a ~ b;" ~> Failure
   }
 }

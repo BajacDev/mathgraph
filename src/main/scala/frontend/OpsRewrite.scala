@@ -39,7 +39,7 @@ object OpsRewrite extends Pipeline[In.Program, Out.Program] {
       // Retrieves the precedence of an operator or throws a fatal error if the operator does not exist
       def prec(op: (String, Position, Out.Expr)): Int = operators
         .get(op._1)
-        .getOrElse(ctxt.fatal(s"Undeclared operator '$op._1'", op._2))
+        .getOrElse(ctxt.fatal(s"Undeclared operator '${op._1}'", op._2))
         ._2
 
       // Retrieves the minimum level of what follows the given operator
