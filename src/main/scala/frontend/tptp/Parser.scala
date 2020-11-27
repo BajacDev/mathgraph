@@ -32,9 +32,7 @@ object Parser
 
   val eof: Syntax[Token] = elem(EOFKind)
 
-  implicit def skipped(str: String): Skip = str match {
-    case _   => elem(DelimKind(str)).skip
-  }
+  implicit def skipped(str: String): Skip = elem(DelimKind(str)).skip
 
   lazy val tptp_file: Syntax[Seq[Tree]] = (many(tptp_input) ~ eof.skip).map {
     case inputs =>
