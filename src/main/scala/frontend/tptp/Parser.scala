@@ -14,11 +14,11 @@ object Parser
   type Kind = TokenKind
   type Token = Tokens.Token
 
-  case class TPTP_Include(filename: String, formulas: Seq[(String, Position)])
+  case class TPTPInclude(filename: String, formulas: Seq[(String, Position)])
       extends Tree {
     def unapply(tree: Tree): Option[(String, Seq[(String, Position)])] =
       tree match {
-        case TPTP_Include(filename, formulas) => Some((filename, formulas))
+        case TPTPInclude(filename, formulas) => Some((filename, formulas))
         case _                                => None
       }
   }
@@ -240,9 +240,9 @@ object Parser
 
   lazy val include: Syntax[Tree] =
     (kw("include").skip ~ "(" ~ file_name ~ formula_selection ~ ")" ~ ".").map {
-      case (filename, pos) ~ None => TPTP_Include(filename, Seq()).setPos(pos)
+      case (filename, pos) ~ None => TPTPInclude(filename, Seq()).setPos(pos)
       case (filename, pos) ~ Some(selection) =>
-        TPTP_Include(filename, selection).setPos(pos)
+        TPTPInclude(filename, selection).setPos(pos)
     }
   lazy val formula_selection = opt("," ~ "[" ~ name_list ~ "]")
   lazy val name_list = rep1sep(name, delim(","))

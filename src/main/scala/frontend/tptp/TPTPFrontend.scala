@@ -5,7 +5,7 @@ import mathgraph.frontend.Trees._
 import Parser._
 import java.io.File
 
-object Translator extends Pipeline[AbstractSource, Program] {
+object TPTPFrontend extends Pipeline[AbstractSource, Program] {
 
   val pipeline = Lexer andThen Parser
 
@@ -23,7 +23,7 @@ object Translator extends Pipeline[AbstractSource, Program] {
   }
 
   def isInclude(tree: Tree): Boolean = tree match {
-    case TPTP_Include(_, _) => true
+    case TPTPInclude(_, _) => true
     case _                  => false
   }
 
@@ -34,7 +34,7 @@ object Translator extends Pipeline[AbstractSource, Program] {
 
   def tptpImport(tree: Tree)(implicit ctx: Context): Seq[Tree] = {
 
-    val TPTP_Include(filename, toImport) = tree
+    val TPTPInclude(filename, toImport) = tree
 
     val externalTrees = pipeline.run(FileSource(s"example/${filename}"))(ctx)
 
