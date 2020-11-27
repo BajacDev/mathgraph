@@ -88,14 +88,13 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
 
   val simpleExpr: Syntax[Expr] = variableOrCall | literal | subFormula
 
-  val prefixed: Syntax[Expr] = (opt(kw("not")) ~ simpleExpr).map {
-    case None ~ fm          => fm
-    case Some(tk) ~ False   => True.setPos(tk)
-    case Some(tk) ~ True    => False.setPos(tk)
-    case Some(tk) ~ Not(fm) => fm.setPos(tk)
-    case Some(tk) ~ fm      => Not(fm).setPos(tk)
+  val prefixed: Syntax[Expr] = prefixes(kw("~"), simpleExpr) {
+    case (not, False) => True.setPos(not)
+    case (not, True) => False.setPos(not)
+    case (not, Not(fm)) => fm.setPos(not)
+    case (not, fm) => Not(fm).setPos(not)
   }
-
+  
   val operatorExpr: Syntax[Expr] =
     (prefixed ~ many((kw("->") | op) ~ prefixed)).map { case first ~ rest =>
       // In the parser, the operator sequences are parsed in a flat way.

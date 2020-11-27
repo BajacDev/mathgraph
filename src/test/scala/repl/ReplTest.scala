@@ -1,3 +1,5 @@
+package frontend.repl
+
 import org.scalatest.funsuite.AnyFunSuite
 import mathgraph.repl._
 import CommandTokens._

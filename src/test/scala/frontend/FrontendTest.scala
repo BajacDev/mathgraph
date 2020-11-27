@@ -1,5 +1,7 @@
+package mathgraph.frontend
+
 import org.scalatest.funsuite.AnyFunSuite
-import mathgraph.frontend.OpTrees._
+import mathgraph.frontend.MGLTrees._
 import mathgraph.util._
 import mathgraph.frontend.mgl._
 import java.io.OutputStream
@@ -28,7 +30,7 @@ class FrontendTests extends AnyFunSuite {
     }
   }
 
-  def frontend = Lexer andThen Parser andThen PrettyPrinter
+  def frontend = Lexer andThen Parser andThen OpsRewrite andThen PrettyPrinter
   def nullOutputStream = new OutputStream {
     def write(b: Int): Unit = {}
   }
@@ -65,9 +67,6 @@ class FrontendTests extends AnyFunSuite {
     "let x(arg);" ~> Success("let x(arg);")
     "let x := 1;" ~> Success("let x := 1;")
     "let x(arg) := 1;" ~> Success("let x(arg) := 1;")
-    "let ||(a, b) := not(a) -> b;" ~> Success(
-      "let ||(a, b) := ((a -> false) -> b);"
-    )
     "let a, b;" ~> Success("let a;\nlet b;")
   }
 
@@ -83,14 +82,14 @@ class FrontendTests extends AnyFunSuite {
   }
 
   test("syntactic sugar is desugared") {
-    "not a -> b;" ~> Success("((a -> false) -> b);")
+    "~a -> b;" ~> Success("((a -> false) -> b);")
     "exists x. P(x);" ~> Success("((forall x. (P(x) -> false)) -> false);")
     "forall x. forall y. P(x, y);" ~> Success("(forall x y. P(x, y));")
     "exists x. exists y. P(x, y);" ~> Success(
       "((forall x y. (P(x, y) -> false)) -> false);"
     )
-    "not (not P(x));" ~> Success("P(x);")
-    "not true;" ~> Success("false;")
+    "~~P(x);" ~> Success("P(x);")
+    "~true;" ~> Success("false;")
   }
 
   test("invalid syntax is not parsed") {

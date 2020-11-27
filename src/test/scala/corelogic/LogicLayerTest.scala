@@ -1,4 +1,4 @@
-package logiclayertest
+package mathgraph.corelogic
 
 import org.scalatest.funsuite.AnyFunSuite
 import mathgraph.corelogic._

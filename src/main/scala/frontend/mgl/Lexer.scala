@@ -12,16 +12,15 @@ object Lexer extends Lexers with Pipeline[AbstractSource, Iterator[Token]] {
   type Token = Tokens.Token
 
   // Those are the different classes of characters
-  def delimChar(c: Char): Boolean = ".,:;()".contains(c)
+  def delimChar(c: Char): Boolean = "~.,:;()".contains(c)
   def nonDelimChar(c: Char): Boolean = !delimChar(c) && !c.isWhitespace
   def firstIdChar(c: Char): Boolean = c.isLetterOrDigit || c == '_'
   def firstOpChar(c: Char): Boolean = !firstIdChar(c) && nonDelimChar(c)
 
   val lexer = Lexer(
     // Keywords
-    word("let") | word("not") | word("forall") | word("exists") | word(
-      "true"
-    ) | word("false") | word("->") |> { (cs, range) =>
+    word("let") | word("~") | word("forall") | word("exists") |
+    word("true") | word("false") | word("->") |> { (cs, range) =>
       KwToken(cs.mkString).setPos(range._1)
     },
     // Delimiters

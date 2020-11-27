@@ -1,4 +1,4 @@
-package solvertest
+package mathgraph.solver
 
 import org.scalatest.funsuite.AnyFunSuite
 import mathgraph.solver._
@@ -19,7 +19,7 @@ class LogicGraphTest extends AnyFunSuite {
   test("saturation works") {
 
     val pipeline =
-      Lexer andThen Parser andThen Simplifier andThen ForallToLets andThen ProgToLogicState
+      Lexer andThen Parser andThen OpsRewrite andThen Simplifier andThen ForallToLets andThen ProgToLogicState
     val ctx = new Context()
 
     val sourceFile = "example/solvertest/test1.txt"
