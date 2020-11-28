@@ -29,7 +29,6 @@ object Tokens extends frontend.Tokens {
 
   // This retrieves the kind of a token for Scallion
   override def kindOf(token: Token): TokenKind = token match {
-
     case OperatorToken(value)                        => OperatorKind(value)
     case PredicateToken(value)                       => PredicateKind(value)
     case SingleQuotedToken(_)                        => SingleQuotedKind
@@ -40,7 +39,6 @@ object Tokens extends frontend.Tokens {
     case RealToken(value)                            => RealKind
     case UnsignedToken(value)                        => UnsignedKind
     case SignedToken(value)                          => SignedKind
-
-    case _ => super.kindOf(token)
+    case _                                           => super.kindOf(token)
   }
 }

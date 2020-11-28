@@ -1,5 +1,7 @@
+package mathgraph.frontend.mgl
+
 import org.scalatest.funsuite.AnyFunSuite
-import mathgraph.frontend.Trees._
+import mathgraph.frontend.MGLTrees._
 import mathgraph.util._
 import mathgraph.frontend.mgl._
 import java.io.OutputStream
@@ -28,16 +30,14 @@ class FrontendTests extends AnyFunSuite {
     }
   }
 
-  def frontend = Lexer andThen Parser andThen PrettyPrinter
+  def frontend = Lexer andThen Parser andThen OpsRewrite andThen PrettyPrinter
   def nullOutputStream = new OutputStream {
     def write(b: Int): Unit = {}
   }
 
   def shouldSucceed(input: String, result: String): Unit = {
     assertResult(result) {
-      Console.withErr(nullOutputStream) {
-        frontend.run(StringSource("input", input))(new Context)
-      }
+      frontend.run(StringSource("input", input))(new Context)
     }
   }
 
@@ -65,9 +65,6 @@ class FrontendTests extends AnyFunSuite {
     "let x(arg);" ~> Success("let x(arg);")
     "let x := 1;" ~> Success("let x := 1;")
     "let x(arg) := 1;" ~> Success("let x(arg) := 1;")
-    "let ||(a, b) := not(a) -> b;" ~> Success(
-      "let ||(a, b) := ((a -> false) -> b);"
-    )
     "let a, b;" ~> Success("let a;\nlet b;")
   }
 
@@ -83,14 +80,14 @@ class FrontendTests extends AnyFunSuite {
   }
 
   test("syntactic sugar is desugared") {
-    "not a -> b;" ~> Success("((a -> false) -> b);")
+    "~a -> b;" ~> Success("((a -> false) -> b);")
     "exists x. P(x);" ~> Success("((forall x. (P(x) -> false)) -> false);")
     "forall x. forall y. P(x, y);" ~> Success("(forall x y. P(x, y));")
     "exists x. exists y. P(x, y);" ~> Success(
       "((forall x y. (P(x, y) -> false)) -> false);"
     )
-    "not (not P(x));" ~> Success("P(x);")
-    "not true;" ~> Success("false;")
+    "~~P(x);" ~> Success("P(x);")
+    "~true;" ~> Success("false;")
   }
 
   test("invalid syntax is not parsed") {
@@ -106,5 +103,22 @@ class FrontendTests extends AnyFunSuite {
     )
     "let a /* hello */ := x;" ~> Success("let a := x;")
     "let a /* := x;" ~> Failure // unclosed comment
+  }
+
+  test("operators are correctly parsed") {
+    "let(left, 20) a + b, (left, 30) a * b, (right, 40) a ^ b; 1 + 2 * 3 + 2 ^ 2 ^ 2 * 2 + 1;" ~> Success(
+      "let +(a, b);\nlet *(a, b);\nlet ^(a, b);\n+(+(+(1, *(2, 3)), *(^(2, ^(2, 2)), 2)), 1);"
+    )
+    "let(left, 5) a & b, (left, 15) a | b; a -> b & c; a -> b | c;" ~> Success(
+      "let &(a, b);\nlet |(a, b);\n&((a -> b), c);\n(a -> |(b, c));"
+    )
+  }
+
+  test("invalid operators are rejected") {
+    "let(abc, 1) a + b;" ~> Failure
+    "let(left, abc) a + b;" ~> Failure
+    "a + b;" ~> Failure
+    "let(left, 10) a -> b;" ~> Failure
+    "let(left, 10) a ~ b;" ~> Failure
   }
 }

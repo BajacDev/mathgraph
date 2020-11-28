@@ -11,23 +11,27 @@ object Lexer extends Lexers with Pipeline[AbstractSource, Iterator[Token]] {
   type Position = SourcePosition
   type Token = Tokens.Token
 
+  // Those are the different classes of characters
+  def idChar(c: Char): Boolean = c.isLetterOrDigit || c == '_'
+  def opChar(c: Char): Boolean = !c.isWhitespace && !"~().,;:".contains(c)
+
   val lexer = Lexer(
     // Keywords
-    word("let") | word("not") | word("forall") | word("exists") | word(
-      "true"
-    ) | word("false") | word("->") |> { (cs, range) =>
-      KwToken(cs.mkString).setPos(range._1)
-    },
+    word("let") | word("~") | word("forall") | word("exists") |
+      word("true") | word("false") | word("->") |> { (cs, range) =>
+        KwToken(cs.mkString).setPos(range._1)
+      },
     // Delimiters
     oneOf(".,;()") | word(":=") |> { (cs, range) =>
       DelimToken(cs.mkString).setPos(range._1)
     },
     // Identifiers
-    many(
-      elem(c => !c.isWhitespace && !".,;():".contains(c)) |
-        many1(elem(':')) ~ elem(c => !c.isWhitespace && !".,;()=".contains(c))
-    ) |> { (cs, range) =>
+    many1(elem(idChar(_))) |> { (cs, range) =>
       IdToken(cs.mkString).setPos(range._1)
+    },
+    // Operators
+    many1(elem(opChar(_))) |> { (cs, range) =>
+      OpToken(cs.mkString).setPos(range._1)
     },
     // Whitespace
     many1(elem(_.isWhitespace)) |> SpaceToken(),

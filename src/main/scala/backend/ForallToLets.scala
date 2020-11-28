@@ -1,6 +1,6 @@
 package mathgraph.backend
 
-import mathgraph.frontend.Trees._
+import mathgraph.frontend.MGLTrees._
 import mathgraph.util._
 
 // every forall will be transformed into a Simplelet
@@ -37,16 +37,17 @@ object ForallToLets extends Pipeline[Program, Program] {
   def extractDefFromAxiom(expr: Expr): (Expr, Seq[Let]) =
     extractDefFromExpr(expr, Seq())
 
-  def extractDefFromDef(definition: Let): Seq[Let] = definition match {
-    case r @ Let(name, vars, bodyOpt) =>
-      bodyOpt match {
-        case None => Seq(r)
-        case Some(body) => {
-          val (expr, lets) = extractDefFromExpr(body, vars)
-          lets :+ Let(name, vars, Some(expr))
+  def extractDefFromDef(definition: Definition): Seq[Definition] =
+    definition match {
+      case r @ Let(name, vars, bodyOpt) =>
+        bodyOpt match {
+          case None => Seq(r)
+          case Some(body) => {
+            val (expr, lets) = extractDefFromExpr(body, vars)
+            lets :+ Let(name, vars, Some(expr))
+          }
         }
-      }
-  }
+    }
 
   protected def apply(program: Program)(ctxt: Context): Program =
     program match {

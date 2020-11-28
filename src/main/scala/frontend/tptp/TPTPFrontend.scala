@@ -1,7 +1,7 @@
 package mathgraph.frontend.tptp
 import mathgraph.util._
 import Tokens._
-import mathgraph.frontend.Trees._
+import mathgraph.frontend.MGLTrees._
 import Parser._
 import java.io.File
 

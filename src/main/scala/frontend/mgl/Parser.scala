@@ -1,6 +1,7 @@
 package mathgraph.frontend.mgl
 import mathgraph.util._
-import mathgraph.frontend.Trees._
+import mathgraph.frontend.mgl.Tokens._
+import mathgraph.frontend.OpTrees._ // the parser outputs trees where operators are not yet lowered
 import scala.language.implicitConversions
 import Tokens._
 import scallion._
@@ -19,15 +20,12 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
   val id: Syntax[Identifier] = accept(IdKind) { case IdToken(name) =>
     name
   }
-
   val idPos: Syntax[(Identifier, Position)] = accept(IdKind) {
     case tk @ IdToken(name) => (name, tk.pos)
   }
-
   implicit def delim(str: String): Syntax[Token] = elem(DelimKind(str))
-
   def kw(str: String): Syntax[Token] = elem(KwKind(str))
-
+  val op: Syntax[Token] = elem(OpKind)
   val eof: Syntax[Token] = elem(EOFKind)
 
   // Main grammar definition
@@ -37,21 +35,30 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
         Program(defs.flatten, fms)
       }
 
-  val manyDefinitions: Syntax[Seq[Let]] =
+  val manyDefinitions: Syntax[Seq[Definition]] =
     (kw("let") ~ rep1sep(definition, ",")).map { case tk ~ defList =>
       defList.map(_.setPos(tk))
     }
 
-  lazy val definition: Syntax[Let] = (id ~ opt(
+  lazy val definition: Syntax[Definition] = normalDef | opDef
+
+  lazy val normalDef: Syntax[Definition] = (id ~ opt(
     "(".skip ~ rep1sep(id, ",") ~ ")".skip
   ) ~ opt(":=".skip ~ formula)).map {
     case id ~ None ~ bodyOpt         => Let(id, Seq(), bodyOpt)
     case id ~ Some(params) ~ bodyOpt => Let(id, params, bodyOpt)
   }
 
+  lazy val opDef: Syntax[Definition] =
+    ("(" ~ id ~ ",".skip ~ id ~ ")".skip ~ id ~ op ~ id ~ opt(
+      ":=".skip ~ formula
+    )).map { case tk ~ assoc ~ prec ~ lhs ~ OpToken(op) ~ rhs ~ bodyOpt =>
+      OpLet(assoc, prec, lhs, op, rhs, bodyOpt).setPos(tk)
+    }
+
   // Expressions
   lazy val formula: Syntax[Expr] = recursive(
-    many((kw("forall") | kw("exists")) ~ many1(id) ~ ".".skip) ~ implies
+    many((kw("forall") | kw("exists")) ~ many1(id) ~ ".".skip) ~ operatorExpr
   ).map { case qs ~ fm =>
     qs.foldRight(fm) {
       case ((tk @ KwToken("forall")) ~ ids1, Forall(ids2, acc)) =>
@@ -81,17 +88,24 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
 
   val simpleExpr: Syntax[Expr] = variableOrCall | literal | subFormula
 
-  val prefixed: Syntax[Expr] = (opt(kw("not")) ~ simpleExpr).map {
-    case None ~ fm          => fm
-    case Some(tk) ~ False   => True.setPos(tk)
-    case Some(tk) ~ True    => False.setPos(tk)
-    case Some(tk) ~ Not(fm) => fm.setPos(tk)
-    case Some(tk) ~ fm      => Not(fm).setPos(tk)
+  val prefixed: Syntax[Expr] = prefixes(kw("~"), simpleExpr) {
+    case (not, False)   => True.setPos(not)
+    case (not, True)    => False.setPos(not)
+    case (not, Not(fm)) => fm.setPos(not)
+    case (not, fm)      => Not(fm).setPos(not)
   }
 
-  val implies: Syntax[Expr] = rep1sep(prefixed, kw("->")).map { case fms =>
-    fms.reduceRight[Expr] { case (a, b) => Implies(a, b).setPos(a) }
-  }
+  val operatorExpr: Syntax[Expr] =
+    (prefixed ~ many((kw("->") | op) ~ prefixed)).map { case first ~ rest =>
+      // In the parser, the operator sequences are parsed in a flat way.
+      // It is only in the OpsRewrite phase that they are correctly parsed given their precendences and associativies.
+      val opsAndExprs = rest.map {
+        case (tk @ KwToken("->")) ~ e => ("->", tk.pos, e)
+        case (tk @ OpToken(op)) ~ e   => (op, tk.pos, e)
+        case _                        => ???
+      }
+      OpSequence(first, opsAndExprs).setPos(first)
+    }
 
   protected def apply(tokens: Iterator[Token])(ctxt: Context): Program = {
     val parser = Parser(program)

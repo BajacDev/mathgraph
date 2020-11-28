@@ -2,7 +2,7 @@ package mathgraph.frontend
 import mathgraph.util._
 
 trait Tokens {
-  // Those are all the tokens common to the mgl and tptp languages
+  // Those are all the tokens of the language
   abstract class Token extends Positioned
   case class KwToken(chars: String) extends Token
   case class DelimToken(chars: String) extends Token
@@ -11,7 +11,7 @@ trait Tokens {
   case class EOFToken() extends Token
   case class ErrorToken(error: String) extends Token
 
-  // Those are the associated token kinds used by Scallion
+  // Those are the token kinds used by Scallion
   abstract class TokenKind(text: String)
   case class KwKind(chars: String) extends TokenKind(chars)
   case class DelimKind(chars: String) extends TokenKind(chars)

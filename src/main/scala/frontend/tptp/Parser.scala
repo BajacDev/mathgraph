@@ -1,6 +1,6 @@
 package mathgraph.frontend.tptp
 import mathgraph.util._
-import mathgraph.frontend.Trees._
+import mathgraph.frontend.MGLTrees._
 import scala.language.implicitConversions
 import Tokens._
 import scallion._

@@ -3,7 +3,7 @@ package mathgraph.backend
 import mathgraph.frontend._
 import mathgraph.repl._
 import mathgraph.corelogic.LogicGraph
-import mathgraph.frontend.Trees._
+import mathgraph.frontend.MGLTrees._
 import mathgraph.util._
 import mathgraph.util.{Context => UtilContext}
 import mathgraph.backend.{BackendContext => Context}
@@ -67,7 +67,7 @@ object ProgToLogicState extends Pipeline[Program, LogicState] {
     lg.setAxiom(pos, true)
   }
 
-  def interpretDef(definition: Let, context: Context): Context =
+  def interpretDef(definition: Definition, context: Context): Context =
     definition match {
       case Let(name, vars, bodyOpt) => {
         val Context(logicGraph, stringToExpr) = context
