@@ -1,4 +1,4 @@
-package mathgraph.frontend
+package mathgraph.frontend.mgl
 import mathgraph.util._
 import java.io.File
 import Tokens._
