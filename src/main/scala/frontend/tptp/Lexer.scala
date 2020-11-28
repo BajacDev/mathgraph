@@ -7,9 +7,7 @@ import Tokens._
 import silex._
 
 /** A lexer takes as input a string and outputs a sequence of tokens */
-object Lexer
-    extends Lexers
-    with Pipeline[AbstractSource, Iterator[Token]] {
+object Lexer extends Lexers with Pipeline[AbstractSource, Iterator[Token]] {
 
   type Character = Char
   type Position = SourcePosition
@@ -19,34 +17,27 @@ object Lexer
     // Keywords
     word("fof") | word("cnf") | word("include")
       |> { (cs, range) => KwToken(cs.mkString).setPos(range._1) },
-
     // Punctuation
     oneOf("(),.[]:")
       |> { (cs, range) => DelimToken(cs.mkString).setPos(range._1) },
-
     // Whitespace
     many1(elem(_.isWhitespace)) |> SpaceToken(),
-
     // Operators
     oneOf("!?~&|") | word("<=>") | word("<=") | word("=>") |
       word("<~>") | word("~|") | word("~&")
       |> { (cs, range) => OperatorToken(cs.mkString).setPos(range._1) },
-
     //Predicates
     elem('=') | word("!=") | word("$true") | word("$false")
       |> { (cs, range) => PredicateToken(cs.mkString).setPos(range._1) },
-
     // Single line comments
     elem('%') ~ many(elem(_ != '\n'))
       |> { (cs, range) => CommentToken().setPos(range._1) },
-
     word("/*") ~ many(
       many(elem(_ != '*')) ~ many1(elem('*')) ~ many(
         elem(c => c != '*' && c != '/')
       )
     ) ~ many(elem(_ != '*')) ~ many1(elem('*')) ~ elem('/')
       |> { cs => CommentToken() },
-
     opt(oneOf("+-")) ~ (
       elem('0') | (elem(c => c.isDigit && c != '0') ~ many(
         elem(_.isDigit)
@@ -71,12 +62,12 @@ object Lexer
           }
         }
       },
-
     elem('\'') ~ many(
       word("\\\'") | word("\\\\") | many(elem(c => c != '\\' && c != '\''))
     ) ~ elem('\'')
       |> { (cs, range) =>
-        SingleQuotedToken(removeEscape(dropQuotes(cs.mkString))).setPos(range._1)
+        SingleQuotedToken(removeEscape(dropQuotes(cs.mkString)))
+          .setPos(range._1)
       },
     elem('\"') ~ many(
       word("\\\"") | word("\\\\") | many(elem(c => c != '\\' && c != '\"'))

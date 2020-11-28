@@ -23,6 +23,6 @@ trait Tokens {
     case KwToken(chars)    => KwKind(chars)
     case DelimToken(chars) => DelimKind(chars)
     case EOFToken()        => EOFKind
-    case _ => NoKind
+    case _                 => NoKind
   }
 }

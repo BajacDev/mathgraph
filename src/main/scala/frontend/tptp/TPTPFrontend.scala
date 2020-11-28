@@ -24,7 +24,7 @@ object TPTPFrontend extends Pipeline[AbstractSource, Program] {
 
   def isInclude(tree: Tree): Boolean = tree match {
     case TPTPInclude(_, _) => true
-    case _                  => false
+    case _                 => false
   }
 
   def toExpr(tree: Tree)(implicit ctx: Context): Expr = tree match {

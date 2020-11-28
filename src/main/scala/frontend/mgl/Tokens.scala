@@ -12,7 +12,7 @@ object Tokens extends frontend.Tokens {
 
   // This retrieves the kind of a token for Scallion
   override def kindOf(token: Token): TokenKind = token match {
-    case IdToken(_)        => IdKind
-    case _ => super.kindOf(token)
+    case IdToken(_) => IdKind
+    case _          => super.kindOf(token)
   }
 }

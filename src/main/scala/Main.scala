@@ -19,7 +19,9 @@ object Main {
     } else args(0)
 
     val pipeline =
-      frontend(sourceFile) andThen Simplifier andThen ForallToLets andThen ProgToLogicState
+      frontend(
+        sourceFile
+      ) andThen Simplifier andThen ForallToLets andThen ProgToLogicState
 
     try {
       val logicState: LogicState = pipeline.run(FileSource(sourceFile))(ctxt)

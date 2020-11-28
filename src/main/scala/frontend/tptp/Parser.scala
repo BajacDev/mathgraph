@@ -5,9 +5,7 @@ import scala.language.implicitConversions
 import Tokens._
 import scallion._
 
-object Parser
-    extends Parsers
-    with Pipeline[Iterator[Token], Seq[Tree]] {
+object Parser extends Parsers with Pipeline[Iterator[Token], Seq[Tree]] {
 
   import Implicits._
 
@@ -19,7 +17,7 @@ object Parser
     def unapply(tree: Tree): Option[(String, Seq[(String, Position)])] =
       tree match {
         case TPTPInclude(filename, formulas) => Some((filename, formulas))
-        case _                                => None
+        case _                               => None
       }
   }
 
@@ -34,53 +32,52 @@ object Parser
 
   implicit def skipped(str: String): Skip = elem(DelimKind(str)).skip
 
-  lazy val tptp_file: Syntax[Seq[Tree]] = (many(tptp_input) ~ eof.skip).map {
+  lazy val tptpFile: Syntax[Seq[Tree]] = (many(tptpInput) ~ eof.skip).map {
     case inputs =>
       inputs
   }
 
-  lazy val tptp_input: Syntax[Tree] = annotated_formula | include
+  lazy val tptpInput: Syntax[Tree] = annotatedFormula | include
 
-  lazy val annotated_formula = (fof_annotated | cnf_annotated).map {
+  lazy val annotatedFormula = (fofAnnotated | cnfAnnotated).map {
     case formula => formula
   }
 
-  lazy val fof_annotated: Syntax[Tree] = (kw(
+  lazy val fofAnnotated: Syntax[Tree] = (kw(
     "fof"
-  ) ~ "(" ~ name ~ "," ~ formula_role ~ "," ~ fof_formula ~ annotations ~ ")" ~ ".")
+  ) ~ "(" ~ name ~ "," ~ formulaRole ~ "," ~ fofFormula ~ annotations ~ ")" ~ ".")
     .map {
-      case fof ~ name ~ formula_role ~ fof_formula ~ annotations => {
+      case fof ~ name ~ formulaRole ~ fofFormula ~ annotations => {
 
-        val body = formula_role match {
-          case ("conjecture", pos) => Implies(fof_formula, False).setPos(fof)
-          case _                   => fof_formula.setPos(fof)
+        val body = formulaRole match {
+          case ("conjecture", pos) => Implies(fofFormula, False).setPos(fof)
+          case _                   => fofFormula.setPos(fof)
         }
 
         Let(name._1, Seq(), Some(body)).setPos(fof)
       }
     }
 
-  lazy val cnf_annotated: Syntax[Tree] = (kw(
+  lazy val cnfAnnotated: Syntax[Tree] = (kw(
     "cnf"
-  ) ~ "(" ~ name ~ "," ~ formula_role ~ "," ~ cnf_formula ~ annotations ~ ")" ~ ".")
-    .map { case cnf ~ name ~ formula_role ~ cnf_formula ~ annotations =>
-
-      val body = formula_role match {
-        case ("conjecture", pos) => Implies(cnf_formula, False).setPos(cnf)
-        case _                   => cnf_formula.setPos(cnf)
+  ) ~ "(" ~ name ~ "," ~ formulaRole ~ "," ~ cnfFormula ~ annotations ~ ")" ~ ".")
+    .map { case cnf ~ name ~ formulaRole ~ cnfFormula ~ annotations =>
+      val body = formulaRole match {
+        case ("conjecture", pos) => Implies(cnfFormula, False).setPos(cnf)
+        case _                   => cnfFormula.setPos(cnf)
       }
 
       Let(name._1, Seq(), Some(body)).setPos(cnf)
     }
 
-  lazy val annotations = opt("," ~ source ~ optional_info).map { case _ =>
+  lazy val annotations = opt("," ~ source ~ optionalInfo).map { case _ =>
     ()
   }
 
-  lazy val formula_role = lower_word
+  lazy val formulaRole = lowerWord
 
-  lazy val fof_formula: Syntax[Expr] =
-    (unitary_formula ~ opt(assoc_binary_op | non_assoc_binary_op)).map {
+  lazy val fofFormula: Syntax[Expr] =
+    (unitaryFormula ~ opt(assocBinaryOp | nonAssocBinaryOp)).map {
       case unitary ~ None => unitary
       case lhs ~ Some((OperatorToken("=>"), Seq(rhs))) =>
         Implies(lhs, rhs).setPos(lhs)
@@ -93,7 +90,8 @@ object Parser
         And(Or(lhs, rhs), Or(Not(lhs), Not(rhs))).setPos(lhs)
 
       case lhs ~ Some((OperatorToken("&"), rhs +: more)) =>
-        (more.foldLeft(And(lhs, rhs))((acc, next) => And(acc, next))
+        (
+          more.foldLeft(And(lhs, rhs))((acc, next) => And(acc, next))
         ).setPos(lhs)
       case lhs ~ Some((OperatorToken("|"), rhs +: more)) =>
         (more.foldLeft(Or(lhs, rhs))((acc, next) => Or(acc, next))).setPos(lhs)
@@ -105,35 +103,35 @@ object Parser
       case _ ~ _ => ???
     }
 
-  lazy val assoc_binary_op: Syntax[(Token, Seq[Expr])] =
-    or_formula | and_formula
+  lazy val assocBinaryOp: Syntax[(Token, Seq[Expr])] =
+    orFormula | andFormula
 
-  lazy val or_formula: Syntax[(Token, Seq[Expr])] = many1(more_or_formula).map {
+  lazy val orFormula: Syntax[(Token, Seq[Expr])] = many1(moreOrFormula).map {
     case formulas => (OperatorToken("|"), formulas)
   }
-  lazy val more_or_formula = op("|").skip ~ unitary_formula
+  lazy val moreOrFormula = op("|").skip ~ unitaryFormula
 
-  lazy val and_formula: Syntax[(Token, Seq[Expr])] =
-    many1(more_and_formula).map { case formulas =>
+  lazy val andFormula: Syntax[(Token, Seq[Expr])] =
+    many1(moreAndFormula).map { case formulas =>
       (OperatorToken("&"), formulas)
     }
-  lazy val more_and_formula = op("&").skip ~ unitary_formula
+  lazy val moreAndFormula = op("&").skip ~ unitaryFormula
 
-  lazy val binary_connective =
+  lazy val binaryConnective =
     op("<=>") | op("=>") | op("<=") | op("<~>") | op("~|") | op("~&")
 
-  lazy val non_assoc_binary_op: Syntax[(Token, Seq[Expr])] =
-    (binary_connective ~ unitary_formula).map { case connective ~ formula =>
+  lazy val nonAssocBinaryOp: Syntax[(Token, Seq[Expr])] =
+    (binaryConnective ~ unitaryFormula).map { case connective ~ formula =>
       (connective, Seq(formula))
     }
 
-  lazy val unitary_formula: Syntax[Expr] =
+  lazy val unitaryFormula: Syntax[Expr] =
     recursive(
-      quantified_formula | unary_formula | "(" ~ fof_formula ~ ")" | atomic_formula
+      quantifiedFormula | unaryFormula | "(" ~ fofFormula ~ ")" | atomicFormula
     )
 
-  lazy val quantified_formula: Syntax[Expr] =
-    (quantifier ~ "[" ~ variable_list ~ "]" ~ ":" ~ unitary_formula)
+  lazy val quantifiedFormula: Syntax[Expr] =
+    (quantifier ~ "[" ~ variableList ~ "]" ~ ":" ~ unitaryFormula)
       .map {
         case (op @ OperatorToken("!")) ~ variables ~ formula =>
           Forall(variables, formula).setPos(op)
@@ -144,29 +142,31 @@ object Parser
 
   lazy val quantifier = op("!") | op("?")
 
-  lazy val variable_list = rep1sep(variable, delim(",")).map { case variables =>
+  lazy val variableList = rep1sep(variable, delim(",")).map { case variables =>
     variables.map(_._1)
   }
 
-  lazy val unary_formula: Syntax[Expr] = (op("~") ~ unitary_formula).map {
+  lazy val unaryFormula: Syntax[Expr] = (op("~") ~ unitaryFormula).map {
     case op ~ formula => Not(formula).setPos(op)
   }
 
-  lazy val cnf_formula = "(" ~ disjunction ~ ")" | disjunction
+  lazy val cnfFormula = "(" ~ disjunction ~ ")" | disjunction
   lazy val disjunction: Syntax[Expr] =
     rep1sep(literal, op("|")).map { case lits =>
-      (lits.tail.foldLeft(lits.head)((acc, next) => Or(acc, next))).setPos(lits.head)
+      (
+        lits.tail.foldLeft(lits.head)((acc, next) => Or(acc, next))
+      ).setPos(lits.head)
     }
 
   lazy val literal: Syntax[Expr] =
-    (atomic_formula | negated_atomic_formula).map { case formula =>
+    (atomicFormula | negatedAtomicFormula).map { case formula =>
       formula
     }
-  lazy val negated_atomic_formula = (op("~") ~ atomic_formula).map {
+  lazy val negatedAtomicFormula = (op("~") ~ atomicFormula).map {
     case op ~ formula => Not(formula).setPos(op)
   }
 
-  lazy val atomic_formula = yes | no | plain_system_defined_atom
+  lazy val atomicFormula = yes | no | plainSystemDefinedAtom
 
   lazy val arguments = rep1sep(term, delim(",")).map { case args =>
     args
@@ -179,19 +179,19 @@ object Parser
     False.setPos(tk)
   }
 
-  lazy val plain_system_defined_atom: Syntax[Expr] =
-    (defined_term_variable_infix | plain_system_or_defined_infix)
+  lazy val plainSystemDefinedAtom: Syntax[Expr] =
+    (definedTermVariableInfix | plainSystemOrDefinedInfix)
 
-  lazy val defined_infix_pred = pred("=") | pred("!=")
-  lazy val defined_term_variable_infix =
-    ((defined_term | term_variable) ~ defined_infix_pred ~ term).map {
+  lazy val definedInfixPred = pred("=") | pred("!=")
+  lazy val definedTermVariableInfix =
+    ((definedTerm | termVariable) ~ definedInfixPred ~ term).map {
       case lhs ~ PredicateToken("=") ~ rhs  => Equals(lhs, rhs).setPos(lhs)
       case lhs ~ PredicateToken("!=") ~ rhs => Not(Equals(lhs, rhs)).setPos(lhs)
-      case _ ~ _ ~ _ => ???
+      case _ ~ _ ~ _                        => ???
     }
 
-  lazy val plain_system_or_defined_infix =
-    (plain_or_system_term ~ opt(defined_infix_pred ~ term)).map {
+  lazy val plainSystemOrDefinedInfix =
+    (plainOrSystemTerm ~ opt(definedInfixPred ~ term)).map {
       case t ~ None                              => t
       case lhs ~ Some(PredicateToken("=") ~ rhs) => Equals(lhs, rhs).setPos(lhs)
       case lhs ~ Some(PredicateToken("!=") ~ rhs) =>
@@ -199,16 +199,16 @@ object Parser
       case _ ~ _ => ???
     }
 
-  lazy val term = recursive(function_term | term_variable)
+  lazy val term = recursive(functionTerm | termVariable)
 
-  lazy val term_variable: Syntax[Expr] = variable.map { case (id, pos) =>
+  lazy val termVariable: Syntax[Expr] = variable.map { case (id, pos) =>
     Apply(id, Seq()).setPos(pos)
   }
 
-  lazy val function_term = defined_term | plain_or_system_term
+  lazy val functionTerm = definedTerm | plainOrSystemTerm
 
-  lazy val plain_or_system_term: Syntax[Expr] = recursive(
-    (lower_word | single_quoted | dollar_dollar_word) ~ opt(
+  lazy val plainOrSystemTerm: Syntax[Expr] = recursive(
+    (lowerWord | singleQuoted | dollarDollarWord) ~ opt(
       "(" ~ arguments ~ ")"
     )
   ).map {
@@ -216,122 +216,122 @@ object Parser
     case (word, pos) ~ Some(args) => Apply(word, args).setPos(pos)
   }
 
-  lazy val defined_term: Syntax[Expr] = (number | distinct_object).map {
+  lazy val definedTerm: Syntax[Expr] = (number | distinctObject).map {
     case (id, pos) =>
       Apply(id, Seq()).setPos(pos)
   }
 
-  lazy val distinct_object: Syntax[(Identifier, Position)] =
+  lazy val distinctObject: Syntax[(Identifier, Position)] =
     accept(DistinctObjectKind) { case tk @ DistinctObjectToken(distinct) =>
       (distinct, tk.pos)
     }
 
-  lazy val system_term: Syntax[Expr] =
-    (atomic_system_word ~ opt("(" ~ arguments ~ ")")).map {
+  lazy val systemTerm: Syntax[Expr] =
+    (atomicSystemWord ~ opt("(" ~ arguments ~ ")")).map {
       case (word, pos) ~ None       => Apply(word, Seq()).setPos(pos)
       case (word, pos) ~ Some(args) => Apply(word, args).setPos(pos)
     }
-  lazy val variable = upper_word
+  lazy val variable = upperWord
 
-  lazy val source = general_term
+  lazy val source = generalTerm
 
-  lazy val optional_info = opt("," ~ useful_info)
-  lazy val useful_info = general_term_list
+  lazy val optionalInfo = opt("," ~ usefulInfo)
+  lazy val usefulInfo = generalTermList
 
   lazy val include: Syntax[Tree] =
-    (kw("include").skip ~ "(" ~ file_name ~ formula_selection ~ ")" ~ ".").map {
+    (kw("include").skip ~ "(" ~ fileName ~ formulaSelection ~ ")" ~ ".").map {
       case (filename, pos) ~ None => TPTPInclude(filename, Seq()).setPos(pos)
       case (filename, pos) ~ Some(selection) =>
         TPTPInclude(filename, selection).setPos(pos)
     }
-  lazy val formula_selection = opt("," ~ "[" ~ name_list ~ "]")
-  lazy val name_list = rep1sep(name, delim(","))
+  lazy val formulaSelection = opt("," ~ "[" ~ nameList ~ "]")
+  lazy val nameList = rep1sep(name, delim(","))
 
-  lazy val general_term: Syntax[(Identifier, Position)] =
-    recursive(general_list | general_data_term)
+  lazy val generalTerm: Syntax[(Identifier, Position)] =
+    recursive(generalList | generalDataTerm)
 
-  lazy val general_data: Syntax[(Identifier, Position)] =
-    atomic_word_with_arguments | number | distinct_object
+  lazy val generalData: Syntax[(Identifier, Position)] =
+    atomicWordWithArguments | number | distinctObject
 
-  lazy val general_data_term: Syntax[(Identifier, Position)] =
-    (general_data ~ opt(":" ~ general_term)).map {
+  lazy val generalDataTerm: Syntax[(Identifier, Position)] =
+    (generalData ~ opt(":" ~ generalTerm)).map {
       case (data, pos) ~ None            => (data, pos)
       case (data, pos) ~ Some((term, _)) => (data + ":" + term, pos)
     }
 
-  lazy val atomic_word_with_arguments: Syntax[(Identifier, Position)] =
-    (atomic_word ~ opt("(" ~ general_arguments ~ ")")).map {
+  lazy val atomicWordWithArguments: Syntax[(Identifier, Position)] =
+    (atomicWord ~ opt("(" ~ generalArguments ~ ")")).map {
       case (word, pos) ~ None => (word, pos)
       case (word, pos) ~ Some(args) =>
         (word + "(" + args.mkString(",") + ")", pos)
     }
 
-  lazy val general_list: Syntax[(Identifier, Position)] =
-    (delim("[") ~ opt(general_term_list) ~ delim("]")).map {
+  lazy val generalList: Syntax[(Identifier, Position)] =
+    (delim("[") ~ opt(generalTermList) ~ delim("]")).map {
       case delim ~ None ~ _ => ("[]", delim.pos)
       case delim ~ Some(terms) ~ _ =>
         ("[" + terms.mkString(",") + "]", delim.pos)
     }
 
-  lazy val general_arguments: Syntax[Seq[Identifier]] =
-    rep1sep(general_term, delim(",")).map { case args =>
+  lazy val generalArguments: Syntax[Seq[Identifier]] =
+    rep1sep(generalTerm, delim(",")).map { case args =>
       args.map(_._1)
     }
-  lazy val general_term_list: Syntax[Seq[Identifier]] =
-    rep1sep(general_term, delim(",")).map { case args =>
+  lazy val generalTermList: Syntax[Seq[Identifier]] =
+    rep1sep(generalTerm, delim(",")).map { case args =>
       args.map(_._1)
     }
 
-  lazy val name = atomic_word | unsigned_integer
-  lazy val atomic_word: Syntax[(Identifier, Position)] =
-    lower_word | single_quoted
+  lazy val name = atomicWord | unsignedInteger
+  lazy val atomicWord: Syntax[(Identifier, Position)] =
+    lowerWord | singleQuoted
 
-  lazy val atomic_system_word = lower_word | dollar_dollar_word
-  lazy val number = real | signed_integer | unsigned_integer
+  lazy val atomicSystemWord = lowerWord | dollarDollarWord
+  lazy val number = real | signedInteger | unsignedInteger
 
-  lazy val file_name = atomic_word
+  lazy val fileName = atomicWord
 
   lazy val real = accept(RealKind) { case tk @ RealToken(value) =>
     (value, tk.pos)
   }
-  lazy val unsigned_integer = accept(UnsignedKind) {
+  lazy val unsignedInteger = accept(UnsignedKind) {
     case tk @ UnsignedToken(value) => (value, tk.pos)
   }
-  lazy val signed_integer = accept(SignedKind) { case tk @ SignedToken(value) =>
+  lazy val signedInteger = accept(SignedKind) { case tk @ SignedToken(value) =>
     (value, tk.pos)
   }
 
-  lazy val dollar_dollar_word: Syntax[(Identifier, Position)] =
+  lazy val dollarDollarWord: Syntax[(Identifier, Position)] =
     accept(DollarWordKind) { case tk @ DollarWordToken(word) =>
       (word, tk.pos)
     }
 
-  lazy val lower_word: Syntax[(Identifier, Position)] = accept(LowerWordKind) {
+  lazy val lowerWord: Syntax[(Identifier, Position)] = accept(LowerWordKind) {
     case tk @ WordToken(word) => (word, tk.pos)
   }
 
-  lazy val upper_word: Syntax[(Identifier, Position)] = accept(UpperWordKind) {
+  lazy val upperWord: Syntax[(Identifier, Position)] = accept(UpperWordKind) {
     case tk @ WordToken(word) => (word, tk.pos)
   }
 
-  lazy val single_quoted: Syntax[(Identifier, Position)] =
+  lazy val singleQuoted: Syntax[(Identifier, Position)] =
     accept(SingleQuotedKind) { case tk @ SingleQuotedToken(quoted) =>
       (quoted, tk.pos)
     }
 
   // Ensures the grammar is in LL(1), otherwise prints some counterexamples
   lazy val checkLL1: Boolean = {
-    if (tptp_file.isLL1) {
+    if (tptpFile.isLL1) {
       true
     } else {
-      debug(tptp_file)
+      debug(tptpFile)
       false
     }
   }
 
   protected def apply(tokens: Iterator[Token])(ctxt: Context): Seq[Tree] = {
 
-    val parser = Parser(tptp_file)
+    val parser = Parser(tptpFile)
 
     parser(tokens) match {
       case Parsed(result, rest) => result
