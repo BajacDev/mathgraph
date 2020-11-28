@@ -1,6 +1,6 @@
 package mathgraph.frontend.mgl
 import mathgraph.util._
-import mathgraph.frontend.Tokens._
+import mathgraph.frontend.mgl.Tokens._
 import mathgraph.frontend.OpTrees._ // the parser outputs trees where operators are not yet lowered
 import scala.language.implicitConversions
 import Tokens._

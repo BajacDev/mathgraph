@@ -1,6 +1,6 @@
 package mathgraph
 import corelogic._
-import frontend.mgl.{Lexer, Parser}
+import frontend.mgl.{Lexer, Parser, OpsRewrite}
 import frontend.tptp.{TPTPFrontend}
 import backend._
 import repl._

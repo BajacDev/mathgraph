@@ -1,4 +1,4 @@
-package mathgraph.frontend
+package mathgraph.frontend.mgl
 import mathgraph.util._
 import mathgraph.frontend.{OpTrees => In, MGLTrees => Out}
 import scala.util.Try

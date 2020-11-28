@@ -1,4 +1,4 @@
-package mathgraph.frontend
+package mathgraph.frontend.mgl
 
 import org.scalatest.funsuite.AnyFunSuite
 import mathgraph.frontend.MGLTrees._
