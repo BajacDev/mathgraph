@@ -1,0 +1,11 @@
+
+let(left, 22) A = B;
+
+let 1;
+let(left, 23) a + b;
+
+forall f x g y. f = g -> (x = y -> f(x) = g(y));
+
+1 = 1;
++ = +;
+~(1 + 1 = 1 + 1);
