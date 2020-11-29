@@ -1,8 +1,12 @@
 package mathgraph.solver
 
 import mathgraph.corelogic._
+import mathgraph.corelogic.ExprContainer._
 import mathgraph.util.Pipe._
 import mathgraph.solver.Solver._
+import scala.collection.mutable.{Map => MutMap}
+import scala.collection.mutable.{Set => MutSet}
+import scala.math._
 
 object Solver {
 
@@ -20,20 +24,25 @@ object Solver {
   case class Context(head: Int, idArg: Int)
 
   // todo better name
-  type Stats = Map[Context, Set[Int]]
-  type Arities = Map[Context, Set[Int]]
+  type Stats = MutMap[Context, MutSet[Int]]
+  type Arities = MutMap[Int, Int]
 
 }
 
-case class Solver(stats: Stats = Map[Context, Set[Int]](), size: Int = 0) {
+class Solver() {
 
-  def saturation(lg: LogicGraph): (LogicGraph, Solver) = {
-    if (lg.isAbsurd) (lg, this)
+  var stats: Stats = MutMap.empty[Context, MutSet[Int]]
+  var arities: Arities = MutMap.empty[Int, Int]
+  var size: Int = 0
+
+  def saturation(lg: LogicGraph): LogicGraph = {
+
+    if (lg.isAbsurd) lg
     else {
-      val s = updateSolver(lg)
-      val nextLg = s.fixAll(s.fixLetSym(lg))
-      if (nextLg.size == lg.size) (nextLg, s)
-      else s.saturation(nextLg)
+      val formerSize = lg.size
+      val nextLg = fixAll(fixLetSym(lg))
+      if (formerSize == nextLg.size) nextLg
+      else saturation(nextLg)
     }
   }
 
@@ -41,8 +50,9 @@ case class Solver(stats: Stats = Map[Context, Set[Int]](), size: Int = 0) {
     * for now, I fix every false expression because I did not find
     * proofs where  you have to fix true expression. That can change
     */
-  def fixLetSym(logicGraph: LogicGraph): Unit = {
-    val exprSet = logicGraph
+  def fixLetSym(logicGraph: LogicGraph): LogicGraph = {
+    update(logicGraph)
+    logicGraph
       .getAllTruth(false)
       .filter(logicGraph.isFixable)
       .filter(!existsFalseFixer(logicGraph, _))
@@ -62,6 +72,7 @@ case class Solver(stats: Stats = Map[Context, Set[Int]](), size: Int = 0) {
 
   /** fix all expressions using stats * */
   def fixAll(logicGraph: LogicGraph): LogicGraph = {
+    update(logicGraph)
     val exprSet = logicGraph.getAllTruth
     exprSet.filter(logicGraph.isFixable).foldLeft(logicGraph) {
       case (lg, pos) => fixPos(lg, pos)
@@ -75,31 +86,16 @@ case class Solver(stats: Stats = Map[Context, Set[Int]](), size: Int = 0) {
       pos: Int
   ): LogicGraph = {
 
-    val contextSet: Set[Context] = getContexts(logicGraph, pos)
-    for (context <- contextSet) {
-      stats.get(context) match {
-        case None      => ()
-        case Some(set) => fixArgSet(logicGraph, pos, set)
-      }
+    val futureArgs = getFutureArgs(logicGraph, pos)
+    futureArgs.foldLeft(logicGraph) { case (lg, arg) =>
+      lg.fix(pos, arg)._1
     }
   }
 
-  private def fixArgSet(
-      logicGraph: LogicGraph,
-      pos: Int,
-      argSet: Set[Int]
-  ): Unit = {
-    for (arg <- argSet) {
-      logicGraph.fix(pos, arg)
-    }
+  def insertInStats(ctx: Context, pos: Int): Unit = stats get ctx match {
+    case Some(set) => set += pos
+    case None => stats += ctx -> MutSet(pos)
   }
-
-  // duplicated
-  private def insertPair(a: Context, b: Int, map: Stats): Stats =
-    map get a match {
-      case None    => map + (a -> Set(b))
-      case Some(s) => (map - a) + (a -> (s + b))
-    }
 
   /** return stats from a set of expression
     *
@@ -109,32 +105,40 @@ case class Solver(stats: Stats = Map[Context, Set[Int]](), size: Int = 0) {
     * eg: expression +(1, f(7)) will return the map
     * Map(Context('+', 0) -> Set('1'), Context('+', 1) -> Set('f(7)'), Context('f', 0) -> Set('7'))
     */
-  def updateSolver(implicit
+  def update(implicit
       lg: LogicGraph
-  ): Solver = {
+  ): Unit = {
 
-    def recHeadTail(head: Int, tail: Seq[Int], result: Stats): Stats = {
-      tail.zipWithIndex.foldLeft(result) { case (map, (arg, idx)) =>
-        val newStats = insertPair(Context(head, idx), arg, map)
-        recPos(arg, newStats)
+    def recHeadTail(head: Int, tail: Seq[Int]): Unit = {
+      for ((arg, idArg) <- tail.zipWithIndex) {
+        insertInStats(Context(head, idArg), arg)
+        arities(head) = max(arities.getOrElse(head, 0), tail.length)
+        recPos(arg)
       }
     }
 
     // return stats from one expression
-    def recPos(pos: Int, result: Stats): Stats = {
+    def recPos(pos: Int): Unit = {
       pos match {
-        case Forall(_, _)         => result
-        case HeadTail(head, tail) => recHeadTail(head, tail, result)
+        case Forall(_, _)         => ()
+        case HeadTail(head, tail) => recHeadTail(head, tail)
       }
     }
 
-    val exprSet = lg.getAllTruth.filter(_ >= size)
+    val exprSet = lg.getAllTruth
+      .filter(_ >= size)
+      // remove occurance of trueSymbol with a tail
+      // appears because of forall simplify
+      .filter{
+        case HeadTail(TrueSymbol, _) => false
+        case _ => true
+      }
 
-    val newStats = exprSet.foldLeft(stats) { case (map, pos) =>
-      recPos(pos, map)
+    for (expr <- exprSet) {
+      recPos(expr)
     }
 
-    Solver(newStats, lg.size)
+    size = lg.size
   }
 
   /** Return the context of the argument to be fixed
@@ -142,11 +146,11 @@ case class Solver(stats: Stats = Map[Context, Set[Int]](), size: Int = 0) {
     * inside the forall and outside
     * here returns Set(Context({0(1,2)}, 1), Context(+, 2))
     */
-  def getContexts(implicit logicGraph: LogicGraph, pos: Int): Set[Context] = {
+  def getContexts(implicit logicGraph: LogicGraph, pos: Int): MutSet[Context] = {
     pos match {
       case Forall(inside, args) =>
         getContextsInside(logicGraph, inside, args)
-      case _ => Set()
+      case _ => MutSet.empty[Context]
     }
   }
 
@@ -154,42 +158,82 @@ case class Solver(stats: Stats = Map[Context, Set[Int]](), size: Int = 0) {
       logicGraph: LogicGraph,
       orig: Int,
       outsideArgs: Seq[Int]
-  ): Set[Context] = {
+  ): MutSet[Context] = {
+    var result = MutSet.empty[Context]
     val idArg = outsideArgs.length
 
-    def contextInsideRec(pos: Int): Set[Context] = {
-      val result: Set[Context] = pos match {
-        case HeadTail(Symbol(id), _) if id >= idArg => Set()
-        case HeadTail(Symbol(id), args)             => ctx(id, args)
+    def contextInsideRec(pos: Int): Unit = {
+      pos match {
+        case HeadTail(Symbol(id), args) if id < idArg => ctx(id, args)
+        case _ => ()
       }
 
       pos match {
-        case HeadTail(_, args) =>
-          args.foldLeft(result) { case (set, arg) =>
-            set ++ contextInsideRec(arg)
-          }
+        case HeadTail(_, args) => {
+          for (arg <- args) contextInsideRec(arg)
+        }
       }
     }
 
-    def ctx(id: Int, args: Seq[Int]): Set[Context] = {
-      args.zipWithIndex.foldLeft(Set[Context]()) { case (set, (arg, idx)) =>
+    def ctx(id: Int, args: Seq[Int]): Unit = {
+      val (head, len) = outsideArgs(id) match {
+        case HeadTail(h, a) => (h, a.length)
+      }
+      for ((arg, idx) <- args.zipWithIndex) {
         arg match {
 
           // eg: {0(1,2)}(+(a))
           // when we simplify this expression with arg number 1 and 2 fixed, we obtain
           // +(a, arg1). So the arguement number 1 in this context: ('+', 2)
-          case Symbol(idSym) if idSym == idArg =>
-            outsideArgs(id) match {
-              case HeadTail(head, argsOut) =>
-                set + Context(head, argsOut.length + idx)
-            }
+          case Symbol(idSym) if idSym == idArg => {
+            result += Context(head, len + idx)
+          }
 
-          case _ => set
+          case _ => ()
         }
       }
     }
 
     contextInsideRec(orig)
+    result
+  }
+
+  def getArity(implicit logicGraph: LogicGraph, pos: Int): Int =
+    pos match {
+      case Forall(inside, args) =>
+        getArityInside(logicGraph, inside, args.length)
+      case _ => 0
+    }
+
+  def getArityInside(implicit lg: LogicGraph, pos: Int, idArg: Int): Int = {
+    def tailMax(tail: Seq[Int]): Int =
+      (tail.map(getArityInside(lg, _, idArg)) :+ 0).max
+
+    pos match {
+      case HeadTail(Symbol(id), tail) if id == idArg => {
+        max(tail.length, tailMax(tail))
+      }
+      case HeadTail(_, tail) => tailMax(tail)
+      case _ => 0
+    }
+  }
+
+  def getFutureArgs(implicit logicGraph: LogicGraph, pos: Int): MutSet[Int] = {
+    val contexts = getContexts(logicGraph, pos)
+    val arityInside = getArity(logicGraph, pos)
+    var result = MutSet.empty[Int]
+
+    // using intersect is equivalent as saying this expression must satify all context
+    for (ctx <- contexts) {
+      result ++= stats.getOrElse(ctx, MutSet.empty[Int])
+    }
+
+    def remainingArity(pos: Int) = pos match {
+      case HeadTail(head, tail) => arities.getOrElse(head, 0) - tail.length
+    }
+
+    if (arityInside > 0) result.filter(remainingArity(_) >= arityInside)
+    else result.filter(remainingArity(_) == 0)
   }
 
 }

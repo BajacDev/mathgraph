@@ -82,7 +82,11 @@ case class Printer(
     */
   def toString(implicit logicGraph: LogicGraph, orig: Int): String = {
 
-    def toExpr(orig: Int, map: Map[Int, Expr]): Expr = {
+    def toExpr(
+        orig: Int,
+        map: Map[Int, Expr],
+        insideForall: Boolean = false
+    ): Expr = {
 
       def toExprRec(pos: Int, seq: Seq[Expr]): Expr =
         map.get(pos) match {
@@ -90,9 +94,11 @@ case class Printer(
           case Some(ExprForall(vars, body)) => replace(body, vars, seq)
           case _ =>
             pos match {
-              case Fixer(ForallSymbol, arg) => forallToExpr(arg, seq)
-              case Fixer(next, arg)         => toExprRec(next, toExpr(arg, map) +: seq)
-              case Symbol(id)               => Apply(generateName(id), seq)
+              case Fixer(ForallSymbol, arg) if !insideForall =>
+                forallToExpr(arg, seq)
+              case Fixer(next, arg) =>
+                toExprRec(next, toExpr(arg, map, insideForall) +: seq)
+              case Symbol(id) => Apply(generateName(id), seq)
             }
         }
       toExprRec(orig, Seq())
@@ -106,18 +112,19 @@ case class Printer(
       val map = varsInside.zipWithIndex.map { case (expr, id) =>
         logicGraph.idToSymbol(id) -> expr
       }.toMap
-      ExprForall(freeVars, toExpr(inside, map))
+      ExprForall(freeVars, toExpr(inside, map, true))
     }
 
     def simplifyExpr(expr: Expr): Expr = expr match {
       case Apply("->", Seq(lhs, Apply("false", Seq()))) =>
-        Apply("not", Seq(lhs))
+        Apply("~", Seq(lhs))
       case Apply(id, seq)         => Apply(id, seq.map(simplifyExpr))
       case ExprForall(vars, body) => ExprForall(vars, simplifyExpr(body))
     }
 
     def toString(expr: Expr): (String, Boolean) = expr match {
-      case Apply(head, tail) => combineHeadTail(head, tail.map(toString).toList)
+      case Apply("~", Seq(prop)) => ("~" + applyPar(toString(prop)), false)
+      case Apply(head, tail)     => combineHeadTail(head, tail.map(toString).toList)
       case ExprForall(freeVars, body) =>
         (s"forall ${freeVars.mkString(" ")}. ${toString(body)._1}", false)
     }

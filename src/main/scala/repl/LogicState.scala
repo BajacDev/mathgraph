@@ -8,5 +8,5 @@ case class LogicState(
     logicGraph: LogicGraph,
     printer: Printer,
     previousState: Option[LogicState],
-    solver: Solver = Solver()
+    solver: Solver = new Solver()
 )
