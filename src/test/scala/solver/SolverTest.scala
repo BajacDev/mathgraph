@@ -28,7 +28,7 @@ class LogicGraphTest extends AnyFunSuite {
       val logicState: LogicState = pipeline.run(FileSource(sourceFile))(ctx)
       val lg = logicState.logicGraph
       val solver = logicState.solver
-      val (newLg, _) = solver.saturation(lg)
+      val newLg = solver.saturation(lg)
       assert(newLg.isAbsurd)
 
       ()

@@ -160,15 +160,16 @@ object Commands {
 
   val saturate: Command = transformState { ls =>
     {
-      val (lg, sol) = ls.solver.saturation(ls.logicGraph)
-      proof(ls.copy(logicGraph = lg, solver = sol))(Seq())
+      val lg = ls.solver.saturation(ls.logicGraph)
+      proof(ls.copy(logicGraph = lg))(Seq())
 
     }
   }
 
   val stats: Command = consumeState { ls =>
     val lg = ls.logicGraph
-    val sol = ls.solver.updateSolver(lg)
+    val sol = ls.solver
+    sol.update(lg)
     val printer = ls.printer
 
     sol.stats.foreach { case (ctx, set) =>
@@ -176,6 +177,52 @@ object Commands {
         s"Context(head: ${ctx.head} ${printer.toString(lg, ctx.head)}, idArg: ${ctx.idArg})"
       )
       set.map(printer.toString(lg, _)).foreach(println)
+      println()
+    }
+  }
+
+  val ctx: Command = { ls =>
+    { case Seq(e: Int) =>
+      val lg = ls.logicGraph
+      val sol = ls.solver
+      val printer = ls.printer
+
+      sol
+        .getContexts(lg, e)
+        .foreach(ctx =>
+          println(
+            s"Context(head: ${ctx.head} ${printer
+              .toString(lg, ctx.head)}, idArg: ${ctx.idArg})"
+          )
+        )
+      ls
+    }
+  }
+
+  val fargs: Command = { ls =>
+    { case Seq(e: Int) =>
+      val lg = ls.logicGraph
+      val sol = ls.solver
+      sol.update(lg)
+      val printer = ls.printer
+
+      sol
+        .getFutureArgs(lg, e)
+        .foreach(args => println(printer.toString(lg, args)))
+      ls
+    }
+  }
+
+  val arities: Command = consumeState { ls =>
+    val lg = ls.logicGraph
+    val sol = ls.solver
+    sol.update(lg)
+    val printer = ls.printer
+
+    sol.arities.foreach { case (pos, arity) =>
+      println(
+        s"Symbol: ${pos} ${printer.toString(lg, pos)} Arity: ${arity}"
+      )
       println()
     }
   }
@@ -219,6 +266,12 @@ object Commands {
     CommandDef("s", saturate) ??
       "Applies the saturation algorithm to the set of expressions.",
     CommandDef("stats", stats) ??
-      "Displays statistics about the expressions."
+      "Displays statistics about the expressions.",
+    CommandDef("arities", arities) ??
+      "Displays statistics about the expressions.",
+    CommandDef("ctx", ctx) ~> IntT ??
+      "Displays context about an expression arg.",
+    CommandDef("fargs", fargs) ~> IntT ??
+      "Displays all possible argument selected by the solver to be fixed on given expression."
   )
 }
