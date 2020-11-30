@@ -28,6 +28,10 @@ class ExprForest extends ExprContainer {
     if (pos % 2 == 1 && pos >= 0 && pos < size) Some(fixers(pos / 2))
     else None
 
+  def fixerToPos(next: Int, arg: Int): Option[Int] = {
+    fixerToPosMap get (next, arg)
+  }
+
   def getSymbolId(pos: Int): Option[Int] =
     if (pos % 2 == 0 && pos >= 0) Some(pos / 2)
     else None
