@@ -79,6 +79,8 @@ class LogicGraph() extends ExprContainer {
   def getAllTruth: Set[Int] = truth.keySet
 
   def getFixer(pos: Int): Option[(Int, Int)] = exprForest.getFixer(pos)
+  def fixerToPos(next: Int, arg: Int): Option[Int] =
+    exprForest.fixerToPos(next, arg)
   def getSymbolId(pos: Int): Option[Int] = exprForest.getSymbolId(pos)
 
   def getImplies(p: Int): Set[Int] = imply.get(p) match {
