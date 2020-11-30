@@ -73,9 +73,9 @@ class Solver() {
   /** fix all expressions using stats * */
   def fixAll(logicGraph: LogicGraph): LogicGraph = {
     update(logicGraph)
-    val exprSet = logicGraph.getAllTruth
-    exprSet.filter(logicGraph.isFixable).foldLeft(logicGraph) {
-      case (lg, pos) => fixPos(lg, pos)
+    val exprSet = logicGraph.getAllTruth.filter(logicGraph.isFixable)
+    exprSet.foldLeft(logicGraph) { case (lg, pos) =>
+      fixPos(lg, pos)
     }
   }
 
@@ -94,7 +94,7 @@ class Solver() {
 
   def insertInStats(ctx: Context, pos: Int): Unit = stats get ctx match {
     case Some(set) => set += pos
-    case None => stats += ctx -> MutSet(pos)
+    case None      => stats += ctx -> MutSet(pos)
   }
 
   /** return stats from a set of expression
@@ -129,9 +129,9 @@ class Solver() {
       .filter(_ >= size)
       // remove occurance of trueSymbol with a tail
       // appears because of forall simplify
-      .filter{
+      .filter {
         case HeadTail(TrueSymbol, _) => false
-        case _ => true
+        case _                       => true
       }
 
     for (expr <- exprSet) {
@@ -146,7 +146,10 @@ class Solver() {
     * inside the forall and outside
     * here returns Set(Context({0(1,2)}, 1), Context(+, 2))
     */
-  def getContexts(implicit logicGraph: LogicGraph, pos: Int): MutSet[Context] = {
+  def getContexts(implicit
+      logicGraph: LogicGraph,
+      pos: Int
+  ): MutSet[Context] = {
     pos match {
       case Forall(inside, args) =>
         getContextsInside(logicGraph, inside, args)
@@ -165,7 +168,7 @@ class Solver() {
     def contextInsideRec(pos: Int): Unit = {
       pos match {
         case HeadTail(Symbol(id), args) if id < idArg => ctx(id, args)
-        case _ => ()
+        case _                                        => ()
       }
 
       pos match {
@@ -214,7 +217,7 @@ class Solver() {
         max(tail.length, tailMax(tail))
       }
       case HeadTail(_, tail) => tailMax(tail)
-      case _ => 0
+      case _                 => 0
     }
   }
 
@@ -223,10 +226,11 @@ class Solver() {
     val arityInside = getArity(logicGraph, pos)
     var result = MutSet.empty[Int]
 
-    // using intersect is equivalent as saying this expression must satify all context
     for (ctx <- contexts) {
       result ++= stats.getOrElse(ctx, MutSet.empty[Int])
     }
+
+    result = result.filter(trueForallImplyMustBeUsed(logicGraph, pos, _))
 
     def remainingArity(pos: Int) = pos match {
       case HeadTail(head, tail) => arities.getOrElse(head, 0) - tail.length
@@ -234,6 +238,108 @@ class Solver() {
 
     if (arityInside > 0) result.filter(remainingArity(_) >= arityInside)
     else result.filter(remainingArity(_) == 0)
+  }
+
+  def fixGetThruth(implicit
+      lg: LogicGraph,
+      orig: Int,
+      args: Seq[Int]
+  ): Option[Boolean] = {
+    def fixRec(pos: Int): Option[Int] = pos match {
+      case Symbol(id) => Some(args(id))
+      case Fixer(next, arg) => {
+        val nextOpt: Option[Int] = fixRec(next)
+        val argOpt: Option[Int] = fixRec(arg)
+        (nextOpt, argOpt) match {
+          case (Some(newNext), Some(newArg)) => lg.fixerToPos(newNext, newArg)
+          case _                             => None
+        }
+      }
+    }
+
+    fixRec(orig).flatMap(lg.getTruthOf)
+  }
+
+  def trueForallImplyMustBeUsed(implicit
+      lg: LogicGraph,
+      orig: Int,
+      newArg: Int
+  ): Boolean = {
+
+    def isFixable(pos: Int, args: Seq[Int]): Boolean =
+      lg.countSymbols(pos) <= args.length
+
+    def processInside(inside: Int, args: Seq[Int]): Boolean =
+      inside match {
+        case HeadTail(Symbol(id), Seq(a, b)) if args(id) == ImplySymbol =>
+          if (isFixable(a, args))
+            if (fixGetThruth(lg, a, args) == Some(true)) processInside(b, args)
+            else if (falseMatchPatternExists(lg, b, args)) true
+            else false
+          else if (isFixable(b, args))
+            if (fixGetThruth(lg, b, args) == Some(false)) true
+            else if (trueMatchPatternExists(lg, a, args)) true
+            else false
+          else true
+
+        case _ => true
+      }
+
+    (orig, lg.getTruthOf(orig)) match {
+      case (Forall(inside, args), Some(true)) =>
+        processInside(inside, args :+ newArg)
+      case _ => true
+    }
+  }
+
+  def trueMatchPatternExists(implicit
+      lg: LogicGraph,
+      orig: Int,
+      args: Seq[Int]
+  ): Boolean = {
+    getMatchPattern(lg, orig, args, lg.getAllTruth(true))
+  }
+
+  def falseMatchPatternExists(implicit
+      lg: LogicGraph,
+      orig: Int,
+      args: Seq[Int]
+  ): Boolean = {
+    getMatchPattern(lg, orig, args, lg.getAllTruth(false))
+  }
+
+  def getMatchPattern(implicit
+      lg: LogicGraph,
+      orig: Int,
+      args: Seq[Int],
+      exprSet: Set[Int]
+  ): Boolean = {
+    def matchPattern(
+        pattern: Int,
+        idToPos: Map[Int, Int],
+        pos: Int
+    ): Option[Map[Int, Int]] =
+      (pattern, pos) match {
+        case (Fixer(nextP, argP), Fixer(next, arg)) => {
+          matchPattern(nextP, idToPos, next)
+            .flatMap(matchPattern(argP, _, arg))
+        }
+        case (Symbol(idP), expr) =>
+          idToPos.get(idP) match {
+            case None                         => Some(idToPos + (idP -> expr))
+            case Some(exprP) if exprP == expr => Some(idToPos)
+            case Some(exprP) if exprP != expr => None
+          }
+        case _ => None
+      }
+
+    val map = args.zipWithIndex.map { case (arg, idx) => (idx -> arg) }.toMap
+    exprSet.exists(expr =>
+      matchPattern(orig, map, expr) match {
+        case None    => false
+        case Some(m) => true
+      }
+    )
   }
 
 }

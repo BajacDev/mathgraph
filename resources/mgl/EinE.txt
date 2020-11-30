@@ -1,5 +1,0 @@
-let and(A, B) = ~(A -> ~B);
-let ens;
-
-let E := ens(A) and ~(A(A));
-ens(E);
