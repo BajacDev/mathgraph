@@ -10,6 +10,8 @@ import scala.math._
 
 object Solver {
 
+  val MAX_LOGICGRAPH_SIZE: Int = 10000
+
   /** context an expr is used
     * head can be a symbol or an expr if the head is a forall
     *
@@ -42,6 +44,7 @@ class Solver() {
       val formerSize = lg.size
       val nextLg = fixAll(fixLetSym(lg))
       if (formerSize == nextLg.size) nextLg
+      else if (nextLg.size > MAX_LOGICGRAPH_SIZE) nextLg
       else saturation(nextLg)
     }
   }
@@ -271,7 +274,7 @@ class Solver() {
 
     def processInside(inside: Int, args: Seq[Int]): Boolean =
       inside match {
-        case HeadTail(Symbol(id), Seq(a, b)) if args(id) == ImplySymbol =>
+        case HeadTail(Symbol(id), Seq(a, b)) if id < args.length && args(id) == ImplySymbol =>
           if (isFixable(a, args))
             if (fixGetThruth(lg, a, args) == Some(true)) processInside(b, args)
             else if (falseMatchPatternExists(lg, b, args)) true
