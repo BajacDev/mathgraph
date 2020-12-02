@@ -30,7 +30,7 @@ object Main {
   }
 
   def frontend(sourceFile: String) = {
-    if (sourceFile.contains(".p")) TPTPFrontend
+    if (sourceFile.endsWith(".p")) TPTPFrontend
     else Lexer andThen Parser andThen OpsRewrite
   }
 }
