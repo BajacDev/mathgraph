@@ -21,23 +21,27 @@ object Solver {
   // todo better name
   type Stats = Map[Context, Set[Int]]
 
-  def saturation(logicGraph: LogicGraph): LogicGraph = {
+  def saturation(logicGraph: LogicGraph): Unit = {
     if (logicGraph.isAbsurd) logicGraph
-    else saturation(fixAll(fixLetSym(logicGraph)))
+    else {
+      fixAll(fixLetSym(logicGraph))
+      saturation(logicGraph)
+    }
   }
 
   /** fix all expressions with their let symbol
     * for now, I fix every false expression because I did not find
     * proofs where  you have to fix true expression. That can change
     */
-  def fixLetSym(logicGraph: LogicGraph): LogicGraph = {
-    logicGraph
+  def fixLetSym(logicGraph: LogicGraph): Unit = {
+    val exprSet = logicGraph
       .getAllTruth(false)
       .filter(logicGraph.isFixable)
       .filter(!existsFalseFixer(logicGraph, _))
-      .foldLeft(logicGraph) { case (lg, pos) =>
-        lg.fixLetSymbol(pos)._1
-      }
+
+    for (expr <- exprSet) {
+        logicGraph.fixLetSymbol(pos)
+    }
   }
 
   def existsFalseFixer(logicGraph: LogicGraph, pos: Int): Boolean = {
@@ -49,11 +53,11 @@ object Solver {
   }
 
   /** fix all expressions using stats * */
-  def fixAll(logicGraph: LogicGraph): LogicGraph = {
-    val exprSet = logicGraph.getAllTruth
-    val stats = getStats(logicGraph, exprSet)
-    exprSet.filter(logicGraph.isFixable).foldLeft(logicGraph) {
-      case (lg, pos) => fixPos(lg, pos, stats)
+  def fixAll(logicGraph: LogicGraph): Unit = {
+    val stats = getStats(logicGraph, logicGraph.getAllTruth)
+    val exprSet = logicGraph.getAllTruth.filter(logicGraph.isFixable)
+    for (expr <- exprSet) {
+      fixPos(logicGraph, pos, stats)
     }
   }
 
@@ -63,13 +67,13 @@ object Solver {
       logicGraph: LogicGraph,
       pos: Int,
       stats: Stats
-  ): LogicGraph = {
+  ): Unit = {
 
     val contextSet: Set[Context] = getContexts(logicGraph, pos)
-    contextSet.foldLeft(logicGraph) { case (lg, context) =>
+    for (context <- contextSet) {
       stats.get(context) match {
-        case None      => lg
-        case Some(set) => fixArgSet(lg, pos, set)
+        case None      => ()
+        case Some(set) => fixArgSet(logicGraph, pos, set)
       }
     }
   }
@@ -78,9 +82,9 @@ object Solver {
       logicGraph: LogicGraph,
       pos: Int,
       argSet: Set[Int]
-  ): LogicGraph = {
-    argSet.foldLeft(logicGraph) { case (lg, arg) =>
-      lg.fix(pos, arg)._1
+  ): Unit = {
+    for (arg <- argSet) {
+      logicGraph.fix(pos, arg)
     }
   }
 
