@@ -4,11 +4,8 @@ import scala.collection.mutable.HashMap
 /** Represents the signature of a symbol */
 abstract class SymbolSig(arity: Int)
 
-/** Signature of normal symbols */
-case class NormalSig(val arity: Int) extends SymbolSig(arity)
-
-/** Some symbols are inlined, and should not be printed */
-case class InlinedSig(val arity: Int) extends SymbolSig(arity)
+/** Signature of normal symbols. They can be marked as inlined if they should be inlined when printed. */
+case class NormalSig(val arity: Int, val inlined: Boolean) extends SymbolSig(arity)
 
 /** Signature of operator symbols */
 case class OperatorSig(val rightAssociative: Boolean, val precedence: Int)
@@ -22,39 +19,30 @@ class SymbolTable {
   // Stores the signature of all the symbols in a program
   private val symbols = HashMap[Identifier, SymbolSig]()
 
-  /** Adds a symbol to the program */
+  /** Adds a symbol to the table */
   def addSymbol(
       name: String,
       arity: Int,
       inlined: Boolean = false
   ): Identifier = {
     val id = Identifier.fresh(name)
-    val sig = if (inlined) InlinedSig(arity) else NormalSig(arity)
     nameToId += name -> id
-    symbols += id -> sig
+    symbols += id -> NormalSig(arity, inlined)
     id
   }
 
-  /** Sets a given symbol as an operator symbol with the given associativity and precedence.
-    * This is not necessary, but used to inform the printer that a certain symbol can be printed
-    * as an infix binary operator.
-    */
-  def useAsOperator(
-      id: Identifier,
-      rightAssociative: Boolean,
-      precedence: Int
-  ): Unit = {
-    val previousSig = symbols.getOrElse(
-      id,
-      throw new IllegalArgumentException(s"Symbol $id does not exist")
-    )
-    previousSig match {
-      case NormalSig(2) =>
-        symbols(id) = OperatorSig(rightAssociative, precedence)
-      case _ =>
-        throw new IllegalArgumentException(
-          "Only non-inlined symbols with an arity of 2 can be used as operators"
-        )
-    }
+  /** Adds an infix binary operator to the table */
+  def addOperator(name: String, rightAssociative: Boolean, precedence: Int): Identifier = {
+    val id = Identifier.fresh(name)
+    nameToId += name -> id
+    symbols += id -> OperatorSig(rightAssociative, precedence)
+    id
   }
+
+  /** Retrieves a symbol signature and its identifier given a name */
+  def getSymbol(name: String): Option[(Identifier, SymbolSig)] =
+    for (id <- nameToId.get(name); sig <- symbols.get(id)) yield (id, sig)
+
+  /** Retrieves a symbol given an identifier */
+  def getSymbol(id: Identifier): Symbol = symbols(id)
 }

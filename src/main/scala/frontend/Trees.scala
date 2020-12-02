@@ -5,9 +5,10 @@ import mathgraph.util.{Positioned, Position}
 trait Trees {
   abstract class Tree extends Positioned
   abstract class Expr extends Tree
-  abstract class Definition extends Tree
+  abstract class Definition(name: Name, params: Seq[Name], body: Option[Expr]) extends Tree
 
-  type Identifier = String
+  /** This represents the names that are used in the program */
+  type Name
 
   // ----------------------------------------------------
   // Programs
@@ -20,8 +21,8 @@ trait Trees {
   // ----------------------------------------------------
 
   /** Representation of let in(x, S) or let inc(A, B) = ... */
-  case class Let(name: Identifier, vars: Seq[Identifier], body: Option[Expr])
-      extends Definition
+  case class Let(name: Name, params: Seq[Name], body: Option[Expr])
+      extends Definition(name, params, body)
 
   // ----------------------------------------------------
   // Terms
@@ -34,7 +35,7 @@ trait Trees {
   case object False extends Expr
 
   /** Representation of lhs(arg1, ..., argN) or lhs if there are no args */
-  case class Apply(id: Identifier, args: Seq[Expr]) extends Expr
+  case class Apply(name: Name, args: Seq[Expr]) extends Expr
 
   // ----------------------------------------------------
   // Formulas
@@ -44,7 +45,7 @@ trait Trees {
   case class Implies(lhs: Expr, rhs: Expr) extends Expr
 
   /** Representation of forall */
-  case class Forall(ids: Seq[Identifier], body: Expr) extends Expr
+  case class Forall(names: Seq[Name], body: Expr) extends Expr
 
   /** TODO Representation of a = b */
   case class Equals(lhs: Expr, rhs: Expr) extends Expr
@@ -75,29 +76,36 @@ trait Trees {
 
   /** Syntactic sugar for and */
   object And {
-    def apply(a: Expr, b: Expr): Expr =
-      Implies(Implies(a, Implies(b, False)), False)
+    def apply(a: Expr, b: Expr): Expr = Not(Implies(a, Not(b)))
     def unapply(e: Expr): Option[(Expr, Expr)] = e match {
-      case Implies(Implies(a, Implies(b, False)), False) => Some((a, b))
-      case _                                             => None
+      case Not(Implies(a, Not(b))) => Some((a, b))
+      case _ => None
     }
   }
 
   /** Syntactic sugar for or */
   object Or {
-    def apply(a: Expr, b: Expr): Expr = Not(And(Not(a), Not(b)))
+    def apply(a: Expr, b: Expr): Expr = Implies(Not(a), b)
     def unapply(e: Expr): Option[(Expr, Expr)] = e match {
-      case Not(And(Not(a), Not(b))) => Some((a, b))
-      case _                        => None
+      case Implies(Not(a), b) => Some((a, b))
+      case _ => None
     }
   }
 }
 
-/** Represents the MGL trees where all the higher-level constructs have been lowered */
-object MGLTrees extends Trees
+/** Represents the trees where the names are not yet unique */
+object NominalTrees extends Trees {
+  type Name = String
+}
 
-/** Represents trees where operators haven't been parsed yet */
+/** Represents the trees where the names are unique */
+object MGLTrees extends Trees {
+  type Name = Identifier
+}
+
+/** Represents trees where operators haven't been parsed yet and names aren't unique */
 object OpTrees extends Trees {
+  type Name = String
 
   /** Representation of an operator definition let(<associativity>, <precedence>) a op b [:= <rhs>]; */
   case class OpLet(
@@ -107,7 +115,7 @@ object OpTrees extends Trees {
       op: String,
       rhs: String,
       body: Option[Expr]
-  ) extends Definition
+  ) extends Definition(op, Seq(lhs, rhs), body)
 
   /** Representation of a sequence of operator applications x1 op1 x2 op2 ... xn */
   case class OpSequence(first: Expr, opsAndExprs: Seq[(String, Position, Expr)])
