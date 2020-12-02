@@ -126,36 +126,43 @@ object Commands {
 
   val fixN: Command = { ls =>
     { case Seq(e: Int) =>
-      ls.copy(logicGraph = ls.logicGraph.fixLetSymbol(e)._1)
+      ls.logicGraph.fixLetSymbol(e)
+      ls
     }
   }
 
   val fix: Command = { ls =>
     { case Seq(e1: Int, e2: Int) =>
-      ls.copy(logicGraph = ls.logicGraph.fix(e1, e2)._1)
+      ls.logicGraph.fix(e1, e2)
+      ls
     }
   }
 
   val simplify: Command = { ls =>
     { case Seq(e: Int) =>
-      ls.copy(logicGraph = ls.logicGraph.simplifyInferenceRule(e)._1)
+      ls.logicGraph.simplifyInferenceRule(e)
+      ls
     }
   }
 
-  val fixAllTrue: Command = transformState { ls =>
-    ls.copy(logicGraph = Solver.fixAll(ls.logicGraph))
+  val fixAllTrue: Command = consumeState { ls =>
+    Solver.fixAll(ls.logicGraph)
+    ls
   }
 
-  val fixAllFalse: Command = transformState { ls =>
-    ls.copy(logicGraph = Solver.fixLetSym(ls.logicGraph))
+  val fixAllFalse: Command = consumeState { ls =>
+    Solver.fixLetSym(ls.logicGraph)
+    ls
   }
 
   val proof: Command = consumeState { ls =>
     ls.printer.proofAbsurd(ls.logicGraph).foreach(println)
   }
 
-  val saturate: Command = transformState { ls =>
-    proof(ls.copy(logicGraph = Solver.saturation(ls.logicGraph)))(Seq())
+  val saturate: Command = consumeState { ls => {
+    Solver.saturation(ls.logicGraph)
+    proof(ls)
+    }
   }
 
   val stats: Command = consumeState { ls =>

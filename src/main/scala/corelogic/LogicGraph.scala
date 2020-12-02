@@ -2,6 +2,8 @@ package mathgraph.corelogic
 
 import mathgraph.util.Pipe._
 import mathgraph.corelogic.ExprContainer._
+import scala.collection.mutable.{HashMap, MultiMap, Map}
+import scala.collection.Set
 
 /** The logic layer manage the truth graph of expressions
   * Notation:
@@ -43,26 +45,29 @@ object SimplifyIR extends InferenceRule
 object Axiom extends InferenceRule
 
 object LogicGraph {
-  def init: LogicGraph =
-    LogicGraph().freshSymbolAssertEq(DefSymbol) |>
-      (_.freshSymbolAssertEq(FalseSymbol)) |>
-      (_.freshSymbolAssertEq(TrueSymbol)) |>
-      (_.freshSymbolAssertEq(ImplySymbol)) |>
-      (_.freshSymbolAssertEq(ForallSymbol)) |>
-      (lg => lg.copy(truth = lg.truth + (TrueSymbol -> true))) |>
-      (lg => lg.copy(truth = lg.truth + (FalseSymbol -> false)))
+  def init: LogicGraph = {
+    val lg = new LogicGraph()
+    lg.freshSymbolAssertEq(DefSymbol)
+    lg.freshSymbolAssertEq(FalseSymbol)
+    lg.freshSymbolAssertEq(TrueSymbol)
+    lg.freshSymbolAssertEq(ImplySymbol)
+    lg.freshSymbolAssertEq(ForallSymbol)
+    lg.truth += (TrueSymbol -> true)
+    lg.truth += (FalseSymbol -> false)
+    lg
+  }
 }
 
-case class LogicGraph(
-    exprForest: ExprForest = ExprForest(),
-    truth: Map[Int, Boolean] = Map(),
-    imply: Map[Int, Set[Int]] = Map(),
-    isImpliedBy: Map[Int, Set[Int]] = Map(),
-    absurd: Option[(Int, Int)] = None,
-    // use for proofs
-    truthOrigin: Map[Int, Int] = Map(),
-    inferences: Map[(Int, Int), InferenceRule] = Map()
-) extends ExprContainer {
+class LogicGraph() extends ExprContainer {
+
+  val exprForest: ExprForest = new ExprForest
+  var truth: Map[Int, Boolean] = Map()
+  var imply: MultiMap[Int, Int] = new HashMap[Int, Set[Int]] with MultiMap[Int, Int]
+  var isImpliedBy: MultiMap[Int, Int] = new HashMap[Int, Set[Int]] with MultiMap[Int, Int]
+  var absurd: Option[(Int, Int)] = None
+  // use for proofs
+  var truthOrigin: Map[Int, Int] = Map()
+  var inferences: Map[(Int, Int), InferenceRule] = Map()
 
   def size = exprForest.size
   def getInferenceOf(a: Int, b: Int) = inferences get (a, b)
@@ -91,20 +96,18 @@ case class LogicGraph(
     case None    => false
   }
 
-  private def freshSymbolAssertEq(pos: Int): LogicGraph = {
-    val (lg, symbolPos) = getFreshSymbol
-    assert(symbolPos == pos)
-    lg
+  private def freshSymbolAssertEq(pos: Int): Unit = {
+    assert(getFreshSymbol == pos)
   }
 
   def setAxiom(pos: Int, b: Boolean) =
     if (b) link(TrueSymbol, pos, Axiom) else link(pos, FalseSymbol, Axiom)
 
   /** returns a new symbol position * */
-  def getFreshSymbol: (LogicGraph, Int) = {
+  def getFreshSymbol: Int = {
     val pos = exprForest.size
-    val (newLogicGraph, _) = fix(DefSymbol, pos)
-    (newLogicGraph, pos)
+    fix(DefSymbol, pos)
+    pos
   }
 
   def isFixable(pos: Int): Boolean =
@@ -131,34 +134,31 @@ case class LogicGraph(
     * - when A -> B is false then true => A
     * - when A -> B is false then B => false
     */
-  def implyInferenceRule(pos: Int): LogicGraph = {
+  def implyInferenceRule(pos: Int): Unit =
     pos match {
       case HeadTail(ImplySymbol, Seq(a, b)) => {
         truth get pos match {
-          case None => this
+          case None => ()
           case Some(true) =>
             link(a, b, ImplyIR(true, pos))
-          case Some(false) =>
+          case Some(false) => {
             link(TrueSymbol, a, ImplyIR(false, pos))
-              .link(b, FalseSymbol, ImplyIR(false, pos))
+            link(b, FalseSymbol, ImplyIR(false, pos))
+          }
         }
       }
-      case _ => this
     }
-  }
 
   // -------------------------------------------------------------
   // simplify inference rule
   // -------------------------------------------------------------
 
   /** replace all symbols with corresponding args * */
-  private def simplify(inside: Int, args: Seq[Int]): (LogicGraph, Int) =
+  private def simplify(inside: Int, args: Seq[Int]): Int =
     inside match {
-      case Symbol(id) => (this, args(id))
+      case Symbol(id) => args(id)
       case Fixer(next, arg) => {
-        val (lgNext, posNext) = simplify(next, args)
-        val (lgArg, posArg) = lgNext.simplify(arg, args)
-        lgArg.fix(posNext, posArg)
+        fix(simplify(next, args), simplify(arg, args))
       }
     }
 
@@ -167,26 +167,23 @@ case class LogicGraph(
     * is of lenght at least n (ie: when all symbols in forall have been fixed)
     * then use simply (see simplify)
     */
-  def simplifyInferenceRule(pos: Int): (LogicGraph, Int) = pos match {
+  def simplifyInferenceRule(pos: Int): Int = pos match {
     case Forall(inside, args) =>
-      if (countSymbols(inside) > args.length) (this, pos)
+      if (countSymbols(inside) > args.length) pos
       else {
-        val (logicGraph, newPos) = simplify(inside, args)
-        (
-          logicGraph
-            .link(newPos, pos, SimplifyIR)
-            .link(pos, newPos, SimplifyIR),
-          newPos
-        )
+        val newPos = simplify(inside, args)
+        link(newPos, pos, SimplifyIR)
+        link(pos, newPos, SimplifyIR)
+        newPos
       }
-    case _ => (this, pos)
+    case _ => pos
   }
 
   /** use simplify in loop until there is nothing to simplify * */
-  def simplifyInferenceRuleLoop(pos: Int): LogicGraph = {
-    val (newLogicGraph, newPos) = simplifyInferenceRule(pos)
-    if (newPos != pos) newLogicGraph.simplifyInferenceRuleLoop(newPos)
-    else newLogicGraph
+  def simplifyInferenceRuleLoop(pos: Int): Unit = {
+    val newPos = simplifyInferenceRule(pos)
+    if (newPos != pos) simplifyInferenceRuleLoop(newPos)
+    else ()
   }
 
   // -------------------------------------------------------------
@@ -197,27 +194,27 @@ case class LogicGraph(
 
   /** when A is in the graph, then A => Fixer(A, B)
     */
-  def fix(next: Int, arg: Int): (LogicGraph, Int) = {
-    val (newExprForest, pos) = exprForest.fix(next, arg)
-    copy(exprForest = newExprForest)
-      .simplifyInferenceRuleLoop(pos)
-      .link(next, pos, FixIR) match {
-      case graph =>
-        if (exprForest.isLetSymbol(next, arg))
-          (graph.link(pos, next, FixLetSymIR), pos)
-        else (graph, pos)
+  def fix(next: Int, arg: Int): Int = {
+    val pos = exprForest.fix(next, arg)
+    simplifyInferenceRuleLoop(pos)
+
+    link(next, pos, FixIR)
+    if (exprForest.isLetSymbol(next, arg)) {
+      link(pos, next, FixLetSymIR)
+      pos
     }
+    else pos
   }
 
-  def forall(body: Int): (LogicGraph, Int) = fix(ForallSymbol, body)
+  def forall(body: Int): Int = fix(ForallSymbol, body)
 
   /** when A is in the graph, then it exists a symbol call
     * the LetSymbol of A (call it a) such that  A <=> Fixer(A, a)
     */
-  def fixLetSymbol(pos: Int): (LogicGraph, Int) =
+  def fixLetSymbol(pos: Int): Int =
     exprForest.getLetSymbol(pos) match {
       case Some(posSymbol) => fix(pos, posSymbol)
-      case None            => (this, pos)
+      case None            => pos
     }
 
   // ---------------------------------------------------------------
@@ -228,72 +225,58 @@ case class LogicGraph(
   def getImplyGraphFor(b: Boolean) = if (b) imply else isImpliedBy
 
   /** propagate true/false in the graph * */
-  private def propagate(pos: Int, prev: Int, b: Boolean): LogicGraph = {
+  private def propagate(pos: Int, prev: Int, b: Boolean): Unit = {
     truth get pos match {
-      case Some(v) if v == b => this
+      case Some(v) if v == b => ()
 
       // when asburd = Some((a,b)) it means a => b
-      case Some(false) if b => copy(absurd = Some((prev, pos)))
-      case Some(true) if !b => copy(absurd = Some((pos, prev)))
+      case Some(false) if b => absurd = Some((prev, pos))
+      case Some(true) if !b => absurd = Some((pos, prev))
 
       case None => {
-
-        val newLogicGraph = copy(
-          truth = truth + (pos -> b),
-          truthOrigin = truthOrigin + (pos -> prev)
-        )
-          .implyInferenceRule(pos)
-          .simplifyInferenceRuleLoop(pos)
+        truth += (pos -> b)
+        truthOrigin += (pos -> prev)
+        implyInferenceRule(pos)
+        simplifyInferenceRuleLoop(pos)
 
         // propagate truth value to neighbors
-        newLogicGraph.getImplyGraphFor(b) get pos match {
-          case None => newLogicGraph
+        val neighsOpt = getImplyGraphFor(b) get pos
+
+        neighsOpt match {
+          case None => ()
           case Some(neighs: Set[Int]) => {
-            neighs.foldLeft(newLogicGraph)((logicGraph, neigh) =>
-              logicGraph.propagate(neigh, pos, b)
-            )
+            for (neigh <- neighs) {
+              propagate(neigh, pos, b)
+            }
           }
         }
       }
     }
   }
 
-  /** insert a node as a neighbors of a in graph * */
-  private def insertPair(a: Int, b: Int, graph: Map[Int, Set[Int]]) =
-    graph get a match {
-      case None    => graph + (a -> Set(b))
-      case Some(s) => (graph - a) + (a -> (s + b))
-    }
-
   /** create a imply link a => b in the graph and propagate changes* */
-  private def link(a: Int, b: Int, inferenceRule: InferenceRule): LogicGraph = {
+  private def link(a: Int, b: Int, inferenceRule: InferenceRule): Unit = {
     require(a < exprForest.size && b < exprForest.size)
 
-    if (a == b) this
-    else {
+    if (a == b) return 
 
-      val newLogicGraph =
-        copy(
-          imply = insertPair(a, b, imply),
-          isImpliedBy = insertPair(b, a, isImpliedBy),
-          inferences = inferences + ((a, b) -> inferenceRule)
-        )
+    imply.addBinding(a, b)
+    isImpliedBy.addBinding(b, a)
+    inferences += ((a, b) -> inferenceRule)
 
-      // A => B and A true: we propagate true to B
-      val newLogicGraphPropagateOnB = truth get a match {
-        case Some(true) => newLogicGraph.propagate(b, a, true)
-        case _          => newLogicGraph
-      }
-
-      // A => B and B false: we propagate false to A
-      val newLogicGraphPropagateOnA = truth get b match {
-        case Some(false) => newLogicGraphPropagateOnB.propagate(a, b, false)
-        case _           => newLogicGraphPropagateOnB
-      }
-
-      newLogicGraphPropagateOnA
-
+    // A => B and A true: we propagate true to B
+    truth get a match {
+      case Some(true) => propagate(b, a, true)
+      case _          => ()
     }
+
+    // A => B and B false: we propagate false to A
+    truth get b match {
+      case Some(false) => propagate(a, b, false)
+      case _           => ()
+    }
+
+    ()
 
   }
 

@@ -1,4 +1,5 @@
 package mathgraph.corelogic
+import scala.collection.mutable.{ArrayBuffer, Map}
 
 /** The ExprForest manages Expressions without any logic assumption
   * The main point of this layer is to obtimize the storage of Expressions
@@ -15,10 +16,10 @@ package mathgraph.corelogic
 /** fixerToPosMap(a) gives the equivalent of fixerToPosMap indexOf a (but is faster)
   * so we use fixerToPosMap as a speedup mapping
   */
-case class ExprForest(
-    fixers: Seq[(Int, Int)] = Seq(),
-    fixerToPosMap: Map[(Int, Int), Int] = Map()
-) extends ExprContainer {
+class ExprForest extends ExprContainer {
+
+  var fixers: ArrayBuffer[(Int, Int)] = ArrayBuffer()
+  var fixerToPosMap: Map[(Int, Int), Int] = Map()
 
   def size = fixers.size * 2
   def nextFixerPos = size + 1
@@ -31,21 +32,18 @@ case class ExprForest(
     if (pos % 2 == 0 && pos >= 0) Some(pos / 2)
     else None
 
-  def fix(next: Int, arg: Int): (ExprForest, Int) = {
+  def fix(next: Int, arg: Int): Int = {
     require(next >= 0 && next < nextFixerPos && arg >= 0 && arg < nextFixerPos)
 
     val newFixer = (next, arg)
     // make sure we are not duplicating Applies
     fixerToPosMap get newFixer match {
-      case Some(pos) => (this, pos)
-      case None =>
-        (
-          ExprForest(
-            fixers :+ newFixer,
-            fixerToPosMap + (newFixer -> nextFixerPos)
-          ),
-          nextFixerPos
-        )
+      case Some(pos) => pos
+      case None => {
+        fixers += newFixer
+        fixerToPosMap += (newFixer -> nextFixerPos)
+        nextFixerPos
+      }
     }
   }
 
