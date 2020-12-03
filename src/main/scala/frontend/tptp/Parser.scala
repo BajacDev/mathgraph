@@ -39,9 +39,7 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
 
   lazy val tptpInput: Syntax[Tree] = annotatedFormula | include
 
-  lazy val annotatedFormula = (fofAnnotated | cnfAnnotated).map {
-    case formula => formula
-  }
+  lazy val annotatedFormula = fofAnnotated | cnfAnnotated
 
   lazy val fofAnnotated: Syntax[Tree] = (kw(
     "fof"
@@ -323,9 +321,7 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
   }
 
   protected def apply(tokens: Iterator[Token])(ctxt: Context): Program = {
-
     val parser = Parser(tptpFile)
-
     parser(tokens) match {
       case Parsed(result, rest) => result
       case UnexpectedEnd(rest)  => ctxt.fatal("Unexpected end of input.")

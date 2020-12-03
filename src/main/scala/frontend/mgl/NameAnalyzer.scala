@@ -65,7 +65,7 @@ object NameAnalyzer extends Pipeline[In.Program, Out.Program] {
       case In.Apply(name, Seq()) =>
         if (!variables(name)) {
           if (!symbols.contains(name))
-            ctxt.fatal(s"Constant or identifier '$name' not found", e)
+            ctxt.fatal(s"Constant or variable '$name' not found", e)
           else if (symbols(name) != 0)
             ctxt.fatal(s"Expected arguments for function '$name'", e)
         }

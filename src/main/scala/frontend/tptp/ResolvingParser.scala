@@ -6,7 +6,7 @@ import mathgraph.frontend._
 import Parser._
 import java.io.File
 
-object TPTPFrontend extends Pipeline[FileSource, BackendTrees.Program] {
+object ResolvingParser extends Pipeline[FileSource, Seq[BackendTrees.Expr]] {
 
   // This is a dummy transformation from TPTP expressions to backend expressions
   // because they do not come from the same trait
@@ -21,7 +21,7 @@ object TPTPFrontend extends Pipeline[FileSource, BackendTrees.Program] {
     case Forall(names, body) => BackendTrees.Forall(names, transformExpr(body))
   }
 
-  def apply(source: FileSource)(ctx: Context): BackendTrees.Program = {
+  def apply(source: FileSource)(ctxt: Context): Seq[BackendTrees.Expr] = {
     // Recursively resolves all the include statements from a given file until none are left
     def resolveIncludes(
         file: String,
@@ -34,7 +34,7 @@ object TPTPFrontend extends Pipeline[FileSource, BackendTrees.Program] {
 
         // We load that file
         val Program(newIncludes, newFormulas) =
-          (Lexer andThen Parser).run(FileSource(includeFile))(ctx)
+          (Lexer andThen Parser).run(FileSource(includeFile))(ctxt)
 
         // And recursively resolve the includes
         val resolvedFormulas = resolveIncludes(includeFile, newIncludes)
@@ -49,7 +49,7 @@ object TPTPFrontend extends Pipeline[FileSource, BackendTrees.Program] {
     }
 
     // We extract the TPTP program from the source
-    val Program(includes, annotated) = (Lexer andThen Parser).run(source)(ctx)
+    val Program(includes, annotated) = (Lexer andThen Parser).run(source)(ctxt)
 
     // Then, we resolve the includes to get all the formulas
     val formulas = resolveIncludes(source.name, includes) ++ annotated
@@ -62,9 +62,9 @@ object TPTPFrontend extends Pipeline[FileSource, BackendTrees.Program] {
 
     val newConjectures =
       if (conjectures.size > 1)
-        ctx.fatal(s"A TPTP file cannot contain more than one conjecture.")
+        ctxt.fatal(s"A TPTP file cannot contain more than one conjecture.")
       else if (conjectures.isEmpty) {
-        ctx.warning(s"No conjecture was found, this is probably a mistake.")
+        ctxt.warning(s"No conjecture was found, this is probably a mistake.")
         Seq()
       } else {
         val Conjecture(_, conj) = conjectures(0)
@@ -75,6 +75,6 @@ object TPTPFrontend extends Pipeline[FileSource, BackendTrees.Program] {
       transformExpr(a)
     }
 
-    BackendTrees.Program(Seq(), newAxioms ++ newConjectures)
+    newAxioms ++ newConjectures
   }
 }

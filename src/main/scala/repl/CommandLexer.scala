@@ -30,10 +30,7 @@ object CommandLexer extends Lexers {
   }
 
   def apply(input: String): Seq[Token] = {
-    lexer
-      .spawn(
-        StringSource("stdin", input).toSilexSource
-      )
+    lexer(StringSource("stdin", input).toSilexSource)
       .filter {
         case SpaceToken() => false
         case _            => true
