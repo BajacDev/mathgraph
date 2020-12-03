@@ -10,7 +10,7 @@ import scala.math._
 
 object Solver {
 
-  val MAX_LOGICGRAPH_SIZE: Int = 10000
+  val MAX_LOGICGRAPH_SIZE: Int = 1000
 
   /** context an expr is used
     * head can be a symbol or an expr if the head is a forall
@@ -37,15 +37,16 @@ class Solver() {
   var arities: Arities = MutMap.empty[Int, Int]
   var size: Int = 0
 
-  def saturation(lg: LogicGraph): LogicGraph = {
+  def saturation(lg: LogicGraph): Unit = {
 
-    if (lg.isAbsurd) lg
+    if (lg.isAbsurd) ()
     else {
       val formerSize = lg.size
-      val nextLg = fixAll(fixLetSym(lg))
-      if (formerSize == nextLg.size) nextLg
-      else if (nextLg.size > MAX_LOGICGRAPH_SIZE) nextLg
-      else saturation(nextLg)
+      fixLetSym(lg)
+      fixAll(lg)
+      if (formerSize == lg.size) ()
+      else if (lg.size > MAX_LOGICGRAPH_SIZE) ()
+      else saturation(lg)
     }
   }
 
@@ -53,15 +54,15 @@ class Solver() {
     * for now, I fix every false expression because I did not find
     * proofs where  you have to fix true expression. That can change
     */
-  def fixLetSym(logicGraph: LogicGraph): LogicGraph = {
+  def fixLetSym(logicGraph: LogicGraph): Unit = {
     update(logicGraph)
-    logicGraph
+    val exprSet = logicGraph
       .getAllTruth(false)
       .filter(logicGraph.isFixable)
       .filter(!existsFalseFixer(logicGraph, _))
 
-    for (expr <- exprSet) {
-        logicGraph.fixLetSymbol(pos)
+    for (pos <- exprSet) {
+      logicGraph.fixLetSymbol(pos)
     }
   }
 
@@ -74,11 +75,11 @@ class Solver() {
   }
 
   /** fix all expressions using stats * */
-  def fixAll(logicGraph: LogicGraph): LogicGraph = {
+  def fixAll(logicGraph: LogicGraph): Unit = {
     update(logicGraph)
     val exprSet = logicGraph.getAllTruth.filter(logicGraph.isFixable)
-    exprSet.foldLeft(logicGraph) { case (lg, pos) =>
-      fixPos(lg, pos)
+    for (pos <- exprSet) {
+      fixPos(logicGraph, pos)
     }
   }
 
@@ -87,11 +88,11 @@ class Solver() {
   private def fixPos(
       logicGraph: LogicGraph,
       pos: Int
-  ): LogicGraph = {
+  ): Unit = {
 
     val futureArgs = getFutureArgs(logicGraph, pos)
-    futureArgs.foldLeft(logicGraph) { case (lg, arg) =>
-      lg.fix(pos, arg)._1
+    for (arg <- futureArgs) {
+      logicGraph.fix(pos, arg)
     }
   }
 
@@ -274,7 +275,8 @@ class Solver() {
 
     def processInside(inside: Int, args: Seq[Int]): Boolean =
       inside match {
-        case HeadTail(Symbol(id), Seq(a, b)) if id < args.length && args(id) == ImplySymbol =>
+        case HeadTail(Symbol(id), Seq(a, b))
+            if id < args.length && args(id) == ImplySymbol =>
           if (isFixable(a, args))
             if (fixGetThruth(lg, a, args) == Some(true)) processInside(b, args)
             else if (falseMatchPatternExists(lg, b, args)) true
@@ -300,7 +302,7 @@ class Solver() {
       orig: Int,
       args: Seq[Int]
   ): Boolean = {
-    getMatchPattern(lg, orig, args, lg.getAllTruth(true))
+    getMatchPattern(lg, orig, args, lg.getAllTruth(true).toSet)
   }
 
   def falseMatchPatternExists(implicit
@@ -308,7 +310,7 @@ class Solver() {
       orig: Int,
       args: Seq[Int]
   ): Boolean = {
-    getMatchPattern(lg, orig, args, lg.getAllTruth(false))
+    getMatchPattern(lg, orig, args, lg.getAllTruth(false).toSet)
   }
 
   def getMatchPattern(implicit

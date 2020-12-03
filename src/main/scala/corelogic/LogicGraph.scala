@@ -2,8 +2,7 @@ package mathgraph.corelogic
 
 import mathgraph.util.Pipe._
 import mathgraph.corelogic.ExprContainer._
-import scala.collection.mutable.{HashMap, MultiMap, Map}
-import scala.collection.Set
+import scala.collection.mutable.{Map, Set}
 
 /** The logic layer manage the truth graph of expressions
   * Notation:
@@ -58,12 +57,12 @@ object LogicGraph {
   }
 }
 
-class LogicGraph() extends ExprContainer {
+class LogicGraph extends ExprContainer {
 
   val exprForest: ExprForest = new ExprForest
   var truth: Map[Int, Boolean] = Map()
-  var imply: MultiMap[Int, Int] = new HashMap[Int, Set[Int]] with MultiMap[Int, Int]
-  var isImpliedBy: MultiMap[Int, Int] = new HashMap[Int, Set[Int]] with MultiMap[Int, Int]
+  var imply: Map[Int, Set[Int]] = Map()
+  var isImpliedBy: Map[Int, Set[Int]] = Map()
   var absurd: Option[(Int, Int)] = None
   // use for proofs
   var truthOrigin: Map[Int, Int] = Map()
@@ -75,8 +74,9 @@ class LogicGraph() extends ExprContainer {
   def getTruthOf(pos: Int) = truth get pos
   def getAbsurd = absurd
   def isAbsurd: Boolean = !absurd.isEmpty
-  def getAllTruth(b: Boolean): Set[Int] = truth.filter(_._2 == b).keySet
-  def getAllTruth: Set[Int] = truth.keySet
+  def getAllTruth(b: Boolean): Iterator[Int] =
+    truth.filter(_._2 == b).keysIterator
+  def getAllTruth: Iterator[Int] = truth.keysIterator
 
   def getFixer(pos: Int): Option[(Int, Int)] = exprForest.getFixer(pos)
   def fixerToPos(next: Int, arg: Int): Option[Int] =
@@ -149,6 +149,7 @@ class LogicGraph() extends ExprContainer {
           }
         }
       }
+      case _ => ()
     }
 
   // -------------------------------------------------------------
@@ -199,13 +200,11 @@ class LogicGraph() extends ExprContainer {
   def fix(next: Int, arg: Int): Int = {
     val pos = exprForest.fix(next, arg)
     simplifyInferenceRuleLoop(pos)
-
     link(next, pos, FixIR)
     if (exprForest.isLetSymbol(next, arg)) {
       link(pos, next, FixLetSymIR)
       pos
-    }
-    else pos
+    } else pos
   }
 
   def forall(body: Int): Int = fix(ForallSymbol, body)
@@ -256,14 +255,21 @@ class LogicGraph() extends ExprContainer {
     }
   }
 
+  def addBinding(map: Map[Int, Set[Int]], a: Int, b: Int): Unit = {
+    map get a match {
+      case None      => map(a) = Set(b)
+      case Some(set) => set += b
+    }
+  }
+
   /** create a imply link a => b in the graph and propagate changes* */
   private def link(a: Int, b: Int, inferenceRule: InferenceRule): Unit = {
     require(a < exprForest.size && b < exprForest.size)
 
-    if (a == b) return 
+    if (a == b) return
 
-    imply.addBinding(a, b)
-    isImpliedBy.addBinding(b, a)
+    addBinding(imply, a, b)
+    addBinding(isImpliedBy, b, a)
     inferences += ((a, b) -> inferenceRule)
 
     // A => B and A true: we propagate true to B
