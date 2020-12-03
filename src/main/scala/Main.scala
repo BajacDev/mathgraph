@@ -1,6 +1,6 @@
 package mathgraph
 import corelogic._
-import frontend.mgl.{Lexer, Parser, OpsRewrite}
+import frontend.mgl.{Lexer, Parser, NameAnalyzer}
 import frontend.tptp.{TPTPFrontend}
 import backend._
 import repl._
@@ -22,8 +22,7 @@ object Main {
       ) andThen Simplifier andThen ForallToLets andThen ProgToLogicState
 
     try {
-      println(frontend(sourceFile).run(sourceFile)(ctxt))
-      val logicState: LogicState = pipeline.run(sourceFile)(ctxt)
+      val logicState: LogicState = pipeline.run(FileSource(sourceFile))(ctxt)
       Repl.run(logicState)
     } catch {
       case FatalError(_) => sys.exit(1)
@@ -32,6 +31,6 @@ object Main {
 
   def frontend(sourceFile: String) = {
     if (sourceFile.contains(".p")) TPTPFrontend
-    else Lexer andThen Parser andThen OpsRewrite
+    else Lexer andThen Parser andThen NameAnalyzer
   }
 }

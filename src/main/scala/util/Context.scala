@@ -49,7 +49,7 @@ class Context {
     if (pos != NoPosition) {
       err(s"$prefix $pos: $msg")
 
-      val lines = getLines(pos.file)
+      val lines = getLines(pos.source)
       if (pos.line > 0 && pos.line - 1 < lines.size) {
         err(s"$prefix ${lines(pos.line - 1)}")
         err(s"$prefix ${" " * (pos.col - 1)}^")
@@ -63,17 +63,17 @@ class Context {
   private var filesToLines = Map[String, IndexedSeq[String]]()
 
   // Retrieves the lines of a given file from the cache or from the file itself
-  private def getLines(file: String): IndexedSeq[String] = {
-    filesToLines.get(file) match {
+  private def getLines(source: AbstractSource): IndexedSeq[String] = {
+    filesToLines.get(source.name) match {
       case Some(lines) =>
         lines
 
       case None =>
         try {
-          val src = Source.fromFile(file)
+          val src = source.source
           val lines = src.getLines().toIndexedSeq
           src.close()
-          filesToLines += file -> lines // cache the result for the next lookups
+          filesToLines += source.name -> lines // cache the result for the next lookups
           lines
         } catch {
           case _: java.io.FileNotFoundException => IndexedSeq()

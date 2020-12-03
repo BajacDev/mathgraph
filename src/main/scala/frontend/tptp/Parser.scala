@@ -24,16 +24,17 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
 
   implicit def skipped(str: String): Skip = elem(DelimKind(str)).skip
 
-  lazy val tptpFile: Syntax[Program] = (many(tptpInput) ~ eof.skip).map { lines =>
-    val includes: Seq[Include] = lines.collect {
-      case inc: Include => inc
-    }
+  lazy val tptpFile: Syntax[Program] = (many(tptpInput) ~ eof.skip).map {
+    lines =>
+      val includes: Seq[Include] = lines.collect { case inc: Include =>
+        inc
+      }
 
-    val formulas = lines.collect {
-      case a: Annotated => a
-    }
+      val formulas = lines.collect { case a: Annotated =>
+        a
+      }
 
-    Program(includes, formulas)
+      Program(includes, formulas)
   }
 
   lazy val tptpInput: Syntax[Tree] = annotatedFormula | include
@@ -44,21 +45,23 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
 
   lazy val fofAnnotated: Syntax[Tree] = (kw(
     "fof"
-  ) ~ "(" ~ name ~ "," ~ formulaRole ~ "," ~ fofFormula ~ annotations ~ ")" ~ ".").map {
-    case fof ~ ((name, _)) ~ (("conjecture", _)) ~ fofFormula ~ annotations =>
-      Conjecture(name, fofFormula).setPos(fof)
-    case fof ~ ((name, _)) ~ role ~ fofFormula ~ annotations =>
-      Axiom(name, fofFormula).setPos(fof)
-  }
-  
+  ) ~ "(" ~ name ~ "," ~ formulaRole ~ "," ~ fofFormula ~ annotations ~ ")" ~ ".")
+    .map {
+      case fof ~ ((name, _)) ~ (("conjecture", _)) ~ fofFormula ~ annotations =>
+        Conjecture(name, fofFormula).setPos(fof)
+      case fof ~ ((name, _)) ~ role ~ fofFormula ~ annotations =>
+        Axiom(name, fofFormula).setPos(fof)
+    }
+
   lazy val cnfAnnotated: Syntax[Tree] = (kw(
     "cnf"
-  ) ~ "(" ~ name ~ "," ~ formulaRole ~ "," ~ cnfFormula ~ annotations ~ ")" ~ ".").map {
-    case cnf ~ ((name, _)) ~ (("conjecture", _)) ~ cnfFormula ~ annotations =>
-      Conjecture(name, cnfFormula).setPos(cnf)
-    case cnf ~ ((name, _)) ~ role ~ cnfFormula ~ annotations =>
-      Axiom(name, cnfFormula).setPos(cnf)
-  }
+  ) ~ "(" ~ name ~ "," ~ formulaRole ~ "," ~ cnfFormula ~ annotations ~ ")" ~ ".")
+    .map {
+      case cnf ~ ((name, _)) ~ (("conjecture", _)) ~ cnfFormula ~ annotations =>
+        Conjecture(name, cnfFormula).setPos(cnf)
+      case cnf ~ ((name, _)) ~ role ~ cnfFormula ~ annotations =>
+        Axiom(name, cnfFormula).setPos(cnf)
+    }
 
   lazy val annotations = opt("," ~ source ~ optionalInfo).map { case _ =>
     ()

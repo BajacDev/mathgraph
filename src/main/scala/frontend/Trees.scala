@@ -42,10 +42,10 @@ trait Trees {
   /** Syntactic sugar for not */
   object Not {
     def apply(e: Expr): Expr = e match {
-      case True => False
-      case False => True
+      case True   => False
+      case False  => True
       case Not(e) => e
-      case _ => Implies(e, False)
+      case _      => Implies(e, False)
     }
     def unapply(e: Expr): Option[Expr] = e match {
       case Implies(e, False) => Some(e)
@@ -69,7 +69,7 @@ trait Trees {
     def apply(a: Expr, b: Expr): Expr = Not(Implies(a, Not(b)))
     def unapply(e: Expr): Option[(Expr, Expr)] = e match {
       case Not(Implies(a, Not(b))) => Some((a, b))
-      case _ => None
+      case _                       => None
     }
   }
 
@@ -78,26 +78,29 @@ trait Trees {
     def apply(a: Expr, b: Expr): Expr = Implies(Not(a), b)
     def unapply(e: Expr): Option[(Expr, Expr)] = e match {
       case Implies(Not(a), b) => Some((a, b))
-      case _ => None
+      case _                  => None
     }
   }
 }
 
 /** Trees of the mathgraph language and internal representation */
 trait MGLTrees extends Trees {
+
   /** Represents a definition in a program. It can either be a symbol definition,
-      with no body, or a rewriting rule, with a body */
+    *      with no body, or a rewriting rule, with a body
+    */
   trait Definition extends Tree {
     def name: Name
     def params: Seq[Name]
     def body: Option[Expr]
   }
-  
+
   /** A program consists of a sequence of definitions and a set of axioms to prove unsatisfiable */
   case class Program(defs: Seq[Definition], axioms: Seq[Expr]) extends Tree
 
   /** Representation of let in(x, S) or let inc(A, B) = ... */
-  case class Let(name: Name, params: Seq[Name], body: Option[Expr]) extends Definition
+  case class Let(name: Name, params: Seq[Name], body: Option[Expr])
+      extends Definition
 }
 
 /** Represents the trees where the names are unique, ready to be passed to the backend */
@@ -105,6 +108,7 @@ object BackendTrees extends MGLTrees
 
 /** Represents trees where operators haven't been parsed yet and names aren't unique */
 object OpTrees extends MGLTrees {
+
   /** Representation of an operator definition let(<associativity>, <precedence>) a op b [:= <rhs>]; */
   case class OpLet(
       assoc: String,
@@ -125,11 +129,13 @@ object OpTrees extends MGLTrees {
 
 /** Represents the TPTP trees where the names are not yet unique and there are some unresolved includes */
 object TPTPTrees extends Trees {
+
   /** Represents an include statement */
   case class Include(filename: String, formulas: Seq[String]) extends Tree
 
   /** Represents a TPTP program */
-  case class Program(includes: Seq[Include], formulas: Seq[Annotated]) extends Tree
+  case class Program(includes: Seq[Include], formulas: Seq[Annotated])
+      extends Tree
 
   /** Represents an annotated formula */
   trait Annotated extends Tree {
