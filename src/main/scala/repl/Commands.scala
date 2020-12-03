@@ -146,23 +146,22 @@ object Commands {
     }
   }
 
-  val fixAllTrue: Command = transformState { ls =>
-    ls.copy(logicGraph = ls.solver.fixAll(ls.logicGraph))
+  val fixAllTrue: Command = consumeState { ls =>
+    ls.solver.fixAll(ls.logicGraph)
   }
 
-  val fixAllFalse: Command = transformState { ls =>
-    ls.copy(logicGraph = ls.solver.fixLetSym(ls.logicGraph))
+  val fixAllFalse: Command = consumeState { ls =>
+    ls.solver.fixLetSym(ls.logicGraph)
   }
 
   val proof: Command = consumeState { ls =>
     ls.printer.proofAbsurd(ls.logicGraph).foreach(println)
   }
 
-  val saturate: Command = transformState { ls =>
+  val saturate: Command = consumeState { ls =>
     {
-      val lg = ls.solver.saturation(ls.logicGraph)
-      proof(ls.copy(logicGraph = lg))(Seq())
-
+      ls.solver.saturation(ls.logicGraph)
+      proof(ls)(Seq())
     }
   }
 

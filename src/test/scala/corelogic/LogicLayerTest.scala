@@ -10,44 +10,38 @@ class LogicGraphTest extends AnyFunSuite {
 
   test("'true -> false' is absurd") {
 
-    val absurd =
-      LogicGraph.init |> (lg => lg.fix(ImplySymbol, TrueSymbol)) |> {
-        case (lg, pos) => lg.fix(pos, FalseSymbol)
-      } |> { case (lg, pos) =>
-        lg.setAxiom(pos, true)
-      } |> (_.isAbsurd)
+    val lg = LogicGraph.init
+    var pos = lg.fix(ImplySymbol, TrueSymbol)
+    pos = lg.fix(pos, FalseSymbol)
+    lg.setAxiom(pos, true)
 
-    assert(absurd)
+    assert(lg.isAbsurd)
   }
 
   test("'(false -> true) -> false' is absurd") {
 
-    val absurd =
-      LogicGraph.init |> (lg => lg.fix(ImplySymbol, FalseSymbol)) |> {
-        case (lg, pos) => lg.fix(pos, TrueSymbol)
-      } |> { case (lg, pos) =>
-        lg.fix(ImplySymbol, pos)
-      } |> { case (lg, pos) => lg.fix(pos, FalseSymbol) } |> { case (lg, pos) =>
-        lg.setAxiom(pos, true)
-      } |> (_.isAbsurd)
+    val lg = LogicGraph.init
+    var pos = lg.fix(ImplySymbol, FalseSymbol)
+    pos = lg.fix(pos, TrueSymbol)
+    pos = lg.fix(ImplySymbol, pos)
+    pos = lg.fix(pos, FalseSymbol)
+    lg.setAxiom(pos, true)
 
-    assert(absurd)
+    assert(lg.isAbsurd)
   }
 
   test("'{0(1, 2)}(->, true, false)' is absurd") {
 
-    val absurd =
-      LogicGraph.init |> (lg => lg.fix(lg.idToSymbol(0), lg.idToSymbol(1))) |> {
-        case (lg, pos) => lg.fix(pos, lg.idToSymbol(2))
-      } |> { case (lg, pos) =>
-        lg.fix(ForallSymbol, pos)
-      } |> { case (lg, pos) => lg.fix(pos, ImplySymbol) } |> { case (lg, pos) =>
-        lg.fix(pos, TrueSymbol)
-      } |> { case (lg, pos) => lg.fix(pos, FalseSymbol) } |> { case (lg, pos) =>
-        lg.setAxiom(pos, true)
-      } |> (_.isAbsurd)
+    val lg = LogicGraph.init
+    var pos = lg.fix(lg.idToSymbol(0), lg.idToSymbol(1))
+    pos = lg.fix(pos, lg.idToSymbol(2))
+    pos = lg.fix(ForallSymbol, pos)
+    pos = lg.fix(pos, ImplySymbol)
+    pos = lg.fix(pos, TrueSymbol)
+    pos = lg.fix(pos, FalseSymbol)
+    lg.setAxiom(pos, true)
 
-    assert(absurd)
+    assert(lg.isAbsurd)
   }
 
 }
