@@ -1,6 +1,7 @@
 package mathgraph.util
 import io.AnsiColor._
 import scala.collection.mutable.Map
+import scala.io.Source
 
 // This exception will be thrown when a fatal error occurs when running the program
 case class FatalError(msg: String) extends Exception(msg)
@@ -48,7 +49,7 @@ class Context {
     if (pos != NoPosition) {
       err(s"$prefix $pos: $msg")
 
-      val lines = getLines(pos.source)
+      val lines = getLines(pos.file)
       if (pos.line > 0 && pos.line - 1 < lines.size) {
         err(s"$prefix ${lines(pos.line - 1)}")
         err(s"$prefix ${" " * (pos.col - 1)}^")
@@ -62,17 +63,21 @@ class Context {
   private var filesToLines = Map[String, IndexedSeq[String]]()
 
   // Retrieves the lines of a given file from the cache or from the file itself
-  private def getLines(source: AbstractSource): IndexedSeq[String] = {
-    filesToLines.get(source.name) match {
+  private def getLines(file: String): IndexedSeq[String] = {
+    filesToLines.get(file) match {
       case Some(lines) =>
         lines
 
       case None =>
-        val src = source.source
-        val lines = src.getLines().toIndexedSeq
-        src.close()
-        filesToLines += source.name -> lines // cache the result for the next lookups
-        lines
+        try {
+          val src = Source.fromFile(file)
+          val lines = src.getLines().toIndexedSeq
+          src.close()
+          filesToLines += file -> lines // cache the result for the next lookups
+          lines
+        } catch {
+          case _: java.io.FileNotFoundException => IndexedSeq()
+        }
     }
   }
 }

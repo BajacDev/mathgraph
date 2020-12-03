@@ -5,7 +5,7 @@ import Tokens._
 import silex._
 
 /** A lexer takes as input a string and outputs a sequence of tokens */
-object Lexer extends Lexers with Pipeline[AbstractSource, Iterator[Token]] {
+object Lexer extends Lexers with Pipeline[String, Iterator[Token]] {
 
   type Character = Char
   type Position = SourcePosition
@@ -53,17 +53,22 @@ object Lexer extends Lexers with Pipeline[AbstractSource, Iterator[Token]] {
     EOFToken().setPos(pos)
   }
 
-  def apply(source: AbstractSource)(ctxt: Context): Iterator[Token] = {
-    lexer
-      .spawn(Source.fromIterator(source.source, SourcePositioner(source)))
-      .filter {
-        case SpaceToken()   => false
-        case CommentToken() => false
-        case _              => true
-      }
-      .map {
-        case tk @ ErrorToken(err) => ctxt.fatal(s"Invalid token: $err", tk)
-        case tk                   => tk
-      }
+  def apply(file: String)(ctxt: Context): Iterator[Token] = {
+    try {
+      lexer
+        .spawn(Source.fromFile(file, SourcePositioner(file)))
+        .filter {
+          case SpaceToken()   => false
+          case CommentToken() => false
+          case _              => true
+        }
+        .map {
+          case tk @ ErrorToken(err) => ctxt.fatal(s"Invalid token: $err", tk)
+          case tk                   => tk
+        }
+    } catch {
+      case _: java.io.FileNotFoundException =>
+        ctxt.fatal(s"File '$file' does not exist.")
+    }
   }
 }

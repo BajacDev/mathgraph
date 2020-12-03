@@ -14,7 +14,7 @@ object Main {
     val sourceFile = if (args.isEmpty) {
       ctxt.info(s"Using default input file: $defaultFile")
       defaultFile
-    } else s"example/${args(0)}.txt"
+    } else args(0)
 
     val pipeline =
       frontend(
@@ -22,7 +22,8 @@ object Main {
       ) andThen Simplifier andThen ForallToLets andThen ProgToLogicState
 
     try {
-      val logicState: LogicState = pipeline.run(FileSource(sourceFile))(ctxt)
+      println(frontend(sourceFile).run(sourceFile)(ctxt))
+      val logicState: LogicState = pipeline.run(sourceFile)(ctxt)
       Repl.run(logicState)
     } catch {
       case FatalError(_) => sys.exit(1)

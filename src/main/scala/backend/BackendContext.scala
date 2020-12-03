@@ -1,7 +1,7 @@
 package mathgraph.backend
 
 import mathgraph.corelogic._
-import mathgraph.frontend.MGLTrees._
+import mathgraph.frontend.BackendTrees._
 import mathgraph.corelogic.ExprContainer._
 
 object BackendContext {
@@ -26,5 +26,5 @@ object BackendContext {
 
 case class BackendContext(
     logicGraph: LogicGraph,
-    stringToExpr: Map[Identifier, Int]
+    stringToExpr: Map[Name, Int]
 )

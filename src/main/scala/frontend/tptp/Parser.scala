@@ -1,25 +1,17 @@
 package mathgraph.frontend.tptp
 import mathgraph.util._
-import mathgraph.frontend.MGLTrees._
+import mathgraph.frontend.TPTPTrees._
+import mathgraph.frontend._
 import scala.language.implicitConversions
 import Tokens._
 import scallion._
 
-object Parser extends Parsers with Pipeline[Iterator[Token], Seq[Tree]] {
+object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
 
   import Implicits._
 
   type Kind = TokenKind
   type Token = Tokens.Token
-
-  case class TPTPInclude(filename: String, formulas: Seq[(String, Position)])
-      extends Tree {
-    def unapply(tree: Tree): Option[(String, Seq[(String, Position)])] =
-      tree match {
-        case TPTPInclude(filename, formulas) => Some((filename, formulas))
-        case _                               => None
-      }
-  }
 
   override def getKind(token: Token): TokenKind = kindOf(token)
 
@@ -32,9 +24,16 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Seq[Tree]] {
 
   implicit def skipped(str: String): Skip = elem(DelimKind(str)).skip
 
-  lazy val tptpFile: Syntax[Seq[Tree]] = (many(tptpInput) ~ eof.skip).map {
-    case inputs =>
-      inputs
+  lazy val tptpFile: Syntax[Program] = (many(tptpInput) ~ eof.skip).map { lines =>
+    val includes: Seq[Include] = lines.collect {
+      case inc: Include => inc
+    }
+
+    val formulas = lines.collect {
+      case a: Annotated => a
+    }
+
+    Program(includes, formulas)
   }
 
   lazy val tptpInput: Syntax[Tree] = annotatedFormula | include
@@ -45,30 +44,21 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Seq[Tree]] {
 
   lazy val fofAnnotated: Syntax[Tree] = (kw(
     "fof"
-  ) ~ "(" ~ name ~ "," ~ formulaRole ~ "," ~ fofFormula ~ annotations ~ ")" ~ ".")
-    .map {
-      case fof ~ name ~ formulaRole ~ fofFormula ~ annotations => {
-
-        val body = formulaRole match {
-          case ("conjecture", pos) => Implies(fofFormula, False).setPos(fof)
-          case _                   => fofFormula.setPos(fof)
-        }
-
-        Let(name._1, Seq(), Some(body)).setPos(fof)
-      }
-    }
-
+  ) ~ "(" ~ name ~ "," ~ formulaRole ~ "," ~ fofFormula ~ annotations ~ ")" ~ ".").map {
+    case fof ~ ((name, _)) ~ (("conjecture", _)) ~ fofFormula ~ annotations =>
+      Conjecture(name, fofFormula).setPos(fof)
+    case fof ~ ((name, _)) ~ role ~ fofFormula ~ annotations =>
+      Axiom(name, fofFormula).setPos(fof)
+  }
+  
   lazy val cnfAnnotated: Syntax[Tree] = (kw(
     "cnf"
-  ) ~ "(" ~ name ~ "," ~ formulaRole ~ "," ~ cnfFormula ~ annotations ~ ")" ~ ".")
-    .map { case cnf ~ name ~ formulaRole ~ cnfFormula ~ annotations =>
-      val body = formulaRole match {
-        case ("conjecture", pos) => Implies(cnfFormula, False).setPos(cnf)
-        case _                   => cnfFormula.setPos(cnf)
-      }
-
-      Let(name._1, Seq(), Some(body)).setPos(cnf)
-    }
+  ) ~ "(" ~ name ~ "," ~ formulaRole ~ "," ~ cnfFormula ~ annotations ~ ")" ~ ".").map {
+    case cnf ~ ((name, _)) ~ (("conjecture", _)) ~ cnfFormula ~ annotations =>
+      Conjecture(name, cnfFormula).setPos(cnf)
+    case cnf ~ ((name, _)) ~ role ~ cnfFormula ~ annotations =>
+      Axiom(name, cnfFormula).setPos(cnf)
+  }
 
   lazy val annotations = opt("," ~ source ~ optionalInfo).map { case _ =>
     ()
@@ -221,7 +211,7 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Seq[Tree]] {
       Apply(id, Seq()).setPos(pos)
   }
 
-  lazy val distinctObject: Syntax[(Identifier, Position)] =
+  lazy val distinctObject: Syntax[(String, Position)] =
     accept(DistinctObjectKind) { case tk @ DistinctObjectToken(distinct) =>
       (distinct, tk.pos)
     }
@@ -240,50 +230,50 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Seq[Tree]] {
 
   lazy val include: Syntax[Tree] =
     (kw("include").skip ~ "(" ~ fileName ~ formulaSelection ~ ")" ~ ".").map {
-      case (filename, pos) ~ None => TPTPInclude(filename, Seq()).setPos(pos)
+      case (filename, pos) ~ None => Include(filename, Seq()).setPos(pos)
       case (filename, pos) ~ Some(selection) =>
-        TPTPInclude(filename, selection).setPos(pos)
+        Include(filename, selection.map(_._1)).setPos(pos)
     }
   lazy val formulaSelection = opt("," ~ "[" ~ nameList ~ "]")
   lazy val nameList = rep1sep(name, delim(","))
 
-  lazy val generalTerm: Syntax[(Identifier, Position)] =
+  lazy val generalTerm: Syntax[(String, Position)] =
     recursive(generalList | generalDataTerm)
 
-  lazy val generalData: Syntax[(Identifier, Position)] =
+  lazy val generalData: Syntax[(String, Position)] =
     atomicWordWithArguments | number | distinctObject
 
-  lazy val generalDataTerm: Syntax[(Identifier, Position)] =
+  lazy val generalDataTerm: Syntax[(String, Position)] =
     (generalData ~ opt(":" ~ generalTerm)).map {
       case (data, pos) ~ None            => (data, pos)
       case (data, pos) ~ Some((term, _)) => (data + ":" + term, pos)
     }
 
-  lazy val atomicWordWithArguments: Syntax[(Identifier, Position)] =
+  lazy val atomicWordWithArguments: Syntax[(String, Position)] =
     (atomicWord ~ opt("(" ~ generalArguments ~ ")")).map {
       case (word, pos) ~ None => (word, pos)
       case (word, pos) ~ Some(args) =>
         (word + "(" + args.mkString(",") + ")", pos)
     }
 
-  lazy val generalList: Syntax[(Identifier, Position)] =
+  lazy val generalList: Syntax[(String, Position)] =
     (delim("[") ~ opt(generalTermList) ~ delim("]")).map {
       case delim ~ None ~ _ => ("[]", delim.pos)
       case delim ~ Some(terms) ~ _ =>
         ("[" + terms.mkString(",") + "]", delim.pos)
     }
 
-  lazy val generalArguments: Syntax[Seq[Identifier]] =
+  lazy val generalArguments: Syntax[Seq[String]] =
     rep1sep(generalTerm, delim(",")).map { case args =>
       args.map(_._1)
     }
-  lazy val generalTermList: Syntax[Seq[Identifier]] =
+  lazy val generalTermList: Syntax[Seq[String]] =
     rep1sep(generalTerm, delim(",")).map { case args =>
       args.map(_._1)
     }
 
   lazy val name = atomicWord | unsignedInteger
-  lazy val atomicWord: Syntax[(Identifier, Position)] =
+  lazy val atomicWord: Syntax[(String, Position)] =
     lowerWord | singleQuoted
 
   lazy val atomicSystemWord = lowerWord | dollarDollarWord
@@ -301,20 +291,20 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Seq[Tree]] {
     (value, tk.pos)
   }
 
-  lazy val dollarDollarWord: Syntax[(Identifier, Position)] =
+  lazy val dollarDollarWord: Syntax[(String, Position)] =
     accept(DollarWordKind) { case tk @ DollarWordToken(word) =>
       (word, tk.pos)
     }
 
-  lazy val lowerWord: Syntax[(Identifier, Position)] = accept(LowerWordKind) {
+  lazy val lowerWord: Syntax[(String, Position)] = accept(LowerWordKind) {
     case tk @ WordToken(word) => (word, tk.pos)
   }
 
-  lazy val upperWord: Syntax[(Identifier, Position)] = accept(UpperWordKind) {
+  lazy val upperWord: Syntax[(String, Position)] = accept(UpperWordKind) {
     case tk @ WordToken(word) => (word, tk.pos)
   }
 
-  lazy val singleQuoted: Syntax[(Identifier, Position)] =
+  lazy val singleQuoted: Syntax[(String, Position)] =
     accept(SingleQuotedKind) { case tk @ SingleQuotedToken(quoted) =>
       (quoted, tk.pos)
     }
@@ -329,7 +319,7 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Seq[Tree]] {
     }
   }
 
-  protected def apply(tokens: Iterator[Token])(ctxt: Context): Seq[Tree] = {
+  protected def apply(tokens: Iterator[Token])(ctxt: Context): Program = {
 
     val parser = Parser(tptpFile)
 

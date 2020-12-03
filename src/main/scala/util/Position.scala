@@ -1,39 +1,22 @@
 package mathgraph.util
-import scala.io.Source
 import silex._
-
-// Represents an abstract source from which strings can be read
-abstract class AbstractSource {
-  val name: String
-  def source: Source
-}
-
-// Sources from files
-case class FileSource(name: String) extends AbstractSource {
-  def source: Source = Source.fromFile(name)
-}
-
-// Sources from strings
-case class StringSource(name: String, input: String) extends AbstractSource {
-  def source: Source = Source.fromString(input)
-}
 
 // Position in a file
 abstract class Position {
-  val source: AbstractSource
+  val file: String
   val line: Int
   val col: Int
 }
 
 // Known positions
-case class SourcePosition(source: AbstractSource, line: Int, col: Int)
+case class SourcePosition(file: String, line: Int, col: Int)
     extends Position {
-  override def toString: String = s"${source.name}:$line:$col"
+  override def toString: String = s"$file:$line:$col"
 }
 
 // Unknown positions
 case object NoPosition extends Position {
-  val source = null
+  val file = null
   val line = 0
   val col = 0
   override def toString: String = "?:?"
@@ -52,9 +35,9 @@ trait Positioned {
 }
 
 // This is used by Scallion to automatically compute the position of tokens
-case class SourcePositioner(source: AbstractSource)
+case class SourcePositioner(file: String)
     extends Positioner[Char, SourcePosition] {
-  override val start: SourcePosition = SourcePosition(source, 1, 1)
+  override val start: SourcePosition = SourcePosition(file, 1, 1)
 
   override def increment(pos: SourcePosition, character: Char): SourcePosition =
     if (character == '\n') pos.copy(line = pos.line + 1, col = 1)

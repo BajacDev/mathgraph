@@ -1,6 +1,6 @@
 package mathgraph.frontend.mgl
 import mathgraph.util._
-import mathgraph.frontend.{OpTrees => In, MGLTrees => Out}
+import mathgraph.frontend.{OpTrees => In, BackendTrees => Out}
 import scala.util.Try
 
 object OpsRewrite extends Pipeline[In.Program, Out.Program] {

@@ -3,7 +3,7 @@ package mathgraph.backend
 import mathgraph.frontend._
 import mathgraph.repl._
 import mathgraph.corelogic.LogicGraph
-import mathgraph.frontend.MGLTrees._
+import mathgraph.frontend.BackendTrees._
 import mathgraph.util._
 import mathgraph.util.{Context => UtilContext}
 import mathgraph.backend.{BackendContext => Context}
@@ -13,10 +13,10 @@ object ProgToLogicState extends Pipeline[Program, LogicState] {
 
   def globalIdentifiers(
       expr: Expr,
-      allGlobalIds: Set[Identifier]
-  ): Set[Identifier] = expr match {
+      allGlobalIds: Set[Name]
+  ): Set[Name] = expr match {
     case Apply(id, args) => {
-      val set: Set[Identifier] =
+      val set: Set[Name] =
         if (allGlobalIds.contains(id)) Set(id)
         else Set()
       args.foldLeft(set) { case (s, arg) =>
@@ -27,7 +27,7 @@ object ProgToLogicState extends Pipeline[Program, LogicState] {
 
   def exprToLogicGraph(
       expr: Expr,
-      stringToExpr: Map[Identifier, Int],
+      stringToExpr: Map[Name, Int],
       logicGraph: LogicGraph
   ): (LogicGraph, Int) = expr match {
     case Apply(id, args) => {
@@ -44,7 +44,7 @@ object ProgToLogicState extends Pipeline[Program, LogicState] {
   def interpretExpr(
       expr: Expr,
       context: Context,
-      vars: Seq[Identifier]
+      vars: Seq[Name]
   ): (LogicGraph, Int) = {
     val Context(logicGraph, globalstringToExpr) = context
     if (vars.length == 0) {

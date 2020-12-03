@@ -17,10 +17,10 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
   override def getKind(token: Token): TokenKind = kindOf(token)
 
   // Helper functions for the basic atoms of the syntax
-  val id: Syntax[Identifier] = accept(IdKind) { case IdToken(name) =>
+  val id: Syntax[Name] = accept(IdKind) { case IdToken(name) =>
     name
   }
-  val idPos: Syntax[(Identifier, Position)] = accept(IdKind) {
+  val idPos: Syntax[(Name, Position)] = accept(IdKind) {
     case tk @ IdToken(name) => (name, tk.pos)
   }
   implicit def delim(str: String): Syntax[Token] = elem(DelimKind(str))

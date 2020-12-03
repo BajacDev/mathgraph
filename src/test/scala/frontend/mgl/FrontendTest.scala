@@ -1,7 +1,7 @@
 package mathgraph.frontend.mgl
 
 import org.scalatest.funsuite.AnyFunSuite
-import mathgraph.frontend.MGLTrees._
+import mathgraph.frontend.BackendTrees._
 import mathgraph.util._
 import mathgraph.frontend.mgl._
 import java.io.OutputStream
