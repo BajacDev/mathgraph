@@ -44,9 +44,10 @@ class ExprForest extends ExprContainer {
     fixerToPosMap get newFixer match {
       case Some(pos) => pos
       case None => {
+        val fixerPos = nextFixerPos
         fixers += newFixer
-        fixerToPosMap += (newFixer -> nextFixerPos)
-        nextFixerPos
+        fixerToPosMap += (newFixer -> fixerPos)
+        fixerPos
       }
     }
   }

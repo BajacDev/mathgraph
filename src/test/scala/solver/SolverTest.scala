@@ -27,8 +27,10 @@ class SolverTest extends AnyFunSuite {
       val logicState: LogicState = pipeline.run(FileSource(sourceFile))(ctx)
       val lg = logicState.logicGraph
       val solver = logicState.solver
-      val newLg = solver.saturation(lg)
-      assert(newLg.isAbsurd)
+      solver.saturation(lg)
+      assert(lg.isAbsurd)
+
+      ()
     } catch {
       case FatalError(_) => fail(s"Error in file '$sourceFile'")
     }

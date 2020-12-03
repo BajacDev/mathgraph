@@ -11,6 +11,10 @@ import mathgraph.printer._
 
 object ProgToLogicState extends Pipeline[Program, LogicState] {
 
+  /* return global identifiers in expr
+   * exemple true -> false has Set(true, false, ->)
+   * as global identifiers
+   */
   def globalIdentifiers(
       expr: Expr,
       allGlobalIds: Set[Name]
@@ -27,44 +31,44 @@ object ProgToLogicState extends Pipeline[Program, LogicState] {
 
   def exprToLogicGraph(
       expr: Expr,
-      stringToExpr: Map[Name, Int],
-      logicGraph: LogicGraph
-  ): (LogicGraph, Int) = expr match {
+      stringToExpr: Map[Identifier, Int],
+      lg: LogicGraph
+  ): Int = expr match {
     case Apply(id, args) => {
-      val head = (logicGraph, stringToExpr(id))
-      args.foldLeft(head) {
-        case ((lg, pos), arg) => {
-          val (lg2, argPos) = exprToLogicGraph(arg, stringToExpr, lg)
-          lg2.fix(pos, argPos)
-        }
+      var pos = stringToExpr(id)
+      for (arg <- args) {
+        val argPos = exprToLogicGraph(arg, stringToExpr, lg)
+        pos = lg.fix(pos, argPos)
       }
+      pos
     }
   }
 
   def interpretExpr(
       expr: Expr,
       context: Context,
-      vars: Seq[Name]
-  ): (LogicGraph, Int) = {
-    val Context(logicGraph, globalstringToExpr) = context
+      vars: Seq[Identifier]
+  ): Int = {
+    val Context(lg, globalstringToExpr) = context
     if (vars.length == 0) {
-      exprToLogicGraph(expr, globalstringToExpr, logicGraph)
+      exprToLogicGraph(expr, globalstringToExpr, lg)
     } else {
       val globals = globalIdentifiers(expr, globalstringToExpr.keySet).toSeq
       val freeVar = globals ++ vars
       val localStringToExpr = freeVar.zipWithIndex.map { case (id, symbolId) =>
-        (id, logicGraph.idToSymbol(symbolId))
+        (id, lg.idToSymbol(symbolId))
       }.toMap
-      val (lg, pos) = exprToLogicGraph(expr, localStringToExpr, logicGraph)
-      globals.foldLeft(lg.forall(pos)) { case ((lg2, pos2), arg) =>
-        lg2.fix(pos2, globalstringToExpr(arg))
+      val pos = exprToLogicGraph(expr, localStringToExpr, lg)
+
+      globals.foldLeft(lg.forall(pos)) { case (pos2, arg) =>
+        lg.fix(pos2, globalstringToExpr(arg))
       }
     }
   }
 
-  def interpretAxioms(expr: Expr, context: Context): LogicGraph = {
-    val (lg, pos) = interpretExpr(expr, context, Seq())
-    lg.setAxiom(pos, true)
+  def interpretAxioms(expr: Expr, context: Context): Unit = {
+    val pos = interpretExpr(expr, context, Seq())
+    context.logicGraph.setAxiom(pos, true)
   }
 
   def interpretDef(definition: Definition, context: Context): Context =
@@ -73,12 +77,12 @@ object ProgToLogicState extends Pipeline[Program, LogicState] {
         val Context(logicGraph, stringToExpr) = context
         bodyOpt match {
           case None => {
-            val (lg, pos) = logicGraph.getFreshSymbol
-            Context(lg, stringToExpr + (name -> pos))
+            val pos = logicGraph.getFreshSymbol
+            Context(logicGraph, stringToExpr + (name -> pos))
           }
           case Some(expr) => {
-            val (lg, pos) = interpretExpr(expr, context, vars)
-            Context(lg, context.stringToExpr + (name -> pos))
+            val pos = interpretExpr(expr, context, vars)
+            Context(logicGraph, context.stringToExpr + (name -> pos))
           }
         }
       }
@@ -102,8 +106,8 @@ object ProgToLogicState extends Pipeline[Program, LogicState] {
     val s2e = context.stringToExpr
     val newContext = axioms.foldLeft(context) {
       case (ctx, axiom) => {
-        val newLg = interpretAxioms(axiom, Context(ctx.logicGraph, s2e))
-        Context(newLg, s2e)
+        interpretAxioms(axiom, Context(ctx.logicGraph, s2e))
+        Context(ctx.logicGraph, s2e)
       }
     }
 
