@@ -3,7 +3,7 @@ package mathgraph.backend
 import mathgraph.frontend._
 import mathgraph.repl._
 import mathgraph.corelogic.LogicGraph
-import mathgraph.frontend.MGLTrees._
+import mathgraph.frontend.BackendTrees._
 import mathgraph.util._
 import mathgraph.util.{Context => UtilContext}
 import mathgraph.backend.{BackendContext => Context}

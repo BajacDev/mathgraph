@@ -3,15 +3,15 @@ package mathgraph.printer
 import mathgraph.corelogic._
 import io.AnsiColor._
 import mathgraph.corelogic.ExprContainer._
-import mathgraph.frontend.MGLTrees.{Apply, Expr, Forall => ExprForall}
+import mathgraph.frontend.BackendTrees.{Apply, Expr, Forall => ExprForall}
 
 case class Printer(
-    exprToString: Map[Int, String]
+    exprToId: Map[Int, Identifier]
 ) {
 
-  def get(pos: Int) = exprToString get pos
+  def get(pos: Int) = exprToId get pos
 
-  def remove(pos: Int): Printer = Printer(exprToString - pos)
+  def remove(pos: Int): Printer = Printer(exprToId - pos)
 
   /** print expression in a simple way * */
   def toSimpleString(implicit logicGraph: LogicGraph, pos: Int): String =
@@ -24,7 +24,7 @@ case class Printer(
     }
 
   // ---------------------------------------------------------------------------
-  // print an humain readable expression using exprToString map
+  // print an humain readable expression using exprToId map
   // ---------------------------------------------------------------------------
 
   /** generate names for Symbol. eg: 0: 'a0', 1: 'b0', ..., 26: 'a1'
@@ -48,8 +48,8 @@ case class Printer(
   }
 
   def combineHeadTail(
-      head: String,
-      tail: List[(String, Boolean)]
+      head: Identifier,
+      tail: List[(Identifier, Boolean)]
   ): (String, Boolean) = tail match {
     case x :: y :: Nil if infix(head) =>
       (applyPar(x) + " " + head + " " + applyPar(y), true)
@@ -122,12 +122,12 @@ case class Printer(
         (s"forall ${freeVars.mkString(" ")}. ${toString(body)._1}", false)
     }
 
-    val map = exprToString.mapValues(Apply(_, Seq())).toMap
+    val map = exprToId.mapValues(Apply(_, Seq())).toMap
     toString(simplifyExpr(toExpr(orig, map)))._1
   }
 
   def getDefinition(implicit lg: LogicGraph, pos: Int): Option[String] =
-    exprToString.get(pos) match {
+    exprToId.get(pos) match {
       case None => None
       case _    => Some(remove(pos).toString(lg, pos))
     }

@@ -1,6 +1,6 @@
 package mathgraph.backend
 
-import mathgraph.frontend.MGLTrees._
+import mathgraph.frontend.BackendTrees._
 import mathgraph.util._
 
 // every forall will be transformed into a Simplelet

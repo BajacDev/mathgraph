@@ -16,11 +16,6 @@ case class OperatorSig(rightAssociative: Boolean, precedence: Int) extends Symbo
 
 /** The symbol table gather the signature of all the symbols defined in the program */
 class SymbolTable {
-
-  // Those are the identifiers of the built-in symbols
-  val trueId = Identifier.fresh("true")
-  val falseId = Identifier.fresh("false")
-  val impliesId = Identifier.fresh("->")
   
   // Stores the name to identifier mapping
   private val nameToId = HashMap[String, Identifier]()
@@ -29,7 +24,7 @@ class SymbolTable {
   private val symbols = HashMap[Identifier, SymbolSig]()
 
   /** Adds a mapping from symbol to identifier and signature in the table */
-  def addSymbol(name: String, id: Identifier, sig: SymbolSig): Unit = {
+  private def addSymbol(name: String, id: Identifier, sig: SymbolSig): Unit = {
     nameToId += name -> id
     symbols += id -> sig
   }

@@ -1,6 +1,6 @@
 package mathgraph
 import corelogic._
-import frontend.mgl.{Lexer, Parser, OpsRewrite}
+import frontend.mgl.{Lexer, Parser, NameAnalyzer}
 import frontend.tptp.{TPTPFrontend}
 import backend._
 import repl._
@@ -31,6 +31,6 @@ object Main {
 
   def frontend(sourceFile: String) = {
     if (sourceFile.endsWith(".p")) TPTPFrontend
-    else Lexer andThen Parser andThen OpsRewrite
+    else Lexer andThen Parser andThen NameAnalyzer
   }
 }

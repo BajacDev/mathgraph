@@ -10,7 +10,7 @@ object NameAnalyzer extends Pipeline[In.Program, (Out.Program, SymbolTable)] {
     val table = new SymbolTable
 
     // STEP 1: We first add implication as a built-in symbol
-    table.addSymbol("->", table.impliesId, OperatorSig(true, 10))
+    val impliesId = table.addOperator("->", true, 10)
 
     // Checks that the given name doens't shadow a previously defined variable or symbol
     def checkShadowing(name: String, pos: Position, variables: Map[String, Identifier]): Unit = {
@@ -111,6 +111,11 @@ object NameAnalyzer extends Pipeline[In.Program, (Out.Program, SymbolTable)] {
         prec
       }
 
+      // Glues two expressions together using the given operator
+      def glueExprs(lhs: Out.Expr, op: Identifier, rhs: Out.Expr): Out.Expr =
+        if (op == impliesId) Out.Implies(lhs, rhs)
+        else Out.Apply(op, Seq(lhs, rhs))
+
       // Uses precedence parsing to parse the linear sequence of operators
       def rec(
           level: Int,
@@ -126,7 +131,7 @@ object NameAnalyzer extends Pipeline[In.Program, (Out.Program, SymbolTable)] {
           val (id, OperatorSig(rightAssoc, prec)) = signature(op, pos)
           val nextLevel = if (rightAssoc) prec else prec + 1
           val (rhs, rest) = rec(nextLevel, nextExpr, remaining.tail)
-          expr = Out.Apply(id, Seq(expr, rhs))
+          expr = glueExprs(expr, id, rhs)
           remaining = rest
         }
 
