@@ -2,22 +2,37 @@ package mathgraph.frontend
 import scala.collection.mutable.HashMap
 
 /** Represents the signature of a symbol */
-abstract class SymbolSig(arity: Int)
+trait SymbolSig {
+  def arity: Int
+}
 
 /** Signature of normal symbols. They can be marked as inlined if they should be inlined when printed. */
-case class NormalSig(val arity: Int, val inlined: Boolean) extends SymbolSig(arity)
+case class NormalSig(arity: Int, inlined: Boolean) extends SymbolSig
 
 /** Signature of operator symbols */
-case class OperatorSig(val rightAssociative: Boolean, val precedence: Int)
-    extends SymbolSig(2)
+case class OperatorSig(rightAssociative: Boolean, precedence: Int) extends SymbolSig {
+  def arity = 2
+}
 
 /** The symbol table gather the signature of all the symbols defined in the program */
 class SymbolTable {
-  // Stores the name to identifier mapping of expressions
+
+  // Those are the identifiers of the built-in symbols
+  val trueId = Identifier.fresh("true")
+  val falseId = Identifier.fresh("false")
+  val impliesId = Identifier.fresh("->")
+  
+  // Stores the name to identifier mapping
   private val nameToId = HashMap[String, Identifier]()
 
   // Stores the signature of all the symbols in a program
   private val symbols = HashMap[Identifier, SymbolSig]()
+
+  /** Adds a mapping from symbol to identifier and signature in the table */
+  def addSymbol(name: String, id: Identifier, sig: SymbolSig): Unit = {
+    nameToId += name -> id
+    symbols += id -> sig
+  }
 
   /** Adds a symbol to the table */
   def addSymbol(
@@ -26,16 +41,14 @@ class SymbolTable {
       inlined: Boolean = false
   ): Identifier = {
     val id = Identifier.fresh(name)
-    nameToId += name -> id
-    symbols += id -> NormalSig(arity, inlined)
+    addSymbol(name, id, NormalSig(arity, inlined))
     id
   }
 
   /** Adds an infix binary operator to the table */
   def addOperator(name: String, rightAssociative: Boolean, precedence: Int): Identifier = {
     val id = Identifier.fresh(name)
-    nameToId += name -> id
-    symbols += id -> OperatorSig(rightAssociative, precedence)
+    addSymbol(name, id, OperatorSig(rightAssociative, precedence))
     id
   }
 
@@ -44,5 +57,5 @@ class SymbolTable {
     for (id <- nameToId.get(name); sig <- symbols.get(id)) yield (id, sig)
 
   /** Retrieves a symbol given an identifier */
-  def getSymbol(id: Identifier): Symbol = symbols(id)
+  def getSymbol(id: Identifier): SymbolSig = symbols(id)
 }

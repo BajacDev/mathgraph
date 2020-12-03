@@ -1,21 +1,16 @@
 package mathgraph.frontend.mgl
 import mathgraph.util._
-import mathgraph.frontend.{OpTrees => In, MGLTrees => Out}
+import mathgraph.frontend.{OpTrees => In, BackendTrees => Out, _}
 import scala.util.Try
 
 object NameAnalyzer extends Pipeline[In.Program, (Out.Program, SymbolTable)] {
-  protected def apply(program: In.Program)(ctxt: Context): Out.Program = {
+  protected def apply(program: In.Program)(ctxt: Context): (Out.Program, SymbolTable) = {
 
     // This is the symbol table that will be progressively filled when discovering symbols
     val table = new SymbolTable
 
-    // Defines the precedence and associativity of built-in operators
-    val builtInOperators = Map("->" -> (true, 10))
-
-    // STEP 1: We first add all the built-in operators to the symbol table
-    builtInOperators.foreach { case (name, (rightAssoc, prec)) =>
-      table.addOperator(name, rightAssoc, pred)
-    }
+    // STEP 1: We first add implication as a built-in symbol
+    table.addSymbol("->", table.impliesId, OperatorSig(true, 10))
 
     // Checks that the given name doens't shadow a previously defined variable or symbol
     def checkShadowing(name: String, pos: Position, variables: Map[String, Identifier]): Unit = {
@@ -26,23 +21,23 @@ object NameAnalyzer extends Pipeline[In.Program, (Out.Program, SymbolTable)] {
     }
 
     // Transforms a definition, freshening all names
-    def transformDefinition(def: In.Definition, id: => Identifier): Out.Definition = {
+    def transformDefinition(df: In.Definition, id: => Identifier): Out.Definition = {
       // We check that it isn't a redefinition
-      if (table.getSymbol(def.name).isDefined)
-        ctxt.error(s"Redefinition of symbol '${def.name}'", def)
+      if (table.getSymbol(df.name).isDefined)
+        ctxt.error(s"Redefinition of symbol '${df.name}'", df)
 
       // We check that each parameter is only defined once and warn about shadowing
-      def.params.groupBy(identity).foreach { case (name, group) =>
+      df.params.groupBy(identity(_)).foreach { case (name, group) =>
         if (group.size > 1)
           ctxt.error(s"Parameter '$name' is declared several times", df)
 
-        checkShadowing(name, def.pos, Map.empty)
+        checkShadowing(name, df.pos, Map.empty)
       }
 
       // We create fresh identifiers for the parameters
-      val freshParams = defs.params.map(Identifier.fresh(_))
-      val paramMap = def.params.zip(freshParams).toMap
-      val newBody = body.map(transformExpr(_)(paramMap))
+      val freshParams = df.params.map(Identifier.fresh(_))
+      val paramMap = df.params.zip(freshParams).toMap
+      val newBody = df.body.map(transformExpr(_)(paramMap))
 
       // We only add the definition to the symbol table now, through the call by name parameter 'id'
       Out.Let(id, freshParams, newBody)
@@ -51,8 +46,8 @@ object NameAnalyzer extends Pipeline[In.Program, (Out.Program, SymbolTable)] {
     // Transforms an expression, given a map from names to identifiers
     def transformExpr(e: In.Expr)(implicit variables: Map[String, Identifier]): Out.Expr = e match {
       // Trivial cases
-      case In.True => Out.True
-      case In.False => Out.False
+      case In.True => Out.Apply(table.trueId, Seq())
+      case In.False => Out.Apply(table.falseId, Seq())
 
       // Variables / Constant symbols
       case In.Apply(name, Seq()) =>
@@ -82,7 +77,7 @@ object NameAnalyzer extends Pipeline[In.Program, (Out.Program, SymbolTable)] {
       // Forall introduces new variables in scope
       case In.Forall(names, body) =>
         // We check name uniqueness and shadowing
-        names.groupBy(identity).foreach { case (name, group) =>
+        names.groupBy(identity(_)).foreach { case (name, group) =>
           if (group.size > 1)
             ctxt.error(s"Variable '$name' is quantified several times", e)
 
@@ -108,6 +103,12 @@ object NameAnalyzer extends Pipeline[In.Program, (Out.Program, SymbolTable)] {
       def signature(op: String, pos: Position): (Identifier, OperatorSig) = table.getSymbol(op) match {
         case Some((id, sig: OperatorSig)) => (id, sig)
         case _ => ctxt.fatal(s"Undeclared operator '$op'", pos)
+      }
+
+      // Retrieves the precedence of the next operator
+      def prec(head: (String, Position, Out.Expr)): Int = {
+        val (_, OperatorSig(_, prec)) = signature(head._1, head._2)
+        prec
       }
 
       // Uses precedence parsing to parse the linear sequence of operators

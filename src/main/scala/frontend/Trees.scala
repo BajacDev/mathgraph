@@ -3,9 +3,13 @@ import mathgraph.util.{Positioned, Position}
 
 /** This object contains the definition of all the AST in mathgraph */
 trait Trees {
-  abstract class Tree extends Positioned
-  abstract class Expr extends Tree
-  abstract class Definition(name: Name, params: Seq[Name], body: Option[Expr]) extends Tree
+  trait Tree extends Positioned
+  trait Expr extends Tree
+  trait Definition extends Tree {
+    def name: Name
+    def params: Seq[Name]
+    def body: Option[Expr]
+  }
 
   /** This represents the names that are used in the program */
   type Name
@@ -21,8 +25,7 @@ trait Trees {
   // ----------------------------------------------------
 
   /** Representation of let in(x, S) or let inc(A, B) = ... */
-  case class Let(name: Name, params: Seq[Name], body: Option[Expr])
-      extends Definition(name, params, body)
+  case class Let(name: Name, params: Seq[Name], body: Option[Expr]) extends Definition
 
   // ----------------------------------------------------
   // Terms
@@ -56,7 +59,10 @@ trait Trees {
 
   /** Syntactic sugar for not */
   object Not {
-    def apply(e: Expr): Expr = Implies(e, False)
+    def apply(e: Expr): Expr = e match {
+      case Not(e) => e
+      case _ => Implies(e, False)
+    }
     def unapply(e: Expr): Option[Expr] = e match {
       case Implies(e, False) => Some(e)
       case _                 => None
@@ -65,10 +71,10 @@ trait Trees {
 
   /** Syntactic sugar for existential quantification */
   object Exists {
-    def apply(ids: Seq[Identifier], body: Expr): Expr = Not(
+    def apply(ids: Seq[Name], body: Expr): Expr = Not(
       Forall(ids, Not(body))
     )
-    def unapply(e: Expr): Option[(Seq[Identifier], Expr)] = e match {
+    def unapply(e: Expr): Option[(Seq[Name], Expr)] = e match {
       case Not(Forall(ids, Not(body))) => Some((ids, body))
       case _                           => None
     }
@@ -93,13 +99,28 @@ trait Trees {
   }
 }
 
-/** Represents the trees where the names are not yet unique */
-object NominalTrees extends Trees {
+/** Represents the TPTP trees where the names are not yet unique and there are some unresolved includes */
+object TPTPTrees extends Trees {
   type Name = String
+
+  /** Represents an include statement */
+  case class Include(filename: String, formulas: Seq[String]) extends Tree
+
+  /** Represents a TPTP program */
+  case class TPTPProgram(includes: Seq[Include], formulas: Seq[Annotated]) extends Tree
+
+  /** Represents an annotated formula */
+  abstract class Annotated(name: String, expr: Expr) extends Tree
+
+  /** Represents an axiom */
+  case class Axiom(name: String, expr: Expr) extends Annotated(name, expr)
+
+  /** Represents a conjecture */
+  case class Conjecture(name: String, expr: Expr) extends Annotated(name, expr)
 }
 
 /** Represents the trees where the names are unique */
-object MGLTrees extends Trees {
+object BackendTrees extends Trees {
   type Name = Identifier
 }
 
@@ -115,7 +136,10 @@ object OpTrees extends Trees {
       op: String,
       rhs: String,
       body: Option[Expr]
-  ) extends Definition(op, Seq(lhs, rhs), body)
+  ) extends Definition {
+    def name = op
+    def params = Seq(lhs, rhs)
+  }
 
   /** Representation of a sequence of operator applications x1 op1 x2 op2 ... xn */
   case class OpSequence(first: Expr, opsAndExprs: Seq[(String, Position, Expr)])
