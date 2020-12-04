@@ -101,7 +101,8 @@ object Lexer extends Lexers with Pipeline[FileSource, Iterator[Token]] {
 
   def apply(source: FileSource)(ctxt: Context): Iterator[Token] = {
     try {
-      lexer.spawn(source.toSilexSource)
+      lexer
+        .spawn(source.toSilexSource)
         .filter {
           case SpaceToken()   => false
           case CommentToken() => false

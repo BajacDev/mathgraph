@@ -75,22 +75,36 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
       case lhs ~ Some((OperatorToken("<="), Seq(rhs))) =>
         Implies(rhs, lhs).setPos(lhs)
       case lhs ~ Some((OperatorToken("<=>"), Seq(rhs))) =>
-        And(Implies(lhs, rhs), Implies(rhs, lhs)).setPos(lhs)
+        And(Implies(lhs, rhs).setPos(lhs), Implies(rhs, lhs).setPos(rhs))
+          .setPos(lhs)
 
       case lhs ~ Some((OperatorToken("<~>"), Seq(rhs))) =>
-        And(Or(lhs, rhs), Or(Not(lhs), Not(rhs))).setPos(lhs)
+        And(
+          Or(lhs, rhs).setPos(lhs),
+          Or(Not(lhs).setPos(lhs), Not(rhs).setPos(rhs)).setPos(lhs)
+        ).setPos(lhs)
 
       case lhs ~ Some((OperatorToken("&"), rhs +: more)) =>
         (
-          more.foldLeft(And(lhs, rhs))((acc, next) => And(acc, next))
-        ).setPos(lhs)
+          more
+            .foldLeft(And(lhs, rhs).setPos(lhs))((acc, next) =>
+              And(acc, next).setPos(acc)
+            )
+          )
+          .setPos(lhs)
       case lhs ~ Some((OperatorToken("|"), rhs +: more)) =>
-        (more.foldLeft(Or(lhs, rhs))((acc, next) => Or(acc, next))).setPos(lhs)
+        (
+          more
+            .foldLeft(Or(lhs, rhs).setPos(lhs))((acc, next) =>
+              Or(acc, next).setPos(acc)
+            )
+          )
+          .setPos(lhs)
 
       case lhs ~ Some((OperatorToken("~&"), Seq(rhs))) =>
-        Not(And(lhs, rhs)).setPos(lhs)
+        Not(And(lhs, rhs).setPos(lhs)).setPos(lhs)
       case lhs ~ Some((OperatorToken("~|"), Seq(rhs))) =>
-        Not(Or(lhs, rhs)).setPos(lhs)
+        Not(Or(lhs, rhs).setPos(lhs)).setPos(lhs)
       case _ ~ _ => ???
     }
 
@@ -176,9 +190,10 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
   lazy val definedInfixPred = pred("=") | pred("!=")
   lazy val definedTermVariableInfix =
     ((definedTerm | termVariable) ~ definedInfixPred ~ term).map {
-      case lhs ~ PredicateToken("=") ~ rhs  => Equals(lhs, rhs).setPos(lhs)
-      case lhs ~ PredicateToken("!=") ~ rhs => Not(Equals(lhs, rhs)).setPos(lhs)
-      case _ ~ _ ~ _                        => ???
+      case lhs ~ PredicateToken("=") ~ rhs => Equals(lhs, rhs).setPos(lhs)
+      case lhs ~ PredicateToken("!=") ~ rhs =>
+        Not(Equals(lhs, rhs).setPos(lhs)).setPos(lhs)
+      case _ ~ _ ~ _ => ???
     }
 
   lazy val plainSystemOrDefinedInfix =
@@ -186,7 +201,7 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
       case t ~ None                              => t
       case lhs ~ Some(PredicateToken("=") ~ rhs) => Equals(lhs, rhs).setPos(lhs)
       case lhs ~ Some(PredicateToken("!=") ~ rhs) =>
-        Not(Equals(lhs, rhs)).setPos(lhs)
+        Not(Equals(lhs, rhs).setPos(lhs)).setPos(lhs)
       case _ ~ _ => ???
     }
 

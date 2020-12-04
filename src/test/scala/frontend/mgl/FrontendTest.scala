@@ -69,11 +69,11 @@ class FrontendTests extends AnyFunSuite {
   }
 
   test("expressions are parsed correctly") {
-    "let a, c; a -> false -> c;" ~> Success(
-      "let a;\nlet c;\n(a -> (false -> c));"
+    "let a, c; a -> a -> c;" ~> Success(
+      "let a;\nlet c;\n(a -> (a -> c));"
     )
-    "let in(a, b), N, x; in(N, x) -> true;" ~> Success(
-      "let in(a, b);\nlet N;\nlet x;\n(in(N, x) -> true);"
+    "let in(a, b), N, x; in(N, x) -> x;" ~> Success(
+      "let in(a, b);\nlet N;\nlet x;\n(in(N, x) -> x);"
     )
     "let has(a, b), in(a, b); forall x y. has(x, y) -> in(y, x);" ~> Success(
       "let has(a, b);\nlet in(a, b);\n(forall x y. (has(x, y) -> in(y, x)));"
@@ -96,6 +96,12 @@ class FrontendTests extends AnyFunSuite {
       "let P(x, y);\n((forall x y. (P(x, y) -> false)) -> false);"
     )
     "~true;" ~> Success("false;")
+    "let x; x -> true;" ~> Success("let x;\ntrue;")
+    "let x; false -> x;" ~> Success("let x;\ntrue;")
+    "let x; true -> x;" ~> Success("let x;\nx;")
+    "let x; (x -> false) -> false;" ~> Success("let x;\nx;")
+    "forall x. forall y. x;" ~> Success("(forall x y. x);")
+    "forall x. forall y. true;" ~> Success("true;")
   }
 
   test("invalid syntax is not parsed") {

@@ -27,26 +27,29 @@ trait Trees {
   // ----------------------------------------------------
 
   /** Representation of a -> b */
-  case class Implies private(lhs: Expr, rhs: Expr) extends Expr
+  case class Implies private (lhs: Expr, rhs: Expr) extends Expr
   object Implies {
     def apply(lhs: Expr, rhs: Expr): Expr = (lhs, rhs) match {
-      case (True, e) => e
-      case (False, _) => True
-      case (_, True) => True
+      case (True, e)       => e
+      case (False, _)      => True
+      case (_, True)       => True
       case (Not(e), False) => e
-      case (lhs, rhs) => Implies(lhs, rhs)
+      case (lhs, rhs)      => new Implies(lhs, rhs)
     }
   }
 
   /** Representation of forall */
-  case class Forall private(names: Seq[Name], body: Expr) extends Expr
+  case class Forall private (names: Seq[Name], body: Expr) extends Expr
   object Forall {
     def apply(names: Seq[Name], body: Expr): Expr =
       if (names.isEmpty) body
-      else body match {
-        case Forall(moreNames, body) => Forall(names ++ moreNames, body)
-        case _ => Forall(names, body)
-      }
+      else
+        body match {
+          case True                    => True
+          case False                   => False
+          case Forall(moreNames, body) => new Forall(names ++ moreNames, body)
+          case _                       => new Forall(names, body)
+        }
   }
 
   /** TODO Representation of a = b */
