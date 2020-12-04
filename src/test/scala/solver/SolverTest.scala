@@ -3,7 +3,7 @@ package mathgraph.solver
 import org.scalatest.funsuite.AnyFunSuite
 import mathgraph.solver._
 import mathgraph.corelogic._
-import mathgraph.frontend.mgl._
+import mathgraph.frontend.MGLFrontend
 import mathgraph.backend._
 import io.AnsiColor._
 import mathgraph.printer._
@@ -18,10 +18,8 @@ class SolverTest extends AnyFunSuite {
 
   test("saturation works") {
 
-    val pipeline =
-      Lexer andThen Parser andThen OpsRewrite andThen Simplifier andThen ForallToLets andThen ProgToLogicState
+    val pipeline = MGLFrontend andThen Simplifier andThen ForallToLets andThen ProgToLogicState
     val ctx = new Context()
-
     val sourceFile = "resources/mgl/test1.txt"
 
     try {
@@ -29,11 +27,8 @@ class SolverTest extends AnyFunSuite {
       val lg = logicState.logicGraph
       val newLg = Solver.saturation(lg)
       assert(newLg.isAbsurd)
-
-      ()
     } catch {
-      case FatalError(_) => assert(false)
+      case FatalError(_) => fail(s"Error in file '$sourceFile'")
     }
-
   }
 }

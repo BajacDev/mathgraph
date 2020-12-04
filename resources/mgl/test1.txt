@@ -1,5 +1,5 @@
-let P;
-let f;
+let P(x, y);
+let f(x);
 let or(a, b) := ~a -> b;
 
 forall x . (forall y. or(~P(x, y), P(f(x), y)));
