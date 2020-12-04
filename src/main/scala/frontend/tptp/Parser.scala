@@ -47,6 +47,8 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
     .map {
       case fof ~ ((name, _)) ~ (("conjecture", _)) ~ fofFormula ~ annotations =>
         Conjecture(name, fofFormula).setPos(fof)
+      case fof ~ ((name, _)) ~ (("negated_conjecture", _)) ~ fofFormula ~ annotations =>
+        Conjecture(name, Not(fofFormula).setPos(fofFormula)).setPos(fof)
       case fof ~ ((name, _)) ~ role ~ fofFormula ~ annotations =>
         Axiom(name, fofFormula).setPos(fof)
     }
@@ -57,6 +59,8 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
     .map {
       case cnf ~ ((name, _)) ~ (("conjecture", _)) ~ cnfFormula ~ annotations =>
         Conjecture(name, cnfFormula).setPos(cnf)
+      case cnf ~ ((name, _)) ~ (("negated_conjecture", _)) ~ cnfFormula ~ annotations =>
+        Conjecture(name, Not(cnfFormula).setPos(cnfFormula)).setPos(cnf)
       case cnf ~ ((name, _)) ~ role ~ cnfFormula ~ annotations =>
         Axiom(name, cnfFormula).setPos(cnf)
     }
