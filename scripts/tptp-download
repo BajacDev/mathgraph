@@ -83,6 +83,8 @@ for line in sys.stdin:
     if not problem:
         print(f'Problem \'{problem}\' could not be extracted. It might be because it is not a valid problem.')
         continue
-
-    with open(output_dir / f'{problem}.p', 'w') as output_file:
+    
+    filename = output_dir / f'{problem}.p'
+    with open(filename, 'w') as output_file:
+        print(f'Writing the problem to \'{filename}\'...')
         output_file.write(problem_str)

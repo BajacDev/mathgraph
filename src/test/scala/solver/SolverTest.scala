@@ -14,7 +14,7 @@ import scala.io.Source
 import mathgraph.util._
 import mathgraph.util.Pipe._
 
-class LogicGraphTest extends AnyFunSuite {
+class SolverTest extends AnyFunSuite {
 
   test("saturation works") {
 
@@ -22,7 +22,7 @@ class LogicGraphTest extends AnyFunSuite {
       Lexer andThen Parser andThen OpsRewrite andThen Simplifier andThen ForallToLets andThen ProgToLogicState
     val ctx = new Context()
 
-    val sourceFile = "example/solvertest/test1.txt"
+    val sourceFile = "resources/mgl/test1.txt"
 
     try {
       val logicState: LogicState = pipeline.run(FileSource(sourceFile))(ctx)
