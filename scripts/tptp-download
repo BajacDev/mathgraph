@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+import urllib.request
+import urllib.error
+import urllib.parse
+import html
+import re
+import sys
+import pathlib
+
+# Use this script to download a set of problems from the TPTP database. The problem names are read from
+# the standard input.
+# Each line should start with the name of the problem, so that the output from
+# the TPTP search engine can be piped to this script, for example:
+# SET027+3         FOF I THM 0.00      3      0      1      7      0      0      2      2   2-2      0   ---      7      0      0      7      0      4      0
+# SET043+1         FOF E THM 0.00      1      0      0      2      0      0      1      1   2-2      0   ---      2      0      0      1      1      3      0
+# SET044+1         FOF E THM 0.00      1      0      0      4      0      0      1      1   2-2      0   ---      5      0      0      3      2      5      0
+# SET045+1         FOF E THM 0.00      2      0      1      4      0      0      1      1   2-2      0   ---      5      0      0      3      2      4      0
+# SET046+1         FOF E THM 0.00      1      0      0      3      0      0      1      1   2-2      0   ---      3      0      0      1      2      4      0
+# Optionally, the output directory can be passed as an argument to this script, otherwise, they are dumped in
+# the current directory.
+
+def extract_html(html_text):
+    tag = 'pre'
+    start_idx = html_text.find(f'<{tag}>')
+
+    # If there is not <pre> tag, the problem was not properly extracted
+    if start_idx == -1:
+        return None
+
+    # The TPTP problem is nested in a <pre></pre> tag
+    problem = html_text[start_idx + len(f'<{tag}>') : html_text.find(f'</{tag}>')]
+    
+    # We remove the remaining tags withing the problem
+    tag_regexp = re.compile('<[^>]+>')
+    without_tags = tag_regexp.sub('', problem)
+
+    # We also unescape special characters (e.g. &lt)
+    return html.unescape(without_tags)
+
+def get_tptp_problem(problem):
+    # We query the TPTP database for the given file
+    url = 'http://www.tptp.org/cgi-bin/SeeTPTP'
+    queries = { 'Category': 'Problems', 'File': f'{problem}.p' }
+    request = urllib.request.Request(url, urllib.parse.urlencode(queries).encode('ascii'))
+    try:
+        with urllib.request.urlopen(request, timeout=1) as response:
+            html_content = response.read()
+            encoding = response.headers.get_content_charset('utf-8')
+            return html_content.decode(encoding)
+    except Exception:
+        return None
+
+# By default, the output directory is the current directory
+output_dir = pathlib.Path.cwd()
+
+# The output directory might be passed as an argument
+if len(sys.argv) == 2:
+    output_dir = pathlib.Path(sys.argv[1]).resolve()
+
+# Then, we create a directory for it, if it does not exist
+pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+
+    # The problem is the first word of the line
+    problem = line.split(' ')[0]
+
+    # We retrieve the HTML page from the TPTP database
+    print(f'Retrieving \'{problem}\' from TPTP.org...')
+    full_html = get_tptp_problem(problem)
+
+    if not full_html:
+        print('There was an problem accessing TPTP.org')
+        continue
+
+    # Then we extract the problem from the HTML page
+    print('Extracting the problem from the HTML response...')
+    problem_str = extract_html(full_html)
+
+    if not problem:
+        print(f'Problem \'{problem}\' could not be extracted. It might be because it is not a valid problem.')
+        continue
+    
+    filename = output_dir / f'{problem}.p'
+    with open(filename, 'w') as output_file:
+        print(f'Writing the problem to \'{filename}\'...')
+        output_file.write(problem_str)

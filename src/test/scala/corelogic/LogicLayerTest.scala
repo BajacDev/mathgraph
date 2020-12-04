@@ -6,7 +6,7 @@ import mathgraph.util.Pipe._
 
 import mathgraph.corelogic.ExprContainer._
 
-class LogicGraphTest extends AnyFunSuite {
+class LogicLayerTest extends AnyFunSuite {
 
   test("'true -> false' is absurd") {
 
