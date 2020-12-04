@@ -18,7 +18,8 @@ class SolverTest extends AnyFunSuite {
 
   test("saturation works") {
 
-    val pipeline = MGLFrontend andThen Simplifier andThen ForallToLets andThen ProgToLogicState
+    val pipeline =
+      MGLFrontend andThen Simplifier andThen ForallToLets andThen ProgToLogicState
     val ctx = new Context()
     val sourceFile = "resources/mgl/test1.txt"
 
