@@ -1,6 +1,7 @@
 package mathgraph.util
 import io.AnsiColor._
 import scala.collection.mutable.Map
+import scala.io.Source
 
 // This exception will be thrown when a fatal error occurs when running the program
 case class FatalError(msg: String) extends Exception(msg)
@@ -68,11 +69,15 @@ class Context {
         lines
 
       case None =>
-        val src = source.source
-        val lines = src.getLines().toIndexedSeq
-        src.close()
-        filesToLines += source.name -> lines // cache the result for the next lookups
-        lines
+        try {
+          val src = source.source
+          val lines = src.getLines().toIndexedSeq
+          src.close()
+          filesToLines += source.name -> lines // cache the result for the next lookups
+          lines
+        } catch {
+          case _: java.io.FileNotFoundException => IndexedSeq()
+        }
     }
   }
 }

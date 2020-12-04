@@ -1,11 +1,13 @@
 package mathgraph.util
 import scala.io.Source
-import silex._
+import silex.{Source => SilexSource, Positioner}
 
 // Represents an abstract source from which strings can be read
 abstract class AbstractSource {
   val name: String
   def source: Source
+  def toSilexSource: SilexSource[Char, SourcePosition] =
+    SilexSource.fromIterator(source, SourcePositioner(this))
 }
 
 // Sources from files

@@ -54,16 +54,21 @@ object Lexer extends Lexers with Pipeline[AbstractSource, Iterator[Token]] {
   }
 
   def apply(source: AbstractSource)(ctxt: Context): Iterator[Token] = {
-    lexer
-      .spawn(Source.fromIterator(source.source, SourcePositioner(source)))
-      .filter {
-        case SpaceToken()   => false
-        case CommentToken() => false
-        case _              => true
-      }
-      .map {
-        case tk @ ErrorToken(err) => ctxt.fatal(s"Invalid token: $err", tk)
-        case tk                   => tk
-      }
+    try {
+      lexer
+        .spawn(source.toSilexSource)
+        .filter {
+          case SpaceToken()   => false
+          case CommentToken() => false
+          case _              => true
+        }
+        .map {
+          case tk @ ErrorToken(err) => ctxt.fatal(s"Invalid token: $err", tk)
+          case tk                   => tk
+        }
+    } catch {
+      case _: java.io.FileNotFoundException =>
+        ctxt.fatal(s"File '${source.name}' does not exist.")
+    }
   }
 }

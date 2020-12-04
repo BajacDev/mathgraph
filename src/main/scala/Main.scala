@@ -1,7 +1,6 @@
 package mathgraph
 import corelogic._
-import frontend.mgl.{Lexer, Parser, OpsRewrite}
-import frontend.tptp.{TPTPFrontend}
+import frontend._
 import backend._
 import repl._
 import util._
@@ -14,12 +13,11 @@ object Main {
     val sourceFile = if (args.isEmpty) {
       ctxt.info(s"Using default input file: $defaultFile")
       defaultFile
-    } else s"example/${args(0)}.txt"
+    } else args(0)
 
-    val pipeline =
-      frontend(
-        sourceFile
-      ) andThen Simplifier andThen ForallToLets andThen ProgToLogicState
+    val pipeline = {
+      if (sourceFile.endsWith(".p")) TPTPFrontend else MGLFrontend
+    } andThen Simplifier andThen ForallToLets andThen ProgToLogicState
 
     try {
       val logicState: LogicState = pipeline.run(FileSource(sourceFile))(ctxt)
@@ -27,10 +25,5 @@ object Main {
     } catch {
       case FatalError(_) => sys.exit(1)
     }
-  }
-
-  def frontend(sourceFile: String) = {
-    if (sourceFile.contains(".p")) TPTPFrontend
-    else Lexer andThen Parser andThen OpsRewrite
   }
 }

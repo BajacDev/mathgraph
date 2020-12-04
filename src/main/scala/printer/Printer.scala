@@ -3,7 +3,7 @@ package mathgraph.printer
 import mathgraph.corelogic._
 import io.AnsiColor._
 import mathgraph.corelogic.ExprContainer._
-import mathgraph.frontend.MGLTrees.{Apply, Expr, Forall => ExprForall}
+import mathgraph.frontend.BackendTrees.{Apply, Expr, Forall => ExprForall}
 
 case class Printer(
     exprToString: Map[Int, String]
