@@ -9,8 +9,6 @@ import mathgraph.frontend.TPTPFrontend
 import mathgraph.backend._
 import mathgraph.util._
 import mathgraph.repl.LogicState
-import scala.concurrent.{ExecutionContext, Future}
-import java.util.concurrent.Executors
 import java.io.File
 
 class TPTPTests extends AnyFunSuite with TimeLimits {
@@ -29,7 +27,6 @@ class TPTPTests extends AnyFunSuite with TimeLimits {
   val filter: String => Boolean = _.endsWith(".p")
   val pipeline = TPTPFrontend andThen Simplifier andThen ForallToLets andThen ProgToLogicState
   val timeout = 5
-  implicit val context = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
   implicit val signaler: Signaler = ThreadSignaler // kills the main thread in case of a timeout
 
   def testFile(file: File): Unit = {
@@ -61,6 +58,6 @@ class TPTPTests extends AnyFunSuite with TimeLimits {
   }
 
   // Test all the files in the given directory, with the given filter
-  for (file <- listFiles(testRoot, filter)) testFile(file)
+  for (file <- listFiles(testRoot, filter).sortBy(_.getPath)) testFile(file)
 
 }
