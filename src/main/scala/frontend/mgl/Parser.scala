@@ -24,7 +24,7 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
     case tk @ IdToken(name) => (name, tk.pos)
   }
 
-  val opPos: Syntax[(Identifier, Position)] = accept(OpKind) {
+  val opPos: Syntax[(Name, Position)] = accept(OpKind) {
     case tk @ OpToken(name) => (name, tk.pos)
   }
 
