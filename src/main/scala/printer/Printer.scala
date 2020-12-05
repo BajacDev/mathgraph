@@ -39,7 +39,7 @@ case class Printer(
     (id % 26 + 'a'.toInt).toChar.toString
   }
 
-  def infix(s: String) = !s.matches("^[a-zA-Z0-9_]*$")
+  def infix(s: String) = !s(0).isLetterOrDigit
 
   // apply Parentheses
   def applyPar(p: (String, Boolean)): String = p match {

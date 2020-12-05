@@ -96,7 +96,9 @@ object NameAnalyzer extends Pipeline[Seq[Expr], Program] {
 
     // Those are the definitions of the special symbols
     val specialDefs = Map(
-      "<=>" -> mkDef("<=>")((x, y) => Apply("&", Seq(Implies(x, y), Implies(y, x)))),
+      "<=>" -> mkDef("<=>")((x, y) =>
+        Apply("&", Seq(Implies(x, y), Implies(y, x)))
+      ),
       "&" -> mkDef("&")((x, y) => Not(Implies(x, Not(y)))),
       "|" -> mkDef("|")((x, y) => Implies(Not(x), y))
     )
