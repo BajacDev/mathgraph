@@ -37,6 +37,12 @@ class Solver() {
   var arities: Arities = MutMap.empty[Int, Int]
   var size: Int = 0
 
+  var logicExpr = MutSet.empty[Int] // true expr of the form forall a...z. A -> B or A <-> B or A && B or A || B or ~A
+  var forallExpr = MutSet.empty[Int] // true expr of the form forall something with no imply
+  var existsExpr = MutSet.empty[Int] // false expr of the form forall something
+  var globalExpr = MutSet.empty[Int] // expr with no forall as root
+
+
   def saturation(lg: LogicGraph): Unit = {
 
     if (lg.isAbsurd) ()
@@ -129,12 +135,12 @@ class Solver() {
       }
     }
 
-    val exprSet = lg.getAllTruth
+    def exprSet = lg.getAllTruth
       .filter(_ >= size)
       // remove occurance of trueSymbol with a tail
       // appears because of forall simplify
       .filter {
-        case HeadTail(TrueSymbol, _) => false
+        case HeadTail(TrueSymbol, seq) if seq.length > 0 => false
         case _                       => true
       }
 
@@ -142,7 +148,40 @@ class Solver() {
       recPos(expr)
     }
 
+    for (expr <- exprSet.filter(lg.isTruth(_, true))) {
+      if (isLogicExpr(expr)) logicExpr += expr
+      else if (lg.isFixable(expr)) forallExpr += expr
+      else globalExpr += expr
+    }
+
+    for (expr <- exprSet.filter(lg.isTruth(_, false))) {
+      if (!existsFalseFixer(lg, expr)) {
+        if(lg.isFixable(expr)) existsExpr += expr
+        else globalExpr += expr
+      }
+    }
+
     size = lg.size
+  }
+
+  def isLogicExpr(orig: Int)(implicit lg: LogicGraph): Boolean = {
+
+    def isLogicExprInside(pos: Int, args: Seq[Int]): Boolean = pos match {
+      case HeadTail(Symbol(id), seq) if id < args.length => args(id) match {
+        case OrSymbol if seq.length == 2 => true
+        case AndSymbol if seq.length == 2 => true
+        case ImplySymbol if seq.length == 2 => true
+        case IffSymbol if seq.length == 2 => true
+        case NotSymbol if seq.length == 1 => true
+        case _ => false
+      }
+      case _ => false
+    }
+
+    orig match {
+      case Forall(inside, args) => isLogicExprInside(inside, args)
+      case _ => true
+    }
   }
 
   /** Return the context of the argument to be fixed
