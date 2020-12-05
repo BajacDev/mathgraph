@@ -31,7 +31,7 @@ object ProgToLogicState extends Pipeline[Program, LogicState] {
 
   def exprToLogicGraph(
       expr: Expr,
-      stringToExpr: Map[Identifier, Int],
+      stringToExpr: Map[Name, Int],
       lg: LogicGraph
   ): Int = expr match {
     case Apply(id, args) => {
@@ -47,7 +47,7 @@ object ProgToLogicState extends Pipeline[Program, LogicState] {
   def interpretExpr(
       expr: Expr,
       context: Context,
-      vars: Seq[Identifier]
+      vars: Seq[Name]
   ): Int = {
     val Context(lg, globalstringToExpr) = context
     if (vars.length == 0) {
