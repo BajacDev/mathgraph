@@ -65,13 +65,13 @@ object Commands {
   }
 
   // Prints the logic state to the console
-  def printState(ls: LogicState, simple: Boolean): Unit = {
+  def printState(ls: LogicState, exprs: Iterable[Int], simple: Boolean): Unit = {
     val lg = ls.logicGraph
     val printer: Int => String =
       if (simple) ls.printer.toSimpleString(lg, _)
       else ls.printer.toString(lg, _)
 
-    for (e <- 0 until lg.size) {
+    for (e <- exprs) {
       val truth = lg
         .getTruthOf(e)
         .map(t => if (t) "[true]\t" else "[false]\t")
@@ -113,11 +113,11 @@ object Commands {
   }
 
   val lss: Command = consumeState { ls =>
-    printState(ls, simple = true)
+    printState(ls, 0 until ls.logicGraph.size, simple = true)
   }
 
   val ls: Command = consumeState { ls =>
-    printState(ls, simple = false)
+    printState(ls, 0 until ls.logicGraph.size, simple = false)
   }
 
   val absurd: Command = consumeState { ls =>
@@ -237,6 +237,21 @@ object Commands {
     }
   }
 
+  val psol: Command = consumeState { ls => {
+    val lg = ls.logicGraph
+    val sol = ls.solver
+    sol.update(lg)
+    println("imply exprs")
+    printState(ls, sol.impliesExpr, simple = false)
+    println("forall exprs")
+    printState(ls, sol.forallExpr, simple = false)
+    println("exists exprs")
+    printState(ls, sol.existsExpr, simple = false)
+    println("global exprs")
+    printState(ls, sol.globalExpr, simple = false)
+    }
+  }
+
   /** Contains the list of all the available commands in the REPL */
   val commands: Map[String, CommandDef] = cmdsToMap(
     CommandDef("help", help) ~>? StringT ??
@@ -248,6 +263,8 @@ object Commands {
       "Displays all the expression in a simple way.",
     CommandDef("ls", ls) ??
       "Displays all the expression.",
+    CommandDef("psol", psol) ??
+      "Displays solver expressions.",
     CommandDef("abs", absurd) ??
       "Displays whether the set of expressions is absurd.",
     CommandDef("fixn", fixN) ~> IntT ??
