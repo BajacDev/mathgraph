@@ -84,11 +84,40 @@ object NameAnalyzer extends Pipeline[Seq[Expr], Program] {
       ) // We quantify over the free variables (in case of Clause Normal Form)
     }
 
-    // Then, for all the symbols in the expressions, we create corresponding definitions
-    val newDefs = symbols.map { case (name, arity) =>
+    // We split the symbols into the normal ones, which don't have any interpretation,
+    // and the ones that have a meaning (<=>, & and |)
+    val (specialSymbols, normalSymbols) = symbols.partition { case (name, _) =>
+      Set("<=>", "&", "|").contains(name)
+    }
+
+    // Helper to create the definition of a binary operator
+    def mkDef(name: String)(body: (Expr, Expr) => Expr): Let =
+      Let(name, Seq("x", "y"), Some(body(Apply("x", Seq()), Apply("y", Seq()))))
+
+    // Those are the definitions of the special symbols
+    val specialDefs = Map(
+      "<=>" -> mkDef("<=>")((x, y) =>
+        Apply("&", Seq(Implies(x, y), Implies(y, x)))
+      ),
+      "&" -> mkDef("&")((x, y) => Not(Implies(x, Not(y)))),
+      "|" -> mkDef("|")((x, y) => Implies(Not(x), y))
+    )
+
+    // Those are the dependencies between the special symbols
+    val dependencies = Map(
+      "<=>" -> Seq("&", "<=>"),
+      "&" -> Seq("&"),
+      "|" -> Seq("|")
+    )
+
+    // We compute the set of special symbols that need to be defined
+    val needed = specialSymbols.map(_._1).flatMap(dependencies).toSeq.distinct
+
+    // We create definitions without body for the normal symbols
+    val normalDefs = normalSymbols.map { case (name, arity) =>
       Let(name, (1 to arity).map(i => s"x$i"), None)
     }.toSeq
 
-    Program(newDefs, newExprs)
+    Program(needed.map(specialDefs) ++ normalDefs, newExprs)
   }
 }

@@ -47,7 +47,8 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
     .map {
       case fof ~ ((name, _)) ~ (("conjecture", _)) ~ fofFormula ~ annotations =>
         Conjecture(name, fofFormula).setPos(fof)
-      case fof ~ ((name, _)) ~ (("negated_conjecture", _)) ~ fofFormula ~ annotations =>
+      case fof ~ ((name, _)) ~ (("negated_conjecture",
+          _)) ~ fofFormula ~ annotations =>
         Conjecture(name, Not(fofFormula).setPos(fofFormula)).setPos(fof)
       case fof ~ ((name, _)) ~ role ~ fofFormula ~ annotations =>
         Axiom(name, fofFormula).setPos(fof)
@@ -59,7 +60,8 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
     .map {
       case cnf ~ ((name, _)) ~ (("conjecture", _)) ~ cnfFormula ~ annotations =>
         Conjecture(name, cnfFormula).setPos(cnf)
-      case cnf ~ ((name, _)) ~ (("negated_conjecture", _)) ~ cnfFormula ~ annotations =>
+      case cnf ~ ((name, _)) ~ (("negated_conjecture",
+          _)) ~ cnfFormula ~ annotations =>
         Conjecture(name, Not(cnfFormula).setPos(cnfFormula)).setPos(cnf)
       case cnf ~ ((name, _)) ~ role ~ cnfFormula ~ annotations =>
         Axiom(name, cnfFormula).setPos(cnf)
@@ -79,36 +81,17 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
       case lhs ~ Some((OperatorToken("<="), Seq(rhs))) =>
         Implies(rhs, lhs).setPos(lhs)
       case lhs ~ Some((OperatorToken("<=>"), Seq(rhs))) =>
-        And(Implies(lhs, rhs).setPos(lhs), Implies(rhs, lhs).setPos(rhs))
-          .setPos(lhs)
-
+        Apply("<=>", Seq(lhs, rhs)).setPos(lhs)
       case lhs ~ Some((OperatorToken("<~>"), Seq(rhs))) =>
-        And(
-          Or(lhs, rhs).setPos(lhs),
-          Or(Not(lhs).setPos(lhs), Not(rhs).setPos(rhs)).setPos(lhs)
-        ).setPos(lhs)
-
-      case lhs ~ Some((OperatorToken("&"), rhs +: more)) =>
-        (
-          more
-            .foldLeft(And(lhs, rhs).setPos(lhs))((acc, next) =>
-              And(acc, next).setPos(acc)
-            )
-          )
-          .setPos(lhs)
+        Not(Apply("<=>", Seq(lhs, rhs)).setPos(lhs)).setPos(lhs)
+      case lhs ~ Some((OperatorToken("&"), more)) =>
+        more.foldLeft(lhs)((acc, rhs) => Apply("&", Seq(acc, rhs)).setPos(acc))
       case lhs ~ Some((OperatorToken("|"), rhs +: more)) =>
-        (
-          more
-            .foldLeft(Or(lhs, rhs).setPos(lhs))((acc, next) =>
-              Or(acc, next).setPos(acc)
-            )
-          )
-          .setPos(lhs)
-
+        more.foldLeft(lhs)((acc, rhs) => Apply("|", Seq(acc, rhs)).setPos(acc))
       case lhs ~ Some((OperatorToken("~&"), Seq(rhs))) =>
-        Not(And(lhs, rhs).setPos(lhs)).setPos(lhs)
+        Not(Apply("&", Seq(lhs, rhs)).setPos(lhs)).setPos(lhs)
       case lhs ~ Some((OperatorToken("~|"), Seq(rhs))) =>
-        Not(Or(lhs, rhs).setPos(lhs)).setPos(lhs)
+        Not(Apply("|", Seq(lhs, rhs)).setPos(lhs)).setPos(lhs)
       case _ ~ _ => ???
     }
 
