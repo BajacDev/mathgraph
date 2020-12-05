@@ -39,7 +39,7 @@ case class Printer(
     (id % 26 + 'a'.toInt).toChar.toString
   }
 
-  def infix(s: String) = !s(0).isLetterOrDigit
+  def infix(s: String) = !s(0).isLetterOrDigit && s(0) != '_'
 
   // apply Parentheses
   def applyPar(p: (String, Boolean)): String = p match {
