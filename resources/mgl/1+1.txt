@@ -1,12 +1,12 @@
 let 0, s;
 let(left, 24) A + B;
 let(left, 23) A = B;
+let(left, 22) A & B := ~(A -> ~B);
 
 let 1 := s(0);
 
 forall n. 0 + n = n;
-+ = +; // todo remove this line (solver does not work without)
 forall n. n = n;
-forall f g x y. f = g -> x = y -> f(x) = g(y);
+forall f g x y. (f = g & x = y) -> f(x) = g(y);
 
 ~(1 + (0 + 1) = 1 + 1);

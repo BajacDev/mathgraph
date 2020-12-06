@@ -152,7 +152,7 @@ case class Printer(
       alg: String
   ): List[String] = {
 
-    def lineToString(pos: Int, inference: String) =
+    def lineToString(pos: Int, inference: String): String =
       alg + toString(lg, pos) + " " + inference
 
     way match {
@@ -165,6 +165,9 @@ case class Printer(
         val nextLayerProof = lg.getInferenceOf(a, b) match {
           case Some(ImplyIR(_, implyPos)) =>
             proofFromPos(lg, implyPos, alg + "\u2193 ")
+          case Some(ImplyUpIR(a, b)) =>
+            proofFromPos(lg, a, alg + "\u2193 ") ++ List(" ") ++
+              proofFromPos(lg, b, alg + "\u2193 ")
           case _ => List()
         }
 
@@ -179,11 +182,12 @@ case class Printer(
   }
 
   def inferenceToString(ir: InferenceRule): String = ir match {
-    case ImplyIR(_, _) => "Implies"
-    case FixIR         => "Fix"
-    case FixLetSymIR   => "FixLetSym"
-    case SimplifyIR    => "Simplify"
-    case Axiom         => "Axiom"
+    case ImplyIR(_, _)   => "Implies"
+    case ImplyUpIR(_, _) => "ImplyUpIR"
+    case FixIR           => "Fix"
+    case FixLetSymIR     => "FixLetSym"
+    case SimplifyIR      => "Simplify"
+    case Axiom           => "Axiom"
   }
 
   def proofFromPos(lg: LogicGraph, pos: Int, alg: String = ""): List[String] = {

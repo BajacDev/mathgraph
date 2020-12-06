@@ -65,7 +65,11 @@ object Commands {
   }
 
   // Prints the logic state to the console
-  def printState(ls: LogicState, exprs: Iterable[Int], simple: Boolean): Unit = {
+  def printState(
+      ls: LogicState,
+      exprs: Iterable[Int],
+      simple: Boolean
+  ): Unit = {
     val lg = ls.logicGraph
     val printer: Int => String =
       if (simple) ls.printer.toSimpleString(lg, _)
@@ -146,12 +150,20 @@ object Commands {
     }
   }
 
-  val fixAllTrue: Command = consumeState { ls =>
-    ls.solver.fixAll(ls.logicGraph)
+  val fixLogicExpr: Command = consumeState { ls =>
+    ls.solver.fixLogicExpr()(ls.logicGraph)
   }
 
   val fixAllFalse: Command = consumeState { ls =>
-    ls.solver.fixLetSym(ls.logicGraph)
+    ls.solver.fixLetSym()(ls.logicGraph)
+  }
+
+  val fixForallExpr: Command = consumeState { ls =>
+    ls.solver.fixForallExpr()(ls.logicGraph)
+  }
+
+  val evaluateImply: Command = consumeState { ls =>
+    ls.solver.evaluateAllImply()(ls.logicGraph)
   }
 
   val proof: Command = consumeState { ls =>
@@ -165,90 +177,21 @@ object Commands {
     }
   }
 
-  val stats: Command = consumeState { ls =>
-    val lg = ls.logicGraph
-    val sol = ls.solver
-    sol.update(lg)
-    val printer = ls.printer
-
-    sol.stats.foreach { case (ctx, set) =>
-      println(
-        s"Context(head: ${ctx.head} ${printer.toString(lg, ctx.head)}, idArg: ${ctx.idArg})"
-      )
-      set.map(printer.toString(lg, _)).foreach(println)
-      println()
-    }
-  }
-
-  val ctx: Command = { ls =>
-    { case Seq(e: Int) =>
-      val lg = ls.logicGraph
-      val sol = ls.solver
-      val printer = ls.printer
-
-      sol
-        .getContexts(lg, e)
-        .foreach(ctx =>
-          println(
-            s"Context(head: ${ctx.head} ${printer
-              .toString(lg, ctx.head)}, idArg: ${ctx.idArg})"
-          )
-        )
-      ls
-    }
-  }
-
-  val fargs: Command = { ls =>
-    { case Seq(e: Int) =>
+  val psol: Command = consumeState { ls =>
+    {
       val lg = ls.logicGraph
       val sol = ls.solver
       sol.update(lg)
-      val printer = ls.printer
-
-      sol
-        .getFutureArgs(lg, e)
-        .foreach(args => println(printer.toString(lg, args)))
-      ls
-    }
-  }
-
-  val arities: Command = consumeState { ls =>
-    val lg = ls.logicGraph
-    val sol = ls.solver
-    sol.update(lg)
-    val printer = ls.printer
-
-    sol.arities.foreach { case (pos, arity) =>
-      println(
-        s"Symbol: ${pos} ${printer.toString(lg, pos)} Arity: ${arity}"
-      )
-      println()
-    }
-  }
-
-  val undo: Command = transformState { ls =>
-    ls.previousState match {
-      case Some(prev) =>
-        println("Undo successful")
-        prev
-      case None =>
-        println("Nothing to undo")
-        ls
-    }
-  }
-
-  val psol: Command = consumeState { ls => {
-    val lg = ls.logicGraph
-    val sol = ls.solver
-    sol.update(lg)
-    println("imply exprs")
-    printState(ls, sol.impliesExpr, simple = false)
-    println("forall exprs")
-    printState(ls, sol.forallExpr, simple = false)
-    println("exists exprs")
-    printState(ls, sol.existsExpr, simple = false)
-    println("global exprs")
-    printState(ls, sol.globalExpr, simple = false)
+      println("imply exprs")
+      printState(ls, sol.logicExpr, simple = false)
+      println("forall exprs")
+      printState(ls, sol.forallExpr, simple = false)
+      println("exists exprs")
+      printState(ls, sol.existsExpr, simple = false)
+      println("true global exprs")
+      printState(ls, sol.trueGlobalExpr, simple = false)
+      println("false global exprs")
+      printState(ls, sol.falseGlobalExpr, simple = false)
     }
   }
 
@@ -273,21 +216,17 @@ object Commands {
       "Fixes the two symbols given as arguments.",
     CommandDef("simp", simplify) ~> IntT ??
       "Simplifies the given expression.",
-    CommandDef("fat", fixAllTrue) ??
+    CommandDef("fle", fixLogicExpr) ??
       "Fixes all the expressions to true.",
+    CommandDef("ffe", fixForallExpr) ??
+      "Fixes all the expressions to true.",
+    CommandDef("evi", evaluateImply) ??
+      "evaluate expressions of the form a -> b.",
     CommandDef("faf", fixAllFalse) ??
       "Fixes all the expressions to false.",
     CommandDef("proof", proof) ??
       "Displays a proof by contradiction, if one was found.",
     CommandDef("s", saturate) ??
-      "Applies the saturation algorithm to the set of expressions.",
-    CommandDef("stats", stats) ??
-      "Displays statistics about the expressions.",
-    CommandDef("arities", arities) ??
-      "Displays statistics about the expressions.",
-    CommandDef("ctx", ctx) ~> IntT ??
-      "Displays context about an expression arg.",
-    CommandDef("fargs", fargs) ~> IntT ??
-      "Displays all possible argument selected by the solver to be fixed on given expression."
+      "Applies the saturation algorithm to the set of expressions."
   )
 }

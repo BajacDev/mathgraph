@@ -8,6 +8,7 @@ import mathgraph.util._
 import mathgraph.util.{Context => UtilContext}
 import mathgraph.backend.{BackendContext => Context}
 import mathgraph.printer._
+import mathgraph.solver._
 
 object ProgToLogicState extends Pipeline[Program, LogicState] {
 
@@ -89,10 +90,12 @@ object ProgToLogicState extends Pipeline[Program, LogicState] {
     }
 
   def contextToLogicState(ctx: Context): LogicState = {
-    val exprToString =
-      ctx.stringToExpr.filterKeys(!_.startsWith("__")).map(_.swap).toMap
+    val stringToExpr = ctx.stringToExpr.filterKeys(!_.startsWith("__"))
+    val exprToString = stringToExpr.map(_.swap).toMap
     val printer = Printer(exprToString)
-    LogicState(ctx.logicGraph, printer, None)
+    val solver = new Solver()
+    solver.retriveLogicSymbols(stringToExpr)
+    LogicState(ctx.logicGraph, printer, solver)
   }
 
   protected def apply(program: Program)(ctxt: UtilContext): LogicState = {

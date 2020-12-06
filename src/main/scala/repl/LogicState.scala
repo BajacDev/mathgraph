@@ -7,6 +7,5 @@ import mathgraph.solver._
 case class LogicState(
     logicGraph: LogicGraph,
     printer: Printer,
-    previousState: Option[LogicState],
-    solver: Solver = new Solver()
+    solver: Solver
 )
