@@ -1,7 +1,7 @@
-let P(x, y);
-let f(x);
-let or(a, b) := ~a -> b;
+let P;
+let f;
+let(left, 23) a | b := ~a -> b;
 
-forall x y. ~P(x, y) || P(f(x), y);
+forall x y. ~P(x, y) | P(f(x), y);
 forall x y. ~P(f(x), y);
 ~(forall e u. ~P(e, u));

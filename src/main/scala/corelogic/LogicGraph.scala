@@ -38,6 +38,7 @@ import scala.collection.mutable.{Map, Set}
 
 trait InferenceRule
 case class ImplyIR(b: Boolean, implyPos: Int) extends InferenceRule
+case class ImplyUpIR(a: Int, b: Int) extends InferenceRule
 object FixIR extends InferenceRule
 object FixLetSymIR extends InferenceRule
 object SimplifyIR extends InferenceRule
@@ -147,6 +148,25 @@ class LogicGraph extends ExprContainer {
             link(TrueSymbol, a, ImplyIR(false, pos))
             link(b, FalseSymbol, ImplyIR(false, pos))
           }
+        }
+      }
+      case _ => ()
+    }
+
+  def implyUpInferenceRule(pos: Int): Unit =
+    (pos, getTruthOf(pos)) match {
+      case (_, Some(_)) => ()
+      case (HeadTail(ImplySymbol, Seq(a, b)), _) => {
+        (truth get a, truth get b) match {
+          case (Some(true), Some(true)) =>
+            link(TrueSymbol, pos, ImplyUpIR(a, b))
+          case (Some(false), Some(true)) =>
+            link(TrueSymbol, pos, ImplyUpIR(a, b))
+          case (Some(false), Some(false)) =>
+            link(TrueSymbol, pos, ImplyUpIR(a, b))
+          case (Some(true), Some(false)) =>
+            link(pos, FalseSymbol, ImplyUpIR(a, b))
+          case _ => ()
         }
       }
       case _ => ()

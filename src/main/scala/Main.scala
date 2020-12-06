@@ -9,7 +9,7 @@ object Main {
 
   def main(args: Array[String]): Unit = {
     val ctxt = new Context
-    val defaultFile = "example/test.txt"
+    val defaultFile = "resources/mgl/test.txt"
     val sourceFile = if (args.isEmpty) {
       ctxt.info(s"Using default input file: $defaultFile")
       defaultFile
