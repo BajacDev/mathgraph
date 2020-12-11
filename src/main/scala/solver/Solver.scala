@@ -37,11 +37,10 @@ class Solver() {
 
   var size: Int = 0
 
-  var logicExpr =
-    MutSet
-      .empty[Int] // true expr of the form forall a...z. A -> B or A <-> B or A && B or A || B or ~A
-  var forallExpr =
-    MutSet.empty[Int] // true expr of the form forall something with no imply
+  // true expr of the form forall a...z. A -> B or A <-> B or A && B or A || B or ~A
+  var logicExpr = MutSet.empty[Int] 
+  // true expr of the form forall something with no imply
+  var forallExpr = MutSet.empty[Int] 
   var existsExpr = MutSet.empty[Int] // false expr of the form forall something
   var trueGlobalExpr = MutSet.empty[Int] // true expr with no forall as root
   var falseGlobalExpr = MutSet.empty[Int] // false expr with no forall as root
@@ -110,7 +109,6 @@ class Solver() {
     case _ => ()
   }
 
-  // general todo
   def findFixersForForall(
       orig: Int
   )(implicit lg: LogicGraph): List[Map[Int, Int]] = {
@@ -121,6 +119,22 @@ class Solver() {
     case class Inside(pos: Int, left: ImplyTree, right: ImplyTree) extends ImplyTree
     case class CannotRepresent(left: ImplyTree, right: ImplyTree) extends ImplyTree
     object FalseEnd extends ImplyTree
+
+    object NodeWithChilds {
+      def unapply(tree: ImplyTree): Option[(ImplyTree, ImplyTree)] = tree match {
+        case Inside(_, a, b) => Some((a, b))
+        case CannotRepresent(a, b) => Some((a, b))
+        case _ => None
+      }
+    }
+
+    object NodeWithPos {
+      def unapply(tree: ImplyTree): Option[Int] = tree match {
+        case Inside(pos, a, b) => Some(pos)
+        case End(pos) => Some(pos)
+        case _ => None
+      }
+    }
 
     case class ExtendedArgs(args: Map[Int, Int], opt: Option[(Seq[Int], ExtendedArgs)] = None) {
       lazy val depth: Int = 1 + opt.map(_._2.depth).getOrElse(0)
@@ -160,20 +174,21 @@ class Solver() {
       }
     }
 
-    def secondOrderHasTruth(pos: Int, initialNumArgs: Int, args: Map[Int, Int]): Boolean = pos match {
-      case HeadTail(Symbol(id), Seq(a, b)) if args.contains(id) && args(id) == ImplySymbol =>
+    def secondOrderHasTruth(implyTree: ImplyTree, initialNumArgs: Int, args: Map[Int, Int]): Boolean = implyTree match {
+      case End(pos) => !(isSecondOrder(pos, initialNumArgs) && getMatchPattern(pos, args, trueGlobalExpr ++ falseGlobalExpr).isEmpty)
+      case NodeWithChilds(a, b) => 
         secondOrderHasTruth(a, initialNumArgs, args) && secondOrderHasTruth(b, initialNumArgs, args)
-      case _ if isSecondOrder(pos, initialNumArgs)=> {
-        !getMatchPattern(pos, args, trueGlobalExpr ++ falseGlobalExpr).isEmpty
-      }
-      case _ => true
+      case FalseEnd => true
     }
 
-    def searchTrue(pos: Int, args: Map[Int, Int]): List[Map[Int, Int]] = {
-      val newArgs = getMatchPattern(pos, args, trueGlobalExpr)
-      pos match {
-        // suppose it is an imply
-        case HeadTail(Symbol(id), Seq(a, b)) if args.contains(id) && args(id) == ImplySymbol => 
+    def searchTrue(implyTree: ImplyTree, args: Map[Int, Int]): List[Map[Int, Int]] = {
+      val newArgs = implyTree match {
+        case NodeWithPos(pos) => getMatchPattern(pos, args, trueGlobalExpr)
+        case _ => List()
+      }
+
+      implyTree match {
+        case NodeWithChilds(a, b) => 
           searchFalse(a, args) ++
           searchFalse(a, args).flatMap(searchFalse(b, _)) ++
           searchFalse(a, args).flatMap(searchTrue(b, _)) ++
@@ -183,42 +198,38 @@ class Solver() {
       }
     }
 
-    def searchFalse(pos: Int, args: Map[Int, Int]): List[Map[Int, Int]] = {
-      val newArgs = getMatchPattern(pos, args, falseGlobalExpr)
-      pos match {
-        // suppose it is an imply
-        case HeadTail(Symbol(id), Seq(a, b)) if args.contains(id) && args(id) == ImplySymbol =>
+    def searchFalse(implyTree: ImplyTree, args: Map[Int, Int]): List[Map[Int, Int]] = {
+      val newArgs = implyTree match {
+        case NodeWithPos(pos) => getMatchPattern(pos, args, falseGlobalExpr)
+        case FalseEnd => List(args)
+        case _ => List()
+      }
+
+      implyTree match {
+        case NodeWithChilds(a, b) => 
           searchTrue(a, args).flatMap(searchFalse(b, _)) ++ newArgs
         case _ => newArgs
       }
     }
 
-    def insideIsFalse(pos: Int, args: Map[Int, Int]): List[Map[Int, Int]] = pos match {
-      case HeadTail(Symbol(id), Seq(a, b)) if args.contains(id) =>
-        if (args(id) == ImplySymbol) {
-          val newArgsA = insideIsTrue(a, args)
-          val newArgsB = insideIsFalse(b, args)
-          val both = newArgsA.flatMap(insideIsFalse(b, _))
-          newArgsA ++ newArgsB ++ both
-        } 
-
-        // todo args duplication. use sets
-        else List(args)
+    def insideIsFalse(implyTree: ImplyTree, args: Map[Int, Int]): List[Map[Int, Int]] = implyTree match {
+      case NodeWithChilds(a, b) => 
+        val newArgsA = insideIsTrue(a, args)
+        val newArgsB = insideIsFalse(b, args)
+        val both = newArgsA.flatMap(insideIsFalse(b, _))
+        newArgsA ++ newArgsB ++ both
+      // todo args duplication. use sets
       case _ => List(args)
     }
 
-    def insideIsTrue(pos: Int, args: Map[Int, Int]): List[Map[Int, Int]] = pos match {
-      case HeadTail(Symbol(id), Seq(a, b)) if args.contains(id) =>
-        if (args(id) == ImplySymbol) {
-          // (a must be true) or (b must be false) or both
-
-          val newArgsA = searchTrue(a, args).flatMap(insideIsTrue(b, _))
-          val newArgsB = searchFalse(b, args).flatMap(insideIsFalse(a, _))
-          val newArgsAbsurd = searchTrue(a, args).flatMap(searchFalse(b, _))
-          
-          newArgsA ++ newArgsB ++ newArgsAbsurd
-        }
-        else List(args)
+    def insideIsTrue(implyTree: ImplyTree, args: Map[Int, Int]): List[Map[Int, Int]] = implyTree match {
+      case NodeWithChilds(a, b) => 
+        val newArgsA = searchTrue(a, args).flatMap(insideIsTrue(b, _))
+        val newArgsB = searchFalse(b, args).flatMap(insideIsFalse(a, _))
+        val newArgsAbsurd = searchTrue(a, args).flatMap(searchFalse(b, _))
+        
+        newArgsA ++ newArgsB ++ newArgsAbsurd
+      // todo args duplication. use sets
       case _ => List(args)
     }
 
@@ -226,7 +237,8 @@ class Solver() {
       case Forall(inside, args) => {
         val maxArgs = lg.countSymbols(inside)
         val argsMap = argsToMap(args)
-        insideIsTrue(inside, argsMap).filter(_.size == maxArgs).filter(secondOrderHasTruth(inside, args.size, _))
+        val implyTree = buildImplyTree(inside, ExtendedArgs(argsMap))
+        insideIsTrue(implyTree, argsMap).filter(_.size == maxArgs).filter(secondOrderHasTruth(implyTree, args.size, _))
       }
       case _ => List()
     }

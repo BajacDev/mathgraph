@@ -4,7 +4,10 @@ let(left, 22) A = B;
 let 1;
 let(left, 23) a + b;
 
-forall f g x y. f = g -> (x = y -> f(x) = g(y));
+let(left, 21) a && b := ~(a -> ~b);
+let(left, 20) a <=> b := (a -> b) && (b -> a);
+
+forall f g x y. (f = g && x = y) <=> (f(x) = g(y));
 
 1 = 1;
 + = +;
