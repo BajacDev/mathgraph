@@ -115,7 +115,50 @@ class Solver() {
       orig: Int
   )(implicit lg: LogicGraph): List[Map[Int, Int]] = {
 
-    var maxArgs = 0
+    trait ImplyTree
+    object Error extends ImplyTree
+    case class End(pos: Int) extends ImplyTree
+    case class Inside(pos: Int, left: ImplyTree, right: ImplyTree) extends ImplyTree
+    case class CannotRepresent(left: ImplyTree, right: ImplyTree) extends ImplyTree
+    object FalseEnd extends ImplyTree
+
+    case class ExtendedArgs(args: Map[Int, Int], opt: Option[(Seq[Int], ExtendedArgs)] = None) {
+      lazy val depth: Int = 1 + opt.map(_._2.depth).getOrElse(0)
+
+      def previous(id: Int): Option[(Int, ExtendedArgs)] = opt.flatMap{case (seq, prevExtArg) => {
+          val i = id - args.size
+          if (i >= 0 && i < seq.length) Some(seq(i), prevExtArg)
+          else None
+        }
+      }
+    }
+
+    def buildImplyTree(pos: Int, extArgs: ExtendedArgs): ImplyTree = {
+      val args = extArgs.args
+      pos match {
+        case HeadTail(Symbol(id), Seq(a, b)) if args.contains(id) && args(id) == ImplySymbol =>
+          val left = buildImplyTree(a, extArgs)
+          val right = buildImplyTree(b, extArgs)
+          if (extArgs.depth > 1) CannotRepresent(left, right) else Inside(pos, left, right)
+
+        case HeadTail(Symbol(id), seq) if args.contains(id) => args(id) match {
+          case Forall(inside, newArgs) => 
+            val newArgsMap = argsToMap(newArgs)
+            val newExtendedArg = ExtendedArgs(newArgsMap, Some((seq, extArgs)))
+            buildImplyTree(inside, newExtendedArg)
+
+          case FalseSymbol if seq.isEmpty => FalseEnd
+          case _ => if (extArgs.depth > 1) Error else End(pos)
+        }
+
+        case Symbol(id) if extArgs.depth > 1 => extArgs.previous(id) match {
+          case None => Error
+          case Some((newPos, newExtArgs)) => buildImplyTree(newPos, newExtArgs)
+        }
+
+        case _ => if (extArgs.depth > 1) Error else End(pos)
+      }
+    }
 
     def secondOrderHasTruth(pos: Int, initialNumArgs: Int, args: Map[Int, Int]): Boolean = pos match {
       case HeadTail(Symbol(id), Seq(a, b)) if args.contains(id) && args(id) == ImplySymbol =>
@@ -181,8 +224,9 @@ class Solver() {
 
     orig match {
       case Forall(inside, args) => {
-        maxArgs = lg.countSymbols(inside)
-        insideIsTrue(inside, argsToMap(args)).filter(_.size == maxArgs).filter(secondOrderHasTruth(inside, args.size, _))
+        val maxArgs = lg.countSymbols(inside)
+        val argsMap = argsToMap(args)
+        insideIsTrue(inside, argsMap).filter(_.size == maxArgs).filter(secondOrderHasTruth(inside, args.size, _))
       }
       case _ => List()
     }
