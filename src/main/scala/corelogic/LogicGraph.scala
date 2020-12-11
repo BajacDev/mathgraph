@@ -142,11 +142,13 @@ class LogicGraph extends ExprContainer {
       case HeadTail(ImplySymbol, Seq(a, b)) => {
         truth get pos match {
           case None => ()
-          case Some(true) =>
-            link(a, b, ImplyIR(true, pos))
+          case Some(true) => (getTruthOf(a), getTruthOf(b)) match {
+            case (Some(v1), Some(v2)) if v1 == v2 => ()
+            case _ => link(a, b, ImplyIR(true, pos))
+          }
           case Some(false) => {
-            link(TrueSymbol, a, ImplyIR(false, pos))
-            link(b, FalseSymbol, ImplyIR(false, pos))
+            if (!isTruth(a, true)) link(TrueSymbol, a, ImplyIR(false, pos))
+            if (!isTruth(b, false)) link(b, FalseSymbol, ImplyIR(false, pos))
           }
         }
       }

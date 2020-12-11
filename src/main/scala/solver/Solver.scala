@@ -34,6 +34,7 @@ class Solver() {
 
   var stats: Stats = MutMap.empty[Context, MutSet[Int]]
   var arities: Arities = MutMap.empty[Int, Int]
+
   var size: Int = 0
 
   var logicExpr =
@@ -85,7 +86,7 @@ class Solver() {
   def fixLogicExpr()(implicit lg: LogicGraph): Unit = {
     update(lg)
     for (pos <- logicExpr) {
-      val argsList = findArgsAndFix(pos)
+      val argsList = findFixersForForall(pos)
       for (args <- argsList) {
         fixArgsOnPos(pos, args)
       }
@@ -110,56 +111,81 @@ class Solver() {
   }
 
   // general todo
-  def findArgsAndFix(
+  def findFixersForForall(
       orig: Int
-  )(implicit lg: LogicGraph): ListBuffer[Map[Int, Int]] = {
+  )(implicit lg: LogicGraph): List[Map[Int, Int]] = {
 
-    val possibleArgs = ListBuffer.empty[Map[Int, Int]]
     var maxArgs = 0
 
-    def addPossible(args: Map[Int, Int]): Unit =
-      if (args.size == maxArgs) possibleArgs += args
-
-    def processInsideFalse(pos: Int, args: Map[Int, Int]): Unit = pos match {
-      case HeadTail(Symbol(id), seq) if args.contains(id) =>
-        if (args(id) == ImplySymbol) {
-          // todo
-        } else if (args(id) == OrSymbol) {} // todo
-        else if (args(id) == AndSymbol) {
-          // todo
-          addPossible(args)
-        } else if (args(id) == IffSymbol) {} // todo
-        else addPossible(args)
-      case _ => addPossible(args)
+    def secondOrderHasTruth(pos: Int, initialNumArgs: Int, args: Map[Int, Int]): Boolean = pos match {
+      case HeadTail(Symbol(id), Seq(a, b)) if args.contains(id) && args(id) == ImplySymbol =>
+        secondOrderHasTruth(a, initialNumArgs, args) && secondOrderHasTruth(b, initialNumArgs, args)
+      case _ if isSecondOrder(pos, initialNumArgs)=> {
+        !getMatchPattern(pos, args, trueGlobalExpr ++ falseGlobalExpr).isEmpty
+      }
+      case _ => true
     }
 
-    def processInsideTrue(pos: Int, args: Map[Int, Int]): Unit = pos match {
+    def searchTrue(pos: Int, args: Map[Int, Int]): List[Map[Int, Int]] = {
+      val newArgs = getMatchPattern(pos, args, trueGlobalExpr)
+      pos match {
+        // suppose it is an imply
+        case HeadTail(Symbol(id), Seq(a, b)) if args.contains(id) && args(id) == ImplySymbol => 
+          searchFalse(a, args) ++
+          searchFalse(a, args).flatMap(searchFalse(b, _)) ++
+          searchFalse(a, args).flatMap(searchTrue(b, _)) ++
+          searchTrue(a, args).flatMap(searchTrue(b, _)) ++
+          newArgs
+        case _ => newArgs
+      }
+    }
+
+    def searchFalse(pos: Int, args: Map[Int, Int]): List[Map[Int, Int]] = {
+      val newArgs = getMatchPattern(pos, args, falseGlobalExpr)
+      pos match {
+        // suppose it is an imply
+        case HeadTail(Symbol(id), Seq(a, b)) if args.contains(id) && args(id) == ImplySymbol =>
+          searchTrue(a, args).flatMap(searchFalse(b, _)) ++ newArgs
+        case _ => newArgs
+      }
+    }
+
+    def insideIsFalse(pos: Int, args: Map[Int, Int]): List[Map[Int, Int]] = pos match {
       case HeadTail(Symbol(id), Seq(a, b)) if args.contains(id) =>
         if (args(id) == ImplySymbol) {
-          var newArgs = getMatchPattern(a, args, trueGlobalExpr)
-          newArgs.foreach(processInsideTrue(b, _))
+          val newArgsA = insideIsTrue(a, args)
+          val newArgsB = insideIsFalse(b, args)
+          val both = newArgsA.flatMap(insideIsFalse(b, _))
+          newArgsA ++ newArgsB ++ both
+        } 
 
-          newArgs = getMatchPattern(b, args, falseGlobalExpr)
-          newArgs.foreach(processInsideFalse(a, _))
-        } else if (args(id) == OrSymbol) () // todo
-        else if (args(id) == AndSymbol) () // todo
-        else if (args(id) == IffSymbol) () // todo
-        else addPossible(args)
-      case _ => addPossible(args)
+        // todo args duplication. use sets
+        else List(args)
+      case _ => List(args)
+    }
+
+    def insideIsTrue(pos: Int, args: Map[Int, Int]): List[Map[Int, Int]] = pos match {
+      case HeadTail(Symbol(id), Seq(a, b)) if args.contains(id) =>
+        if (args(id) == ImplySymbol) {
+          // (a must be true) or (b must be false) or both
+
+          val newArgsA = searchTrue(a, args).flatMap(insideIsTrue(b, _))
+          val newArgsB = searchFalse(b, args).flatMap(insideIsFalse(a, _))
+          val newArgsAbsurd = searchTrue(a, args).flatMap(searchFalse(b, _))
+          
+          newArgsA ++ newArgsB ++ newArgsAbsurd
+        }
+        else List(args)
+      case _ => List(args)
     }
 
     orig match {
       case Forall(inside, args) => {
-        val argsMap = args.zipWithIndex.map { case (arg, idx) =>
-          (idx -> arg)
-        }.toMap
         maxArgs = lg.countSymbols(inside)
-        processInsideTrue(inside, argsMap)
+        insideIsTrue(inside, argsToMap(args)).filter(_.size == maxArgs).filter(secondOrderHasTruth(inside, args.size, _))
       }
-      case _ => ()
+      case _ => List()
     }
-
-    possibleArgs
   }
 
   def fixForallExpr()(implicit lg: LogicGraph): Unit = {
@@ -225,6 +251,10 @@ class Solver() {
     result.headOption
   }
 
+  // =============================
+  // filter and sort expressions
+  // =============================
+
   def update(implicit
       lg: LogicGraph
   ): Unit = {
@@ -267,18 +297,8 @@ class Solver() {
 
   def isLogicExpr(orig: Int)(implicit lg: LogicGraph): Boolean = {
 
-    def isLogicExprInside(pos: Int, args: Seq[Int]): Boolean = pos match {
-      case HeadTail(Symbol(id), Seq(a, b)) if id < args.length =>
-        if (args(id) == ImplySymbol) true
-        else if (args(id) == OrSymbol) true
-        else if (args(id) == AndSymbol) true
-        else if (args(id) == IffSymbol) true
-        else false
-      case _ => false
-    }
-
     orig match {
-      case Forall(inside, args) => isLogicExprInside(inside, args)
+      case Forall(inside, args) => isLogicExpr(inside, argsToMap(args))
       case _                    => false
     }
   }
@@ -318,10 +338,7 @@ class Solver() {
       patterns: List[Int]
   )(implicit lg: LogicGraph): List[(Int, Map[Int, Int])] = {
 
-    def argsToMap(args: Seq[Int]): Map[Int, Int] = args.zipWithIndex.map {
-      case (arg, idx) => (idx -> arg)
-    }.toMap
-
+    
     def getInside(pos: Int): Option[(Int, Int, Map[Int, Int])] = pos match {
       case Forall(inside, args) => Some((pos, inside, argsToMap(args)))
       case _                    => None
@@ -334,5 +351,28 @@ class Solver() {
       }
     }
   }
+
+  // ========================================================================
+  //  utils 
+  // ========================================================================
+
+  def isSecondOrder(pos: Int, numArgs: Int)(implicit lg: LogicGraph): Boolean = pos match {
+    case HeadTail(Symbol(id), args) if !args.isEmpty => id >= numArgs || args.exists(isSecondOrder(_, numArgs))
+    case _ => false
+  }
+
+  def isLogicExpr(pos: Int, args: Map[Int, Int])(implicit lg: LogicGraph): Boolean = pos match {
+    case HeadTail(Symbol(id), Seq(a, b)) if args.contains(id) =>
+        if (args(id) == ImplySymbol) true
+        else if (args(id) == OrSymbol) true
+        else if (args(id) == AndSymbol) true
+        else if (args(id) == IffSymbol) true
+        else false
+      case _ => false
+  }
+
+  def argsToMap(args: Seq[Int]): Map[Int, Int] = args.zipWithIndex.map {
+      case (arg, idx) => (idx -> arg)
+  }.toMap
 
 }
