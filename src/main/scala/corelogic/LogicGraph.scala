@@ -41,7 +41,7 @@ trait InferenceRule
 // todo: some inference rules must and should be merged
 case class ImplyIR(b: Boolean, implyPos: Int) extends InferenceRule
 case class ImplyUpIR(a: Int, b: Int) extends InferenceRule
-object ImplyFromLink extends InferenceRule
+object SimplInsideIR extends InferenceRule
 object FixIR extends InferenceRule
 object FixLetSymIR extends InferenceRule
 object SimplifyIR extends InferenceRule
@@ -173,10 +173,11 @@ class LogicGraph extends ExprContainer {
             link(pos, FalseSymbol, ImplyUpIR(a, b))
           case _ => ()
         }
-        if (a == b) link(TrueSymbol, pos, ImplyFromLink)
       }
       case _ => ()
     }
+
+  
 
   // -------------------------------------------------------------
   // simplify inference rule
@@ -193,26 +194,67 @@ class LogicGraph extends ExprContainer {
 
   /** this method comtains 1 inference rule
     * when a forall contains n free Symbols and the tail/args of the forall
-    * is of lenght at least n (ie: when all symbols in forall have been fixed)
+    * is of length at least n (ie: when all symbols in forall have been fixed)
     * then use simply (see simplify)
     */
-  def simplifyInferenceRule(pos: Int): Int = pos match {
-    case Forall(inside, args) =>
-      if (countSymbols(inside) > args.length) pos
+  def simplifyAll(pos: Int, toBefixed: Int): Option[Int] = pos match {
+    case Forall(inside, args0) =>
+      val args = args0 :+ toBefixed
+      if (countSymbols(inside) > args.length) None
       else {
         val newPos = simplify(inside, args)
-        link(newPos, pos, SimplifyIR)
-        link(pos, newPos, SimplifyIR)
-        newPos
+        Some(newPos)
       }
-    case _ => pos
+    case _ => None
   }
 
-  /** use simplify in loop until there is nothing to simplify * */
-  def simplifyInferenceRuleLoop(pos: Int): Unit = {
-    val newPos = simplifyInferenceRule(pos)
-    if (newPos != pos) simplifyInferenceRuleLoop(newPos)
-    else ()
+  def simplifyInside(orig: Int, toBeFixed: Int): Option[Int] = {
+    (orig, toBeFixed) match {
+      case (Forall(inside1, args), Forall(inside2, args2)) => 
+        // todo: lots of duplicates
+
+        val args1 = args :+ toBeFixed
+
+        if (countSymbols(inside1) < args1.length) return None
+
+        val shift = args2.length
+        val newId = args.length
+        val remain = countSymbols(inside2) - args2.length
+
+        def willGenerateNewInside(pos: Int): Boolean = {
+          pos match {
+            case HeadTail(Symbol(id), seq) if id == newId && seq.length >= remain => true
+            case Fixer(a, b) => willGenerateNewInside(a) || willGenerateNewInside(b)
+            case Symbol(id) => false
+          }
+        }
+
+        def simplifyInsideRec(pos: Int): Int = {
+          pos match {
+            case HeadTail(Symbol(id), seq) if id == newId && seq.length >= remain => 
+              
+              val mapping = (0 until args2.length).map(idToSymbol)
+              simplify(inside2, mapping ++ seq.map(simplifyInsideRec))
+            case Fixer(a, b) => 
+              fix(simplifyInsideRec(a), simplifyInsideRec(b))
+            case Symbol(id) => 
+              idToSymbol(id + shift)
+          }
+        }
+
+        if (!willGenerateNewInside(inside1)) return None
+
+        val newInside = simplifyInsideRec(inside1)
+
+        var pos = forall(newInside)
+        val newArgs = (args2 ++ args1)
+        for (arg <- newArgs) {
+          pos = fix(pos, arg)
+        }
+        // todo
+        Some(pos)
+      case _ => None
+    }
   }
 
   // -------------------------------------------------------------
@@ -224,8 +266,16 @@ class LogicGraph extends ExprContainer {
   /** when A is in the graph, then A => Fixer(A, B)
     */
   def fix(next: Int, arg: Int): Int = {
-    val pos = exprForest.fix(next, arg)
-    simplifyInferenceRuleLoop(pos)
+    val posOpt = simplifyAll(next, arg) match {
+      case None => simplifyInside(next, arg)
+      case s => s
+    }
+
+    val pos = posOpt match {
+      case None => exprForest.fix(next, arg)
+      case Some(s) => s
+    }
+
     link(next, pos, FixIR)
     if (exprForest.isLetSymbol(next, arg)) {
       link(pos, next, FixLetSymIR)
@@ -264,7 +314,6 @@ class LogicGraph extends ExprContainer {
         truth += (pos -> b)
         truthOrigin += (pos -> prev)
         implyInferenceRule(pos)
-        simplifyInferenceRuleLoop(pos)
 
         // propagate truth value to neighbors
         val neighsOpt = getImplyGraphFor(b) get pos

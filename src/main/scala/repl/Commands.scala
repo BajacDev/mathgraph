@@ -143,13 +143,6 @@ object Commands {
     }
   }
 
-  val simplify: Command = { ls =>
-    { case Seq(e: Int) =>
-      ls.logicGraph.simplifyInferenceRule(e)
-      ls
-    }
-  }
-
   val fixLogicExpr: Command = consumeState { ls =>
     ls.solver.fixLogicExpr()(ls.logicGraph)
   }
@@ -214,8 +207,6 @@ object Commands {
       "Fixes the given symbol with its let-symbol.",
     CommandDef("fix", fix) ~> (IntT, IntT) ??
       "Fixes the two symbols given as arguments.",
-    CommandDef("simp", simplify) ~> IntT ??
-      "Simplifies the given expression.",
     CommandDef("fle", fixLogicExpr) ??
       "Fixes all the expressions to true.",
     CommandDef("ffe", fixForallExpr) ??

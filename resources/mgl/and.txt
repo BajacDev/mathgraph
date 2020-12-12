@@ -1,7 +1,4 @@
 let(left, 21) A && B := ~(A -> ~B);
-let A, B, C;
+let A, B;
 
-A;
-B;
-A && B -> C;
-~C;
+forall x. x && B ;
