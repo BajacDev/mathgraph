@@ -257,6 +257,58 @@ class LogicGraph extends ExprContainer {
     }
   }
 
+  def createForall(inside: Int, args: Seq[Int]): Int = {
+    var pos = forall(inside)
+    for (arg <- args) {
+      pos = fix(pos, arg)
+    }
+    pos
+  }
+
+  def createForallFalse(inside: Int, args: Seq[Int]): Int = {
+    val imp = idToSymbol(args.indexOf(ImplySymbol))
+    val f = idToSymbol(args.indexOf(FalseSymbol))
+    var pos = imp
+    pos = fix(pos, inside)
+    pos = fix(pos, f)
+    createForall(pos, args)
+  }
+
+  def splitForall(orig: Int): Unit = {
+
+    def extract(inside: Int, args: Seq[Int]) = {
+      val l = args.length
+      inside match {
+        case HeadTail(Symbol(imp1), Seq(HeadTail(Symbol(imp2), Seq(a, b)), Symbol(f))) => 
+          (args.lift(imp1), args.lift(imp2), args.lift(f)) match {
+            case (Some(ImplySymbol), Some(ImplySymbol), Some(FalseSymbol)) => Some((a, b))
+            case _ => None
+          }
+        case _ => None
+      }
+    }
+
+    orig match {
+        case Forall(inside, args) if isTruth(orig, true) =>  extract(inside, args) match {
+          case Some((a, b)) => {
+            val aForall = createForall(a, args)
+            val bForall = createForallFalse(b, args)
+
+            var pos = ImplySymbol
+            pos = fix(pos, aForall)
+            pos = fix(pos, bForall)
+            pos = fix(ImplySymbol, pos)
+            pos = fix(pos, FalseSymbol)
+
+            link(pos, orig, SimplifyIR) // todo change name
+            link(orig, pos, SimplifyIR)
+          }
+          case None => ()
+        }
+        case _ => ()
+    }
+  }
+
   // -------------------------------------------------------------
   // fix inference rule
   // -------------------------------------------------------------
@@ -314,6 +366,7 @@ class LogicGraph extends ExprContainer {
         truth += (pos -> b)
         truthOrigin += (pos -> prev)
         implyInferenceRule(pos)
+        splitForall(pos)
 
         // propagate truth value to neighbors
         val neighsOpt = getImplyGraphFor(b) get pos
