@@ -45,16 +45,6 @@ class Solver() {
   var trueGlobalExpr = MutSet.empty[Int] // true expr with no forall as root
   var falseGlobalExpr = MutSet.empty[Int] // false expr with no forall as root
 
-  var AndSymbol = -1
-  var OrSymbol = -1
-  var IffSymbol = -1
-
-  def retriveLogicSymbols(stringToExpr: Map[String, Int]): Unit = {
-    stringToExpr.get("&").foreach(AndSymbol = _)
-    stringToExpr.get("|").foreach(OrSymbol = _)
-    stringToExpr.get("<=>").foreach(IffSymbol = _)
-  }
-
   def saturation(implicit lg: LogicGraph): Unit = {
 
     // todo
@@ -109,70 +99,81 @@ class Solver() {
     case _ => ()
   }
 
+
+  trait ImplyTree
+  object Error extends ImplyTree
+  case class End(pos: Int) extends ImplyTree
+  case class Inside(pos: Int, left: ImplyTree, right: ImplyTree) extends ImplyTree
+  case class CannotRepresent(left: ImplyTree, right: ImplyTree) extends ImplyTree
+  object FalseEnd extends ImplyTree
+
+  object NodeWithChilds {
+    def unapply(tree: ImplyTree): Option[(ImplyTree, ImplyTree)] = tree match {
+      case Inside(_, a, b) => Some((a, b))
+      case CannotRepresent(a, b) => Some((a, b))
+      case _ => None
+    }
+  }
+
+  object NodeWithPos {
+    def unapply(tree: ImplyTree): Option[Int] = tree match {
+      case Inside(pos, a, b) => Some(pos)
+      case End(pos) => Some(pos)
+      case _ => None
+    }
+  }
+
+  case class ExtendedArgs(args: Map[Int, Int], opt: Option[(Seq[Int], ExtendedArgs)] = None) {
+    lazy val depth: Int = 1 + opt.map(_._2.depth).getOrElse(0)
+
+    def previous(id: Int): Option[(Int, ExtendedArgs)] = opt.flatMap{case (seq, prevExtArg) => {
+        val i = id - args.size
+        if (i >= 0 && i < seq.length) Some(seq(i), prevExtArg)
+        else None
+      }
+    }
+  }
+
+  def buildImplyTree(pos: Int, extArgs: ExtendedArgs)(implicit lg: LogicGraph): ImplyTree = {
+    val args = extArgs.args
+    pos match {
+      case HeadTail(Symbol(id), Seq(a, b)) if args.contains(id) && args(id) == ImplySymbol =>
+        val left = buildImplyTree(a, extArgs)
+        val right = buildImplyTree(b, extArgs)
+        if (extArgs.depth > 1) CannotRepresent(left, right) else Inside(pos, left, right)
+
+      case HeadTail(Symbol(id), seq) if args.contains(id) => args(id) match {
+        case Forall(inside, newArgs) => 
+          val newArgsMap = argsToMap(newArgs)
+          val newExtendedArg = ExtendedArgs(newArgsMap, Some((seq, extArgs)))
+          buildImplyTree(inside, newExtendedArg)
+
+        case FalseSymbol if seq.isEmpty => FalseEnd
+        case _ => if (extArgs.depth > 1) Error else End(pos)
+      }
+
+      case Symbol(id) if extArgs.depth > 1 => extArgs.previous(id) match {
+        case None => Error
+        case Some((newPos, newExtArgs)) => buildImplyTree(newPos, newExtArgs)
+      }
+
+      // todo instead of Error, cut a part of the tree until it can be expressed as an End()
+      // Error can run agains satisfiability
+
+      case _ => if (extArgs.depth > 1) Error else End(pos)
+    }
+  }
+
+  def implyTreeHasError(implyTree: ImplyTree): Boolean = implyTree match {
+    case Error => true
+    case NodeWithChilds(a, b) => implyTreeHasError(a) || implyTreeHasError(b)
+    case _ => false
+  }
+
   def findFixersForForall(
       orig: Int
   )(implicit lg: LogicGraph): List[Map[Int, Int]] = {
 
-    trait ImplyTree
-    object Error extends ImplyTree
-    case class End(pos: Int) extends ImplyTree
-    case class Inside(pos: Int, left: ImplyTree, right: ImplyTree) extends ImplyTree
-    case class CannotRepresent(left: ImplyTree, right: ImplyTree) extends ImplyTree
-    object FalseEnd extends ImplyTree
-
-    object NodeWithChilds {
-      def unapply(tree: ImplyTree): Option[(ImplyTree, ImplyTree)] = tree match {
-        case Inside(_, a, b) => Some((a, b))
-        case CannotRepresent(a, b) => Some((a, b))
-        case _ => None
-      }
-    }
-
-    object NodeWithPos {
-      def unapply(tree: ImplyTree): Option[Int] = tree match {
-        case Inside(pos, a, b) => Some(pos)
-        case End(pos) => Some(pos)
-        case _ => None
-      }
-    }
-
-    case class ExtendedArgs(args: Map[Int, Int], opt: Option[(Seq[Int], ExtendedArgs)] = None) {
-      lazy val depth: Int = 1 + opt.map(_._2.depth).getOrElse(0)
-
-      def previous(id: Int): Option[(Int, ExtendedArgs)] = opt.flatMap{case (seq, prevExtArg) => {
-          val i = id - args.size
-          if (i >= 0 && i < seq.length) Some(seq(i), prevExtArg)
-          else None
-        }
-      }
-    }
-
-    def buildImplyTree(pos: Int, extArgs: ExtendedArgs): ImplyTree = {
-      val args = extArgs.args
-      pos match {
-        case HeadTail(Symbol(id), Seq(a, b)) if args.contains(id) && args(id) == ImplySymbol =>
-          val left = buildImplyTree(a, extArgs)
-          val right = buildImplyTree(b, extArgs)
-          if (extArgs.depth > 1) CannotRepresent(left, right) else Inside(pos, left, right)
-
-        case HeadTail(Symbol(id), seq) if args.contains(id) => args(id) match {
-          case Forall(inside, newArgs) => 
-            val newArgsMap = argsToMap(newArgs)
-            val newExtendedArg = ExtendedArgs(newArgsMap, Some((seq, extArgs)))
-            buildImplyTree(inside, newExtendedArg)
-
-          case FalseSymbol if seq.isEmpty => FalseEnd
-          case _ => if (extArgs.depth > 1) Error else End(pos)
-        }
-
-        case Symbol(id) if extArgs.depth > 1 => extArgs.previous(id) match {
-          case None => Error
-          case Some((newPos, newExtArgs)) => buildImplyTree(newPos, newExtArgs)
-        }
-
-        case _ => if (extArgs.depth > 1) Error else End(pos)
-      }
-    }
 
     def secondOrderHasTruth(implyTree: ImplyTree, initialNumArgs: Int, args: Map[Int, Int]): Boolean = implyTree match {
       case End(pos) => !(isSecondOrder(pos, initialNumArgs) && getMatchPattern(pos, args, trueGlobalExpr ++ falseGlobalExpr).isEmpty)
@@ -325,8 +326,9 @@ class Solver() {
 
     for (expr <- exprSet.filter(lg.isTruth(_, true))) {
       if (!existsTrueNext(expr)) {
-        if (isLogicExpr(expr)) logicExpr += expr
-        else if (lg.isFixable(expr)) forallExpr += expr
+        if (lg.isFixable(expr))
+          if (isLogicExpr(expr)) logicExpr += expr
+          else forallExpr += expr
         else trueGlobalExpr += expr
       }
     }
@@ -352,9 +354,15 @@ class Solver() {
   }
 
   def isLogicExpr(orig: Int)(implicit lg: LogicGraph): Boolean = {
-
     orig match {
-      case Forall(inside, args) => isLogicExpr(inside, argsToMap(args))
+      case Forall(inside, args) => 
+        val argsMap = argsToMap(args)
+        val implyTree = buildImplyTree(inside, ExtendedArgs(argsMap))
+        val containsImply = implyTree match {
+          case End(_) => false
+          case _ => true
+        } 
+        containsImply && !implyTreeHasError(implyTree)
       case _                    => false
     }
   }
@@ -415,16 +423,6 @@ class Solver() {
   def isSecondOrder(pos: Int, numArgs: Int)(implicit lg: LogicGraph): Boolean = pos match {
     case HeadTail(Symbol(id), args) if !args.isEmpty => id >= numArgs || args.exists(isSecondOrder(_, numArgs))
     case _ => false
-  }
-
-  def isLogicExpr(pos: Int, args: Map[Int, Int])(implicit lg: LogicGraph): Boolean = pos match {
-    case HeadTail(Symbol(id), Seq(a, b)) if args.contains(id) =>
-        if (args(id) == ImplySymbol) true
-        else if (args(id) == OrSymbol) true
-        else if (args(id) == AndSymbol) true
-        else if (args(id) == IffSymbol) true
-        else false
-      case _ => false
   }
 
   def argsToMap(args: Seq[Int]): Map[Int, Int] = args.zipWithIndex.map {

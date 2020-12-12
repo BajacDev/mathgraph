@@ -94,7 +94,6 @@ object ProgToLogicState extends Pipeline[Program, LogicState] {
     val exprToString = stringToExpr.map(_.swap).toMap
     val printer = Printer(exprToString)
     val solver = new Solver()
-    solver.retriveLogicSymbols(stringToExpr)
     LogicState(ctx.logicGraph, printer, solver)
   }
 

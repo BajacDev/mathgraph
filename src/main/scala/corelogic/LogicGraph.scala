@@ -37,8 +37,11 @@ import scala.collection.mutable.{Map, Set}
   */
 
 trait InferenceRule
+
+// todo: some inference rules must and should be merged
 case class ImplyIR(b: Boolean, implyPos: Int) extends InferenceRule
 case class ImplyUpIR(a: Int, b: Int) extends InferenceRule
+object ImplyFromLink extends InferenceRule
 object FixIR extends InferenceRule
 object FixLetSymIR extends InferenceRule
 object SimplifyIR extends InferenceRule
@@ -170,6 +173,7 @@ class LogicGraph extends ExprContainer {
             link(pos, FalseSymbol, ImplyUpIR(a, b))
           case _ => ()
         }
+        if (a == b) link(TrueSymbol, pos, ImplyFromLink)
       }
       case _ => ()
     }
