@@ -1,4 +1,6 @@
 package mathgraph.corelogic
+
+import java.util.{LinkedList}
 import scala.collection.mutable.{ArrayBuffer, Map}
 
 /** The ExprForest manages Expressions without any logic assumption
@@ -26,8 +28,8 @@ class ExprForest extends ExprContainer {
   var counter = 0
 
   var weights: Map[Int, Int] = Map()
-  var weightQueue: List[Int] = List()
-  var ageQueue: List[Int] = List()
+  var weightQueue: LinkedList[Int] = new LinkedList()
+  var ageQueue: LinkedList[Int] = new LinkedList()
 
   def getWeight(pos: Int): Int = {
     // Symbols have a weight of 1
@@ -37,31 +39,41 @@ class ExprForest extends ExprContainer {
   }
 
   def enqueueFixer(pos: Int): Unit = {
-    ageQueue = pos :: ageQueue
+    ageQueue.addFirst(pos)
 
     val weight = getWeight(pos)
-    val (smallerWeight, higherWeight) =
-      weightQueue.span(fixerPos => getWeight(fixerPos) < weight)
-    weightQueue = smallerWeight ++ List(pos) ++ higherWeight
+    val queueSize = weightQueue.size()
+
+    if(queueSize == 0){
+      weightQueue.add(pos)
+    } else {
+      for(i <- 0 until weightQueue.size()){
+        val fixerPos = weightQueue.get(i)
+        if(getWeight(fixerPos) >= weight){
+          weightQueue.add(i, pos)
+          return ()
+        }
+      }
+    }
   }
 
-  def dequeueFixer(list: List[Int]): (Option[Int], List[Int]) = list match {
-    case head :: tail => (Some(head), tail :+ head)
-    case Nil          => (None, Nil)
+  def dequeueFixer(list: LinkedList[Int]): Option[Int] = list.size() match {
+    case 0 => None
+    case _ => {
+      val res = list.removeFirst()
+      list.addLast(res)
+      Some(res)
+    }
   }
 
   def selectFixer(): Option[Int] = counter match {
     case i if i < a => {
       counter += 1
-      val (result, updatedQueue) = dequeueFixer(ageQueue)
-      ageQueue = updatedQueue
-      result
+      dequeueFixer(ageQueue)
     }
     case i if i < a + w => {
       counter += 1
-      val (result, updatedQueue) = dequeueFixer(weightQueue)
-      weightQueue = updatedQueue
-      result
+      dequeueFixer(weightQueue)
     }
     case _ => {
       counter = 0
