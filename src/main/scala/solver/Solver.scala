@@ -70,6 +70,7 @@ class Solver(val printer: Printer, val suppressPrint: Boolean = false) {
             noProgress += 1
             if (noProgress >= maxAttempts) {
               display(s"${RED}No progress. Stopping saturation${RESET}")
+              noProgress = 0
               ()
             } else {
               display(
