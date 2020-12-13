@@ -21,6 +21,54 @@ class ExprForest extends ExprContainer {
   var fixers: ArrayBuffer[(Int, Int)] = ArrayBuffer()
   var fixerToPosMap: Map[(Int, Int), Int] = Map()
 
+  val a = 5
+  val w = 5;
+  var counter = 0
+
+  var weights: Map[Int, Int] = Map()
+  var weightQueue: List[Int] = List()
+  var ageQueue: List[Int] = List()
+
+  def getWeight(pos: Int): Int = {
+    // Symbols have a weight of 1
+    if (pos < 0 || pos >= size) Int.MaxValue
+    else if (pos % 2 == 0) 1
+    else weights.getOrElse(pos, Int.MaxValue)
+  }
+
+  def enqueueFixer(pos: Int): Unit = {
+    ageQueue = pos :: ageQueue
+
+    val weight = getWeight(pos)
+    val (smallerWeight, higherWeight) =
+      weightQueue.span(fixerPos => getWeight(fixerPos) < weight)
+    weightQueue = smallerWeight ++ List(pos) ++ higherWeight
+  }
+
+  def dequeueFixer(list: List[Int]): (Option[Int], List[Int]) = list match {
+    case head :: tail => (Some(head), tail :+ head)
+    case Nil          => (None, Nil)
+  }
+
+  def selectFixer(): Option[Int] = counter match {
+    case i if i < a => {
+      counter += 1
+      val (result, updatedQueue) = dequeueFixer(ageQueue)
+      ageQueue = updatedQueue
+      result
+    }
+    case i if i < a + w => {
+      counter += 1
+      val (result, updatedQueue) = dequeueFixer(weightQueue)
+      weightQueue = updatedQueue
+      result
+    }
+    case _ => {
+      counter = 0
+      selectFixer()
+    }
+  }
+
   def size = fixers.size * 2
   def nextFixerPos = size + 1
 
@@ -47,6 +95,10 @@ class ExprForest extends ExprContainer {
         val fixerPos = nextFixerPos
         fixers += newFixer
         fixerToPosMap += (newFixer -> fixerPos)
+        weights += (fixerPos -> (getWeight(next) + getWeight(
+          arg
+        ))) // todo: + 1?
+        enqueueFixer(fixerPos)
         fixerPos
       }
     }

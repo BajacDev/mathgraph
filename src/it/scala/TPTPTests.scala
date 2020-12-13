@@ -32,7 +32,7 @@ class TPTPTests extends AnyFunSuite with TimeLimits {
   def testFile(file: File): Unit = {
     val filename = file.getPath
     val testName = testRoot.toPath.relativize(file.toPath).toString
-    
+
     test(testName) {
       try {
         val logicState = pipeline.run(FileSource(filename))(new Context)
@@ -41,7 +41,7 @@ class TPTPTests extends AnyFunSuite with TimeLimits {
         failAfter(Span(timeout, Seconds)) {
           val thread = new Thread {
             override def run() = {
-              new Solver().saturation(lg)
+              new Solver(logicState.printer, true).saturation(lg)
             }
           }
 

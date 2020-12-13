@@ -93,7 +93,7 @@ object ProgToLogicState extends Pipeline[Program, LogicState] {
     val stringToExpr = ctx.stringToExpr.filterKeys(!_.startsWith("__"))
     val exprToString = stringToExpr.map(_.swap).toMap
     val printer = Printer(exprToString)
-    val solver = new Solver()
+    val solver = new Solver(printer)
     LogicState(ctx.logicGraph, printer, solver)
   }
 
