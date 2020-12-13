@@ -86,7 +86,7 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
         Not(Apply("<=>", Seq(lhs, rhs)).setPos(lhs)).setPos(lhs)
       case lhs ~ Some((OperatorToken("&"), more)) =>
         more.foldLeft(lhs)((acc, rhs) => Apply("&", Seq(acc, rhs)).setPos(acc))
-      case lhs ~ Some((OperatorToken("|"), rhs +: more)) =>
+      case lhs ~ Some((OperatorToken("|"), more)) =>
         more.foldLeft(lhs)((acc, rhs) => Apply("|", Seq(acc, rhs)).setPos(acc))
       case lhs ~ Some((OperatorToken("~&"), Seq(rhs))) =>
         Not(Apply("&", Seq(lhs, rhs)).setPos(lhs)).setPos(lhs)
