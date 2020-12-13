@@ -81,7 +81,7 @@ class Solver(val printer: Printer, val suppressPrint: Boolean = false) {
             display(s"${RED}Max size reached. Stopping saturation${RESET}")
             ()
           } else {
-            noProgress = 0
+            // noProgress = 0
             display(
               s"${GREEN}Progress made after selecting \t${selectedFixer}${RESET}"
             )
