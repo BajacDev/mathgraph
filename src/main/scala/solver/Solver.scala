@@ -48,7 +48,7 @@ class Solver(val printer: Printer, val suppressPrint: Boolean = false) {
   var falseGlobalExpr = MutSet.empty[Int] // false expr with no forall as root
 
   var noProgress = 0
-  val maxAttempts = 100
+  var maxAttempts = 500
 
   def saturation(implicit lg: LogicGraph): Unit = {
 
@@ -70,6 +70,7 @@ class Solver(val printer: Printer, val suppressPrint: Boolean = false) {
             noProgress += 1
             if (noProgress >= maxAttempts) {
               display(s"${RED}No progress. Stopping saturation${RESET}")
+              // Allow the repl to try again
               noProgress = 0
               ()
             } else {
@@ -82,7 +83,8 @@ class Solver(val printer: Printer, val suppressPrint: Boolean = false) {
             display(s"${RED}Max size reached. Stopping saturation${RESET}")
             ()
           } else {
-            // noProgress = 0
+            noProgress = 0
+            maxAttempts = max(lg.size, maxAttempts)
             display(
               s"${GREEN}Progress made after selecting \t${selectedFixer}${RESET}"
             )
