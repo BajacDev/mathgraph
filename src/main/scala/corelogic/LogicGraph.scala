@@ -3,6 +3,7 @@ package mathgraph.corelogic
 import mathgraph.util.Pipe._
 import mathgraph.corelogic.ExprContainer._
 import scala.collection.mutable.{Map, Set}
+import scala.collection.mutable.{Map => MutMap, Set => MutSet}
 
 /** The logic layer manage the truth graph of expressions
   * Notation:
@@ -46,6 +47,7 @@ object FixIR extends InferenceRule
 object FixLetSymIR extends InferenceRule
 object SimplifyIR extends InferenceRule
 object Axiom extends InferenceRule
+object Disjonction extends InferenceRule
 
 object LogicGraph {
   def init: LogicGraph = {
@@ -64,6 +66,7 @@ object LogicGraph {
 class LogicGraph extends ExprContainer {
 
   val exprForest: ExprForest = new ExprForest
+  // todo use mulatble
   var truth: Map[Int, Boolean] = Map()
   var imply: Map[Int, Set[Int]] = Map()
   var isImpliedBy: Map[Int, Set[Int]] = Map()
@@ -92,10 +95,12 @@ class LogicGraph extends ExprContainer {
     case Some(set) => set
   }
 
-  def isFixOf(fix: Int, pos: Int): Boolean = fix match {
-    case Fixer(next, _) => next == pos
-    case _              => false
+  def getIsImpliedBy(p: Int): Set[Int] = isImpliedBy.get(p) match {
+    case None      => Set()
+    case Some(set) => set
   }
+
+  def isFix(a: Int, b: Int): Boolean = inferences.get((a, b)) == Some(FixIR)
 
   def isTruth(pos: Int, b: Boolean): Boolean = getTruthOf(pos) match {
     case Some(r) => r == b
@@ -145,10 +150,11 @@ class LogicGraph extends ExprContainer {
       case HeadTail(ImplySymbol, Seq(a, b)) => {
         truth get pos match {
           case None => ()
-          case Some(true) => (getTruthOf(a), getTruthOf(b)) match {
-            case (Some(v1), Some(v2)) if v1 == v2 => ()
-            case _ => link(a, b, ImplyIR(true, pos))
-          }
+          case Some(true) =>
+            (getTruthOf(a), getTruthOf(b)) match {
+              case (Some(v1), Some(v2)) if v1 == v2 => ()
+              case _                                => link(a, b, ImplyIR(true, pos))
+            }
           case Some(false) => {
             if (!isTruth(a, true)) link(TrueSymbol, a, ImplyIR(false, pos))
             if (!isTruth(b, false)) link(b, FalseSymbol, ImplyIR(false, pos))
@@ -158,8 +164,9 @@ class LogicGraph extends ExprContainer {
       case _ => ()
     }
 
-  def implyUpInferenceRule(pos: Int): Unit =
-    (pos, getTruthOf(pos)) match {
+  // useless with disjonction
+  def implyUpInferenceRule(pos: Int): Unit = {
+    /*(pos, getTruthOf(pos)) match {
       case (_, Some(_)) => ()
       case (HeadTail(ImplySymbol, Seq(a, b)), _) => {
         (truth get a, truth get b) match {
@@ -174,10 +181,37 @@ class LogicGraph extends ExprContainer {
           case _ => ()
         }
       }
-      case _ => ()
+      case _ => ()*/
+  }
+
+  def disjonction(orig: Int): Unit = {
+
+    var visited: Map[Int, Boolean] = truth
+    def findAbsurd(pos: Int, b: Boolean): Boolean = visited.get(pos) match {
+      case Some(v) if v == b => false
+      case Some(v) if v != b => true
+      case None => {
+        visited = visited + (pos -> b)
+        pos match {
+          case HeadTail(ImplySymbol, Seq(left, right)) => {
+            if (!b) findAbsurd(left, true) || findAbsurd(right, false)
+             // todo: disjonction in disjonction?
+            else if (visited.get(left) == Some(true)) findAbsurd(right, true)
+            else if (visited.get(right) == Some(false)) findAbsurd(left, false)
+            else false
+          }
+          case _ => false
+        }
+      }
     }
 
-  
+    if (findAbsurd(orig, false)) {
+      link(TrueSymbol, orig, Disjonction)
+    }
+    if (findAbsurd(orig, true)) {
+      link(orig, FalseSymbol, Disjonction)
+    }
+  }
 
   // -------------------------------------------------------------
   // simplify inference rule
@@ -197,20 +231,22 @@ class LogicGraph extends ExprContainer {
     * is of length at least n (ie: when all symbols in forall have been fixed)
     * then use simply (see simplify)
     */
-  def simplifyAll(pos: Int, toBefixed: Int): Option[Int] = pos match {
-    case Forall(inside, args0) =>
-      val args = args0 :+ toBefixed
+  def simplifyAll(pos: Int): Option[Int] = pos match {
+    case Forall(inside, args) =>
       if (countSymbols(inside) > args.length) None
       else {
-        val newPos = simplify(inside, args)
-        Some(newPos)
+
+        val result = simplify(inside, args)
+        link(result, pos, SimplifyIR)
+        link(pos, result, SimplifyIR)
+        Some(result)
       }
     case _ => None
   }
 
   def simplifyInside(orig: Int, toBeFixed: Int): Option[Int] = {
     (orig, toBeFixed) match {
-      case (Forall(inside1, args), Forall(inside2, args2)) => 
+      case (Forall(inside1, args), Forall(inside2, args2)) =>
         // todo: lots of duplicates
 
         val args1 = args :+ toBeFixed
@@ -223,21 +259,24 @@ class LogicGraph extends ExprContainer {
 
         def willGenerateNewInside(pos: Int): Boolean = {
           pos match {
-            case HeadTail(Symbol(id), seq) if id == newId && seq.length >= remain => true
-            case Fixer(a, b) => willGenerateNewInside(a) || willGenerateNewInside(b)
+            case HeadTail(Symbol(id), seq)
+                if id == newId && seq.length >= remain =>
+              true
+            case Fixer(a, b) =>
+              willGenerateNewInside(a) || willGenerateNewInside(b)
             case Symbol(id) => false
           }
         }
 
         def simplifyInsideRec(pos: Int): Int = {
           pos match {
-            case HeadTail(Symbol(id), seq) if id == newId && seq.length >= remain => 
-              
+            case HeadTail(Symbol(id), seq)
+                if id == newId && seq.length >= remain =>
               val mapping = (0 until args2.length).map(idToSymbol)
               simplify(inside2, mapping ++ seq.map(simplifyInsideRec))
-            case Fixer(a, b) => 
+            case Fixer(a, b) =>
               fix(simplifyInsideRec(a), simplifyInsideRec(b))
-            case Symbol(id) => 
+            case Symbol(id) =>
               idToSymbol(id + shift)
           }
         }
@@ -279,9 +318,13 @@ class LogicGraph extends ExprContainer {
     def extract(inside: Int, args: Seq[Int]) = {
       val l = args.length
       inside match {
-        case HeadTail(Symbol(imp1), Seq(HeadTail(Symbol(imp2), Seq(a, b)), Symbol(f))) => 
+        case HeadTail(
+              Symbol(imp1),
+              Seq(HeadTail(Symbol(imp2), Seq(a, b)), Symbol(f))
+            ) =>
           (args.lift(imp1), args.lift(imp2), args.lift(f)) match {
-            case (Some(ImplySymbol), Some(ImplySymbol), Some(FalseSymbol)) => Some((a, b))
+            case (Some(ImplySymbol), Some(ImplySymbol), Some(FalseSymbol)) =>
+              Some((a, b))
             case _ => None
           }
         case _ => None
@@ -289,7 +332,8 @@ class LogicGraph extends ExprContainer {
     }
 
     orig match {
-        case Forall(inside, args) if isTruth(orig, true) =>  extract(inside, args) match {
+      case Forall(inside, args) if isTruth(orig, true) =>
+        extract(inside, args) match {
           case Some((a, b)) => {
             val aForall = createForall(a, args)
             val bForall = createForallFalse(b, args)
@@ -305,7 +349,7 @@ class LogicGraph extends ExprContainer {
           }
           case None => ()
         }
-        case _ => ()
+      case _ => ()
     }
   }
 
@@ -318,15 +362,17 @@ class LogicGraph extends ExprContainer {
   /** when A is in the graph, then A => Fixer(A, B)
     */
   def fix(next: Int, arg: Int): Int = {
-    val posOpt = simplifyAll(next, arg) match {
-      case None => simplifyInside(next, arg)
-      case s => s
+
+    val canBeFixed: Boolean = next match {
+      case Forall(inside, args) => countSymbols(inside) > args.length
+      case _                    => true
     }
 
-    val pos = posOpt match {
-      case None => exprForest.fix(next, arg)
+    val pos = simplifyInside(next, arg) match {
+      case None    => if (canBeFixed) exprForest.fix(next, arg) else next
       case Some(s) => s
     }
+
 
     link(next, pos, FixIR)
     if (exprForest.isLetSymbol(next, arg)) {
@@ -367,6 +413,7 @@ class LogicGraph extends ExprContainer {
         truthOrigin += (pos -> prev)
         implyInferenceRule(pos)
         splitForall(pos)
+        simplifyAll(pos)
 
         // propagate truth value to neighbors
         val neighsOpt = getImplyGraphFor(b) get pos

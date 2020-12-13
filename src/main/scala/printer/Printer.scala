@@ -189,6 +189,7 @@ case class Printer(
     case SimplifyIR      => "Simplify"
     case Axiom           => "Axiom"
     case SimplInsideIR   => "SimplInsideIR"
+    case Disjonction     => "Disjonction"
   }
 
   def proofFromPos(lg: LogicGraph, pos: Int, alg: String = ""): List[String] = {
