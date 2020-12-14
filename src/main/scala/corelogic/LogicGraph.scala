@@ -2,7 +2,7 @@ package mathgraph.corelogic
 
 import mathgraph.util.Pipe._
 import mathgraph.corelogic.ExprContainer._
-import scala.collection.mutable.{Map, Set}
+import scala.collection.immutable.{Map, Set}
 import scala.collection.mutable.{Map => MutMap, Set => MutSet}
 
 /** The logic layer manage the truth graph of expressions
@@ -67,13 +67,13 @@ class LogicGraph extends ExprContainer {
 
   val exprForest: ExprForest = new ExprForest
   // todo use mulatble
-  var truth: Map[Int, Boolean] = Map()
-  var imply: Map[Int, Set[Int]] = Map()
-  var isImpliedBy: Map[Int, Set[Int]] = Map()
+  var truth: MutMap[Int, Boolean] = MutMap()
+  var imply: MutMap[Int, MutSet[Int]] = MutMap()
+  var isImpliedBy: MutMap[Int, MutSet[Int]] = MutMap()
   var absurd: Option[(Int, Int)] = None
   // use for proofs
-  var truthOrigin: Map[Int, Int] = Map()
-  var inferences: Map[(Int, Int), InferenceRule] = Map()
+  var truthOrigin: MutMap[Int, Int] = MutMap()
+  var inferences: MutMap[(Int, Int), InferenceRule] = MutMap()
 
   def size = exprForest.size
   def getInferenceOf(a: Int, b: Int) = inferences get (a, b)
@@ -90,13 +90,13 @@ class LogicGraph extends ExprContainer {
     exprForest.fixerToPos(next, arg)
   def getSymbolId(pos: Int): Option[Int] = exprForest.getSymbolId(pos)
 
-  def getImplies(p: Int): Set[Int] = imply.get(p) match {
-    case None      => Set()
+  def getImplies(p: Int): MutSet[Int] = imply.get(p) match {
+    case None      => MutSet()
     case Some(set) => set
   }
 
-  def getIsImpliedBy(p: Int): Set[Int] = isImpliedBy.get(p) match {
-    case None      => Set()
+  def getIsImpliedBy(p: Int): MutSet[Int] = isImpliedBy.get(p) match {
+    case None      => MutSet()
     case Some(set) => set
   }
 
@@ -186,7 +186,7 @@ class LogicGraph extends ExprContainer {
 
   def disjonction(orig: Int): Unit = {
 
-    var visited: Map[Int, Boolean] = truth
+    /*var visited: Map[Int, Boolean] = truth
     def findAbsurd(pos: Int, b: Boolean): Boolean = visited.get(pos) match {
       case Some(v) if v == b => false
       case Some(v) if v != b => true
@@ -210,7 +210,7 @@ class LogicGraph extends ExprContainer {
     }
     if (findAbsurd(orig, true)) {
       link(orig, FalseSymbol, Disjonction)
-    }
+    }*/
   }
 
   // -------------------------------------------------------------
@@ -296,21 +296,13 @@ class LogicGraph extends ExprContainer {
     }
   }
 
-  def createForall(inside: Int, args: Seq[Int]): Int = {
-    var pos = forall(inside)
-    for (arg <- args) {
-      pos = fix(pos, arg)
-    }
-    pos
-  }
-
-  def createForallFalse(inside: Int, args: Seq[Int]): Int = {
+  def getForallFalseFrom(inside: Int, args: Seq[Int]): Int = {
     val imp = idToSymbol(args.indexOf(ImplySymbol))
-    val f = idToSymbol(args.indexOf(FalseSymbol))
+    val bot = idToSymbol(args.indexOf(FalseSymbol))
     var pos = imp
     pos = fix(pos, inside)
-    pos = fix(pos, f)
-    createForall(pos, args)
+    pos = fix(pos, bot)
+    getForallFrom(pos, args)
   }
 
   def splitForall(orig: Int): Unit = {
@@ -335,8 +327,8 @@ class LogicGraph extends ExprContainer {
       case Forall(inside, args) if isTruth(orig, true) =>
         extract(inside, args) match {
           case Some((a, b)) => {
-            val aForall = createForall(a, args)
-            val bForall = createForallFalse(b, args)
+            val aForall = getForallFrom(a, args)
+            val bForall = getForallFalseFrom(b, args)
 
             var pos = ImplySymbol
             pos = fix(pos, aForall)
@@ -353,6 +345,157 @@ class LogicGraph extends ExprContainer {
     }
   }
 
+  /// todooooo
+
+  class ArgsMapping {
+    // expr to Symbols
+    var map: Map[Int, Int] = Map()
+    var argPos = 0;
+
+    def init(args: Seq[Int]): Unit = {
+      for (elem <- args) {
+        create(elem)
+      }
+      argPos = args.length
+    }
+
+    def create(pos: Int): Unit = map.get(pos) match {
+      case None => 
+        map = map + (pos -> idToSymbol(map.size))
+        ()
+      case Some(_) => ()
+    }
+
+    def get(pos: Int): Int = map(pos)
+
+    def getAllArgs: Seq[Int] = {
+      val getInvMapping: Map[Int, Int] = map.map(_.swap)
+      for (i <- 0 until map.size) 
+        yield getInvMapping(idToSymbol(i))
+    }
+
+    def symbolIdMapping(id: Int): Int = {
+      if (id > argPos) idToSymbol(id - argPos - 1 + map.size)
+      else idToSymbol(id)
+    }
+  }
+
+  def getPlacesInside(inside: Int, len: Int): Set[Int] = {
+    def getPlaceInsideRec(pos: Int): Set[Int] = pos match {
+      case HeadTail(Symbol(id), seq) if id == len => {
+        seq.toSet.flatMap(getPlaceInsideRec) + pos
+      }
+      case HeadTail(Symbol(id), seq) => {
+        seq.toSet.flatMap(getPlaceInsideRec)
+      }
+    }
+    getPlaceInsideRec(inside)
+  }
+
+  def splitImplyInside(inside: Int, args: Seq[Int]): Option[(Int, Int)] = inside match {
+    case HeadTail(imp, Seq(a, b)) if args.lift(imp) == Some(ImplySymbol) => Some((a, b))
+    case _ => None
+  }
+
+  def getHeadTailFrom(head: Int, tail: Seq[Int]): Int = {
+    var pos = head
+    for (arg <- tail) {
+      pos = fix(pos, arg)
+    }
+    pos
+  }
+
+
+  def getForallFrom(inside: Int, args: Seq[Int]): Int = {
+    getHeadTailFrom(forall(inside), args)
+  }
+
+  def getExprWhenApplied(pos: Int, numFix: Int): Set[Int] = pos match {
+    case Forall(inside, args) => getExprWhenAppliedForall(inside, args, numFix)
+    case HeadTail(head, tail) => tail.toSet.flatMap(getExprWhenApplied(_, numFix)) + head
+  }
+
+  def getExprWhenAppliedForall(inside: Int, args: Seq[Int], numFix: Int): Set[Int] = {
+    val numSymbols = countSymbols(inside)
+    if (numSymbols <= args.length + numFix) args.toSet
+    else splitImplyInside(inside, args) match {
+      case Some((a, b)) if countSymbols(a) <= args.length + numFix => 
+        (getExprWhenAppliedForall(a, args, numFix) ++ getExprWhenAppliedForall(b, args, numFix)) + ImplySymbol
+      case _ => Set(getForallFrom(inside, args))
+    }
+  }
+
+  /////
+
+  def applyInside(newArg: Int, seq: Seq[Int], mapping: Map[Int, Int]): Int = newArg match {
+    case Forall(inside, args) => applyInsideForall(inside, args, seq, mapping)
+    case HeadTail(head, tail) => {
+      getHeadTailFrom(mapping(head), tail.map(applyInside(_, Seq(), mapping)) ++ seq)
+    }
+
+  }
+
+  def applyInsideForall(inside: Int, args: Seq[Int], seq: Seq[Int], mapping: Map[Int, Int]): Int = {
+    val numSymbols = countSymbols(inside)
+    val newArgs = args.map(applyInside(_, Seq(), mapping)) ++ seq
+    if (numSymbols <= newArgs.length) simplify(inside, newArgs)
+    else splitImplyInside(inside, args) match {
+      case Some((a, b)) if countSymbols(a) <= newArgs.length =>
+        var pos = mapping(ImplySymbol)
+        pos = fix(pos, simplify(a, newArgs))
+        pos = fix(pos, applyInsideForall(b, args, seq, mapping))
+        pos
+      case _ => getHeadTailFrom(mapping(getForallFrom(inside, args)), seq)
+    }
+  }
+
+  ////
+
+  // todo: we should be able to fix multiple items ate the same time in order
+  // to decrase the number of propositions
+  def buildMappingAndFix(inside: Int, args: Seq[Int], newArg: Int): Int = {
+
+    val argsMapping = new ArgsMapping()
+    argsMapping.init(args)
+
+    val placeSet = getPlacesInside(inside, args.length)
+
+    val allArgs = placeSet.flatMap(_ match {
+      case HeadTail(_, tail) => getExprWhenApplied(newArg, tail.length)
+    })
+
+
+    allArgs.foreach(argsMapping.create)
+
+    def computeNewInside(pos: Int, argNum: Int): Int = pos match {
+      case HeadTail(Symbol(id), tail) if id == argNum => {
+        val newTail = tail.map(computeNewInside(_, argNum))
+        applyInside(newArg, newTail, argsMapping.map)
+      }
+      case HeadTail(Symbol(id), tail) => 
+        getHeadTailFrom(argsMapping.symbolIdMapping(id), tail.map(computeNewInside(_, argNum)))
+    }
+
+    val newInside = computeNewInside(inside, args.length)
+    getForallFrom(newInside, argsMapping.getAllArgs)
+  }
+
+  /// todooooo
+
+  def fixAndSimpl(next: Int, arg: Int): Int = next match {
+    case Forall(inside, args) => 
+      if (countSymbols(inside) <= args.length) next
+      else {
+        val pos = buildMappingAndFix(inside, args, arg)
+        link(next, pos, FixIR)
+        if (exprForest.isLetSymbol(next, arg)) {
+          link(pos, next, FixLetSymIR)
+        }
+        pos
+      }
+    case _ => fix(next, arg)
+  }
+
   // -------------------------------------------------------------
   // fix inference rule
   // -------------------------------------------------------------
@@ -363,7 +506,7 @@ class LogicGraph extends ExprContainer {
     */
   def fix(next: Int, arg: Int): Int = {
 
-    val canBeFixed: Boolean = next match {
+    /*val canBeFixed: Boolean = next match {
       case Forall(inside, args) => countSymbols(inside) > args.length
       case _                    => true
     }
@@ -371,14 +514,16 @@ class LogicGraph extends ExprContainer {
     val pos = simplifyInside(next, arg) match {
       case None    => if (canBeFixed) exprForest.fix(next, arg) else next
       case Some(s) => s
-    }
+    }*/
+
+    val pos = exprForest.fix(next, arg)
 
 
     link(next, pos, FixIR)
     if (exprForest.isLetSymbol(next, arg)) {
       link(pos, next, FixLetSymIR)
-      pos
-    } else pos
+    }
+    pos
   }
 
   def forall(body: Int): Int = fix(ForallSymbol, body)
@@ -420,7 +565,7 @@ class LogicGraph extends ExprContainer {
 
         neighsOpt match {
           case None => ()
-          case Some(neighs: Set[Int]) => {
+          case Some(neighs: MutSet[Int]) => {
             for (neigh <- neighs) {
               propagate(neigh, pos, b)
             }
@@ -430,9 +575,9 @@ class LogicGraph extends ExprContainer {
     }
   }
 
-  def addBinding(map: Map[Int, Set[Int]], a: Int, b: Int): Unit = {
+  def addBinding(map: MutMap[Int, MutSet[Int]], a: Int, b: Int): Unit = {
     map get a match {
-      case None      => map(a) = Set(b)
+      case None      => map(a) = MutSet(b)
       case Some(set) => set += b
     }
   }
