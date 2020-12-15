@@ -126,7 +126,7 @@ case class Printer(
       case Apply("~", Seq(prop)) => ("~" + applyPar(toString(prop)), false)
       case Apply(head, tail)     => combineHeadTail(head, tail.map(toString).toList)
       case ExprForall(freeVars, body) =>
-        (s"forall ${freeVars.mkString(" ")}. ${toString(body)._1}", false)
+        (s"forall ${freeVars.mkString(" ")}. ${toString(body)._1}", true)
     }
 
     val map = exprToString.mapValues(Apply(_, Seq())).toMap

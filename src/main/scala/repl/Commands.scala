@@ -162,10 +162,6 @@ object Commands {
     ls.solver.fixForallExpr()(ls.logicGraph)
   }
 
-  val evaluateImply: Command = consumeState { ls =>
-    ls.solver.evaluateAllImply()(ls.logicGraph)
-  }
-
   val proof: Command = consumeState { ls =>
     ls.printer.proofAbsurd(ls.logicGraph).foreach(println)
   }
@@ -186,8 +182,6 @@ object Commands {
       printState(ls, sol.logicExpr, simple = false)
       println("forall exprs")
       printState(ls, sol.forallExpr, simple = false)
-      println("exists exprs")
-      printState(ls, sol.existsExpr, simple = false)
       println("true global exprs")
       printState(ls, sol.trueGlobalExpr, simple = false)
       println("false global exprs")
@@ -220,8 +214,6 @@ object Commands {
       "Fixes all the expressions to true.",
     CommandDef("ffe", fixForallExpr) ??
       "Fixes all the expressions to true.",
-    CommandDef("evi", evaluateImply) ??
-      "evaluate expressions of the form a -> b.",
     CommandDef("faf", fixAllFalse) ??
       "Fixes all the expressions to false.",
     CommandDef("proof", proof) ??

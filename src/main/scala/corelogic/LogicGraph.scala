@@ -164,43 +164,44 @@ class LogicGraph extends ExprContainer {
       case _ => ()
     }
 
-  // useless with disjonction
-  def implyUpInferenceRule(pos: Int): Unit = {
-    /*(pos, getTruthOf(pos)) match {
-      case (_, Some(_)) => ()
-      case (HeadTail(ImplySymbol, Seq(a, b)), _) => {
-        (truth get a, truth get b) match {
-          case (Some(true), Some(true)) =>
-            link(TrueSymbol, pos, ImplyUpIR(a, b))
-          case (Some(false), Some(true)) =>
-            link(TrueSymbol, pos, ImplyUpIR(a, b))
-          case (Some(false), Some(false)) =>
-            link(TrueSymbol, pos, ImplyUpIR(a, b))
-          case (Some(true), Some(false)) =>
-            link(pos, FalseSymbol, ImplyUpIR(a, b))
-          case _ => ()
-        }
-      }
-      case _ => ()*/
-  }
-
   def disjonction(orig: Int): Unit = {
 
-    /*var visited: Map[Int, Boolean] = truth
-    def findAbsurd(pos: Int, b: Boolean): Boolean = visited.get(pos) match {
-      case Some(v) if v == b => false
-      case Some(v) if v != b => true
-      case None => {
-        visited = visited + (pos -> b)
-        pos match {
-          case HeadTail(ImplySymbol, Seq(left, right)) => {
-            if (!b) findAbsurd(left, true) || findAbsurd(right, false)
-             // todo: disjonction in disjonction?
-            else if (visited.get(left) == Some(true)) findAbsurd(right, true)
-            else if (visited.get(right) == Some(false)) findAbsurd(left, false)
-            else false
+    var visited: Map[Int, Boolean] = truth.toMap
+
+    def findAbsurd(pos: Int, b: Boolean): Boolean = {
+
+      def exploreImply: Boolean = pos match {
+        case HeadTail(ImplySymbol, Seq(left, right)) => {
+          if (!b) findAbsurd(left, true) || findAbsurd(right, false)
+          // todo: disjonction in disjonction?
+          else if (visited.get(left) == Some(true)) findAbsurd(right, true)
+          else if (visited.get(right) == Some(false)) findAbsurd(left, false)
+          else false
+        }
+        case _ => false
+      }
+
+      def exploreNeighbors: Boolean = {
+        val neighsOpt = getImplyGraphFor(b) get pos
+
+        neighsOpt match {
+          case None => false
+          case Some(neighs: MutSet[Int]) => {
+            var v = false
+            for (neigh <- neighs) {
+              v = v || findAbsurd(neigh, b)
+            }
+            v
           }
-          case _ => false
+        }
+      }
+
+      visited.get(pos) match {
+        case Some(v) if v == b => false
+        case Some(v) if v != b => true
+        case None => {
+          visited = visited + (pos -> b)
+          exploreImply || exploreNeighbors
         }
       }
     }
@@ -210,7 +211,7 @@ class LogicGraph extends ExprContainer {
     }
     if (findAbsurd(orig, true)) {
       link(orig, FalseSymbol, Disjonction)
-    }*/
+    }
   }
 
   // -------------------------------------------------------------
@@ -302,7 +303,10 @@ class LogicGraph extends ExprContainer {
     var pos = imp
     pos = fix(pos, inside)
     pos = fix(pos, bot)
-    getForallFrom(pos, args)
+    pos = getForallFrom(pos, args)
+    pos = fix(ImplySymbol, pos)
+    pos = fix(pos, FalseSymbol)
+    pos
   }
 
   def splitForall(orig: Int): Unit = {
@@ -448,7 +452,11 @@ class LogicGraph extends ExprContainer {
         pos = fix(pos, simplify(a, newArgs))
         pos = fix(pos, applyInsideForall(b, args, seq, mapping))
         pos
-      case _ => getHeadTailFrom(mapping(getForallFrom(inside, args)), seq)
+      case _ => {
+        val outsideForall = getForallFrom(inside, args)
+        val remain = countSymbols(inside) - args.length
+        getHeadTailFrom(mapping(outsideForall), seq.take(remain))
+      }
     }
   }
 
@@ -504,7 +512,7 @@ class LogicGraph extends ExprContainer {
     case Forall(inside, args) => 
       if (countSymbols(inside) <= args.length) next
       else {
-        val pos = buildMappingAndFix(inside, args, arg)
+        val pos = fix(next, arg)//buildMappingAndFix(inside, args, arg)
         link(next, pos, FixIR)
         if (exprForest.isLetSymbol(next, arg)) {
           link(pos, next, FixLetSymIR)
@@ -575,7 +583,7 @@ class LogicGraph extends ExprContainer {
         truth += (pos -> b)
         truthOrigin += (pos -> prev)
         implyInferenceRule(pos)
-        splitForall(pos)
+        //splitForall(pos)
         simplifyAll(pos)
 
         // propagate truth value to neighbors
