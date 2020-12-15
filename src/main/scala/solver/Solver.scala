@@ -95,7 +95,7 @@ class Solver() {
     case Forall(_, args) =>
       var pos = orig
       for (i <- args.length until argsMap.size) {
-        pos = lg.fix(pos, argsMap(i))
+        pos = lg.fixAndSimpl(pos, argsMap(i))
       }
     case _ => ()
   }

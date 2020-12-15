@@ -417,7 +417,7 @@ class LogicGraph extends ExprContainer {
 
   def getExprWhenAppliedForall(inside: Int, args: Seq[Int], numFix: Int): Set[Int] = {
     val numSymbols = countSymbols(inside)
-    if (numSymbols <= args.length + numFix) args.toSet
+    if (numSymbols <= args.length + numFix) args.toSet.flatMap(getExprWhenApplied(_, numFix))
     else splitImplyInside(inside, args) match {
       case Some((a, b)) if countSymbols(a) <= args.length + numFix => 
         (getExprWhenAppliedForall(a, args, numFix) ++ getExprWhenAppliedForall(b, args, numFix)) + ImplySymbol
@@ -437,16 +437,28 @@ class LogicGraph extends ExprContainer {
 
   def applyInsideForall(inside: Int, args: Seq[Int], seq: Seq[Int], mapping: Map[Int, Int]): Int = {
     val numSymbols = countSymbols(inside)
-    val newArgs = args.map(applyInside(_, Seq(), mapping)) ++ seq
-    if (numSymbols <= newArgs.length) simplify(inside, newArgs)
+    if (numSymbols <= args.length + seq.length) {
+      val newArgs = args.map(applyInside(_, Seq(), mapping)) ++ seq
+      simplify(inside, newArgs)
+    }
     else splitImplyInside(inside, args) match {
-      case Some((a, b)) if countSymbols(a) <= newArgs.length =>
+      case Some((a, b)) if countSymbols(a) <= args.length + seq.length =>
+        val newArgs = args.map(applyInside(_, Seq(), mapping)) ++ seq
         var pos = mapping(ImplySymbol)
         pos = fix(pos, simplify(a, newArgs))
         pos = fix(pos, applyInsideForall(b, args, seq, mapping))
         pos
       case _ => getHeadTailFrom(mapping(getForallFrom(inside, args)), seq)
     }
+  }
+
+  def toSimpleString(pos: Int)(implicit logicGraph: LogicGraph): String =
+    pos match {
+    case HeadTail(Symbol(id), Seq()) => id.toString
+    case HeadTail(Symbol(id), seq) =>
+      id.toString + "(" + seq
+        .map(toSimpleString)
+        .mkString(", ") + ")"
   }
 
   ////
@@ -463,6 +475,12 @@ class LogicGraph extends ExprContainer {
     val allArgs = placeSet.flatMap(_ match {
       case HeadTail(_, tail) => getExprWhenApplied(newArg, tail.length)
     })
+
+    //println(toSimpleString(inside)(this))
+    //println(args)
+    //println(argsMapping.map)
+    //println(toSimpleString(newArg)(this))
+    //println(allArgs, newArg)
 
 
     allArgs.foreach(argsMapping.create)
