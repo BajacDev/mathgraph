@@ -142,16 +142,14 @@ object Commands {
       val result = ls.solver.findMguAbsurdity(e)
       println(ls.printer.toString(lg, e))
       println
-      result match {
-        case None => println("no mgu")
-        case Some(mgu) => mgu.foreach{ case (a, b) =>
-          print(ls.printer.toString(lg, a))
-          print(" <- ")
-          println(ls.printer.toString(lg, b))
-        }
-      }
+      println(result)
       ls
     }
+  }
+
+  val appmgu: Command = consumeState { ls =>
+    implicit val lg = ls.logicGraph
+    ls.solver.applyAllMgu()(lg)
   }
 
   val allmgu: Command = consumeState { ls =>
@@ -244,6 +242,8 @@ object Commands {
       "Displays all the expression.",
     CommandDef("allmgu", allmgu) ??
       "all mgu",
+    CommandDef("amgu", appmgu) ??
+      "apply mgu",
     CommandDef("psol", psol) ??
       "Displays solver expressions.",
     CommandDef("abs", absurd) ??

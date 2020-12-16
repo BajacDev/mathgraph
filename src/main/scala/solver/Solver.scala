@@ -53,8 +53,9 @@ class Solver() {
       val formerSize = lg.size
       //fixLogicExpr
       //fixForallExpr
-      disjonction
       fixLetSym
+      applyAllMgu
+      disjonction
       if (formerSize == lg.size) ()
       else if (lg.size > MAX_LOGICGRAPH_SIZE) ()
       else saturation(lg)
@@ -76,10 +77,22 @@ class Solver() {
     case _ => isVariable(p)
   }
 
-  def contains(p: Int, q: Int)(implicit lg: LogicGraph): Boolean = p match {
-    case Fixer(ForallSymbol, _) => false
-    case Fixer(a, b) => contains(a, q) || contains(b, q)
-    case _ => p == q
+
+  /*
+  * eg: return false for
+  * mgu: y <- x + x
+  * v, expr: x <- y + y
+  */
+  def cycleInMgu(v: Int, expr: Int, theta: Map[Int, Int])(implicit lg: LogicGraph): Boolean = {
+    if (v == expr) true
+    else theta.get(expr) match {
+      case Some(e) => cycleInMgu(v, e, theta) 
+      case None => expr match {
+        case Fixer(ForallSymbol, _) => false
+        case Fixer(a, b) => cycleInMgu(v, a, theta) || cycleInMgu(v, b, theta)
+        case _ => false
+      }
+    }
   }
 
   def insertInMgu(p: Int, q: Int, theta: Map[Int, Int])(implicit lg: LogicGraph): Option[Map[Int, Int]] = {
@@ -87,7 +100,9 @@ class Solver() {
     theta.get(p) match {
       case Some(x) if x == q => Some(theta)
       case Some(x) if x != q => unify(x, q, theta)
-      case None => Some(theta + (p -> q))
+      case None => 
+        if (cycleInMgu(p, q, theta)) None
+        else Some(theta + (p -> q))
     }
   }
 
@@ -103,9 +118,9 @@ class Solver() {
     }
   }
 
-  def findMguAbsurdity(orig: Int)(implicit lg: LogicGraph): Option[Map[Int, Int]] = {
-    
-    var visited: Map[Int, Boolean] = lg.truth.toMap
+  def findMguAbsurdity(orig: Int)(implicit lg: LogicGraph): Set[Map[Int, Int]] = {
+
+    var visited: Map[Int, Boolean] = Map()
 
     def findAbsurd(pos: Int, b: Boolean, theta: Map[Int, Int]): Option[Map[Int, Int]] = {
 
@@ -147,9 +162,13 @@ class Solver() {
       }
 
       visited.get(pos) match {
-        case Some(v) if v == b => None
-        // todo: check mgu at pos !!
-        case Some(v) if v != b => Some(theta)
+        case Some(v) if v == b => {
+          None
+        }
+        // todo: check mgu at node is possible with current mgu !!
+        case Some(v) if v != b => {
+          Some(theta)
+        }
         case None => {
           visited = visited + (pos -> b)
           exploreImply.orElse(exploreNeighbors).orElse(exploreMgu)
@@ -157,30 +176,53 @@ class Solver() {
       }
     }
 
+    var result: Set[Map[Int,Int]] = Set()
+
+    // todo: better handeling of cases with thruth(orig)
+    visited = lg.truth.toMap - orig
     findAbsurd(orig, false, Map()) match {
       case None => ()
-      case Some(mgu) => return Some(mgu)
+      case Some(mgu) => result = result + mgu
     }
 
+    visited = lg.truth.toMap - orig
     findAbsurd(orig, true, Map()) match {
       case None => ()
-      case Some(mgu) => return Some(mgu)
+      case Some(mgu) => result = result + mgu
     }
 
-    None
+    result
   }
 
   def findAllMgu()(implicit lg: LogicGraph): Set[Map[Int, Int]] = {
     var result: Set[Map[Int, Int]] = Set()
     for (expr <- 0 until lg.size) {
       if (containsVariable(expr) && !isVariable(expr)) {
-        findMguAbsurdity(expr) match {
-          case None => ()
-          case Some(mgu) => result = result + mgu
-        }
+        result = result ++ findMguAbsurdity(expr)
       }
     }
     result
+  }
+
+
+  def createFromMgu(p: Int, theta: Map[Int, Int])(implicit lg: LogicGraph): Int = theta.get(p) match {
+    case None => p
+    case Some(value) => value match {
+      case e @ Fixer(ForallSymbol, _) => e
+      case Fixer(a, b) => lg.fix(createFromMgu(a, theta), createFromMgu(b, theta))
+      case e @ _ => createFromMgu(e, theta)
+    }
+  }
+
+  def applyMgu(theta: Map[Int, Int])(implicit lg: LogicGraph): Unit = {
+    for ((v, rep) <- theta) {
+      val letFixer = (v + 1)
+      lg.fix(letFixer, createFromMgu(v, theta))
+    }
+  }
+
+  def applyAllMgu()(implicit lg: LogicGraph): Unit = {
+    findAllMgu.foreach(applyMgu)
   }
 
   /** fix all expressions with their let symbol
