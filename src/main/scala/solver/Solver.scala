@@ -214,7 +214,7 @@ class Solver() {
   }
 
   def applyMgu(theta: Map[Int, Int])(implicit lg: LogicGraph): Unit = {
-    for ((v, rep) <- theta) {
+    for ((v, rep) <- theta.toSeq.sortBy(_._1)) {
       val letFixer = (v + 1)
       lg.fix(letFixer, createFromMgu(v, theta))
     }
@@ -229,16 +229,14 @@ class Solver() {
     * proofs where  you have to fix true expression. That can change
     */
   def fixLetSym()(implicit lg: LogicGraph): Unit = {
+    // todo: less brut force
     update(lg)
-    val fa = (forallExpr ++ logicExpr)
-    for (expr <- fa) {
-      expr match {
-        case Forall(inside, args) => 
-          val remain = lg.countSymbols(inside) - args.length
-          var pos = expr
-          for (e <- 0 until remain) {
-            pos = lg.fixLetSymbol(pos)
-          }
+    //val fa = (forallExpr ++ logicExpr)
+    for (expr <- 0 until lg.size) {
+      if (lg.getTruthOf(expr).isEmpty) ()
+      else expr match {
+        case Forall(inside, args) => lg.fixLetSymbol(expr)
+        case _ => ()
       }
     }
   }

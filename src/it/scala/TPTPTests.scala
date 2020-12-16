@@ -26,7 +26,7 @@ class TPTPTests extends AnyFunSuite with TimeLimits {
   val testRoot = new File("resources/tptp")
   val filter: String => Boolean = _.endsWith(".p")
   val pipeline = TPTPFrontend andThen Simplifier andThen ForallToLets andThen ProgToLogicState
-  val timeout = 5
+  val timeout = 0.5
   implicit val signaler: Signaler = ThreadSignaler // kills the main thread in case of a timeout
 
   def testFile(file: File): Unit = {
