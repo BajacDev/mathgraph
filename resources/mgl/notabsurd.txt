@@ -1,0 +1,3 @@
+let f;
+
+forall x. f(x) -> f(x);

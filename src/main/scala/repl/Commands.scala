@@ -199,6 +199,13 @@ object Commands {
     }
   }
 
+  val dis: Command = consumeState { ls =>
+    {
+      implicit val lg = ls.logicGraph
+      ls.solver.disjonction
+    }
+  }
+
   /** Contains the list of all the available commands in the REPL */
   val commands: Map[String, CommandDef] = cmdsToMap(
     CommandDef("help", help) ~>? StringT ??
@@ -229,6 +236,8 @@ object Commands {
     CommandDef("proof", proof) ??
       "Displays a proof by contradiction, if one was found.",
     CommandDef("s", saturate) ??
-      "Applies the saturation algorithm to the set of expressions."
+      "Applies the saturation algorithm to the set of expressions.",
+    CommandDef("dis", dis) ??
+      "disjonction."
   )
 }

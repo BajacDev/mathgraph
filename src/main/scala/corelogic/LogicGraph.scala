@@ -171,7 +171,7 @@ class LogicGraph extends ExprContainer {
     var visited: Map[Int, Boolean] = truth.toMap
 
     def findAbsurd(pos: Int, b: Boolean): Boolean = {
-
+      
       def exploreImply: Boolean = pos match {
         case HeadTail(ImplySymbol, Seq(left, right)) => {
           if (!b) findAbsurd(left, true) || findAbsurd(right, false)
@@ -258,7 +258,7 @@ class LogicGraph extends ExprContainer {
   def fix(next: Int, arg: Int): Int = {
 
     val pos = exprForest.fix(next, arg)
-    
+
     link(next, pos, FixIR)
     if (exprForest.isLetSymbol(next, arg)) {
       link(pos, next, FixLetSymIR)
@@ -273,8 +273,8 @@ class LogicGraph extends ExprContainer {
     */
   def fixLetSymbol(pos: Int): Int =
     exprForest.getLetSymbol(pos) match {
-      case Some(posSymbol) => fix(pos, posSymbol)
-      case None            => pos
+      case Some(posSymbol) if isFixable(pos) => fix(pos, posSymbol)
+      case _            => pos
     }
 
   // ---------------------------------------------------------------

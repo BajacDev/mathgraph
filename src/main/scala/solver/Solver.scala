@@ -210,12 +210,13 @@ class Solver() {
 
   def disjonction()(implicit lg: LogicGraph): Unit = {
     for (expr <- 0 until lg.size) {
-      if (lg.isTruth(expr, true)) expr match {
-        case HeadTail(ImplySymbol, Seq(a, b)) => {
+      expr match {
+        // sensitive part: can't use disjonction on anything (bc of correctness)
+        // move it into logic graph
+        case HeadTail(ImplySymbol, Seq(a, b)) => 
+          lg.disjonction(expr) 
           lg.disjonction(a)
           lg.disjonction(b)
-          // todo more
-        }
         case _ => ()
       }
     }
