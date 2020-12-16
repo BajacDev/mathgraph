@@ -5,6 +5,17 @@ import io.AnsiColor._
 import mathgraph.corelogic.ExprContainer._
 import mathgraph.frontend.BackendTrees.{Apply, Expr, Forall => ExprForall}
 
+object Printer {
+  def toSimpleString(pos: Int)(implicit lg: LogicGraph): String =
+    pos match {
+      case HeadTail(Symbol(id), Seq()) => id.toString
+      case HeadTail(Symbol(id), seq) =>
+        id.toString + "(" + seq
+          .map(toSimpleString)
+          .mkString(", ") + ")"
+    }
+}
+
 case class Printer(
     exprToString: Map[Int, String]
 ) {
@@ -14,14 +25,7 @@ case class Printer(
   def remove(pos: Int): Printer = Printer(exprToString - pos)
 
   /** print expression in a simple way * */
-  def toSimpleString(implicit logicGraph: LogicGraph, pos: Int): String =
-    pos match {
-      case HeadTail(Symbol(id), Seq()) => id.toString
-      case HeadTail(Symbol(id), seq) =>
-        id.toString + "(" + seq
-          .map(toSimpleString(logicGraph, _))
-          .mkString(", ") + ")"
-    }
+  def toSimpleString(implicit logicGraph: LogicGraph, pos: Int): String = Printer.toSimpleString(pos)
 
   // ---------------------------------------------------------------------------
   // print an humain readable expression using exprToString map

@@ -136,9 +136,51 @@ object Commands {
     }
   }
 
+  val mgug: Command = { ls =>
+    { case Seq(e: Int) =>
+      implicit val lg = ls.logicGraph
+      val result = ls.solver.findMguAbsurdity(e)
+      println(ls.printer.toString(lg, e))
+      println
+      result match {
+        case None => println("no mgu")
+        case Some(mgu) => mgu.foreach{ case (a, b) =>
+          print(ls.printer.toString(lg, a))
+          print(" <- ")
+          println(ls.printer.toString(lg, b))
+        }
+      }
+      ls
+    }
+  }
+
+  val allmgu: Command = consumeState { ls =>
+    implicit val lg = ls.logicGraph
+    println(ls.solver.findAllMgu)
+  }
+
   val fix: Command = { ls =>
     { case Seq(e1: Int, e2: Int) =>
       ls.logicGraph.fix(e1, e2)
+      ls
+    }
+  }
+
+  val unify: Command = { ls =>
+    { case Seq(e1: Int, e2: Int) =>
+      implicit val lg = ls.logicGraph
+      val result = ls.solver.unify(e1, e2, Map())
+      println(ls.printer.toString(lg, e1))
+      println(ls.printer.toString(lg, e2))
+      println
+      result match {
+        case None => println("no mgu")
+        case Some(mgu) => mgu.foreach{ case (a, b) =>
+          print(ls.printer.toString(lg, a))
+          print(" <- ")
+          println(ls.printer.toString(lg, b))
+        }
+      }
       ls
     }
   }
@@ -200,14 +242,20 @@ object Commands {
       "Displays all the expression in a simple way.",
     CommandDef("ls", ls) ??
       "Displays all the expression.",
+    CommandDef("allmgu", allmgu) ??
+      "all mgu",
     CommandDef("psol", psol) ??
       "Displays solver expressions.",
     CommandDef("abs", absurd) ??
       "Displays whether the set of expressions is absurd.",
     CommandDef("fixn", fixN) ~> IntT ??
       "Fixes the given symbol with its let-symbol.",
+    CommandDef("mgug", mgug) ~> IntT ??
+      "explore mgu graph to find absurdity",
     CommandDef("fix", fix) ~> (IntT, IntT) ??
       "Fixes the two symbols given as arguments.",
+    CommandDef("unify", unify) ~> (IntT, IntT) ??
+      "gives the mgu of two expressions",
     CommandDef("fs", fs) ~> (IntT, IntT) ??
       "Fixes the two symbols given as arguments.",
     CommandDef("fle", fixLogicExpr) ??

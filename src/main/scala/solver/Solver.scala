@@ -4,6 +4,7 @@ import mathgraph.corelogic._
 import mathgraph.corelogic.ExprContainer._
 import mathgraph.util.Pipe._
 import mathgraph.solver.Solver._
+import mathgraph.printer._
 import scala.collection.mutable.{Map => MutMap, Set => MutSet, ListBuffer}
 import scala.math._
 
@@ -50,14 +51,136 @@ class Solver() {
     if (lg.isAbsurd) ()
     else {
       val formerSize = lg.size
-      fixLogicExpr
-      fixForallExpr
+      //fixLogicExpr
+      //fixForallExpr
       disjonction
       fixLetSym
       if (formerSize == lg.size) ()
       else if (lg.size > MAX_LOGICGRAPH_SIZE) ()
       else saturation(lg)
     }
+  }
+
+
+  def isVariable(v: Int)(implicit lg: LogicGraph): Boolean = {
+    val letFixer = (v + 1)
+    letFixer match {
+      case Forall(_, _) => lg.isTruth(letFixer, true)
+      case _ => false
+    }
+  }
+
+  def containsVariable(p: Int)(implicit lg: LogicGraph): Boolean = p match {
+    case Fixer(ForallSymbol, _) => false
+    case Fixer(a, b) => containsVariable(a) || containsVariable(b)
+    case _ => isVariable(p)
+  }
+
+  def contains(p: Int, q: Int)(implicit lg: LogicGraph): Boolean = p match {
+    case Fixer(ForallSymbol, _) => false
+    case Fixer(a, b) => contains(a, q) || contains(b, q)
+    case _ => p == q
+  }
+
+  def insertInMgu(p: Int, q: Int, theta: Map[Int, Int])(implicit lg: LogicGraph): Option[Map[Int, Int]] = {
+    // todo: make it faster
+    theta.get(p) match {
+      case Some(x) if x == q => Some(theta)
+      case Some(x) if x != q => unify(x, q, theta)
+      case None => Some(theta + (p -> q))
+    }
+  }
+
+  // fisrt order unify
+  def unify(p: Int, q: Int, theta: Map[Int, Int])(implicit lg: LogicGraph): Option[Map[Int, Int]] = {
+    if (p == q) return Some(theta)
+    else if (isVariable(p)) insertInMgu(p, q, theta)
+    else if (isVariable(q)) insertInMgu(q, p, theta)
+    else (p, q) match { // todo: foralls
+      case (Fixer(ForallSymbol, _), Fixer(ForallSymbol, _)) => Some(theta)
+      case (Fixer(l1, r1), Fixer(l2, r2)) => unify(l1, l2, theta).flatMap(unify(r1, r2, _))
+      case _ => None
+    }
+  }
+
+  def findMguAbsurdity(orig: Int)(implicit lg: LogicGraph): Option[Map[Int, Int]] = {
+    
+    var visited: Map[Int, Boolean] = lg.truth.toMap
+
+    def findAbsurd(pos: Int, b: Boolean, theta: Map[Int, Int]): Option[Map[Int, Int]] = {
+
+      def exploreImply: Option[Map[Int, Int]] = pos match {
+        case HeadTail(ImplySymbol, Seq(left, right)) => {
+          if (!b) findAbsurd(left, true, theta).orElse(findAbsurd(right, false, theta))
+          // todo: disjonction in disjonction?
+          else if (visited.get(left) == Some(true)) findAbsurd(right, true, theta)
+          else if (visited.get(right) == Some(false)) findAbsurd(left, false, theta)
+          else None
+        }
+        case _ => None
+      }
+
+      def exploreNeighbors: Option[Map[Int, Int]] = {
+        val neighsOpt = lg.getImplyGraphFor(b) get pos
+
+        neighsOpt.flatMap(neighs => {
+          var result: Option[Map[Int, Int]] = None
+          for (neigh <- neighs) {
+            result = result.orElse(findAbsurd(neigh, b, theta))
+          }
+          result
+        })
+      }
+
+      def exploreMgu: Option[Map[Int, Int]] = {
+        var result: Option[Map[Int, Int]] = None
+        for (neigh <- 0 until lg.size) {
+          // todo: !isVariable useful?
+          if (neigh != pos && !isVariable(neigh)) {
+            unify(pos, neigh, theta) match {
+              case None => ()
+              case Some(newTheta) => result = result.orElse(findAbsurd(neigh, b, newTheta))
+            }
+          }
+        }
+        result
+      }
+
+      visited.get(pos) match {
+        case Some(v) if v == b => None
+        // todo: check mgu at pos !!
+        case Some(v) if v != b => Some(theta)
+        case None => {
+          visited = visited + (pos -> b)
+          exploreImply.orElse(exploreNeighbors).orElse(exploreMgu)
+        }
+      }
+    }
+
+    findAbsurd(orig, false, Map()) match {
+      case None => ()
+      case Some(mgu) => return Some(mgu)
+    }
+
+    findAbsurd(orig, true, Map()) match {
+      case None => ()
+      case Some(mgu) => return Some(mgu)
+    }
+
+    None
+  }
+
+  def findAllMgu()(implicit lg: LogicGraph): Set[Map[Int, Int]] = {
+    var result: Set[Map[Int, Int]] = Set()
+    for (expr <- 0 until lg.size) {
+      if (containsVariable(expr) && !isVariable(expr)) {
+        findMguAbsurdity(expr) match {
+          case None => ()
+          case Some(mgu) => result = result + mgu
+        }
+      }
+    }
+    result
   }
 
   /** fix all expressions with their let symbol
