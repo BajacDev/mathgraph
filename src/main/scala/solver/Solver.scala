@@ -14,7 +14,9 @@ object Solver {
 
 class Solver() {
 
-  def saturation()(implicit lg: LogicGraph): Unit = {
+  def saturation(iter: Option[Int])(implicit lg: LogicGraph): Unit = {
+    
+    if (iter.map(_ <= 0).getOrElse(false)) return
 
     if (lg.isAbsurd) return
     if (lg.size > MAX_LOGICGRAPH_SIZE) return
@@ -26,10 +28,12 @@ class Solver() {
 
     if (formerHash == lg.getGraphHash) return
 
-    saturation
-
+    saturation(iter.map(_ - 1))
   }
 
+  def saturation(iter: Int)(implicit lg: LogicGraph): Unit = saturation(Some(iter))
+
+  def saturation()(implicit lg: LogicGraph): Unit = saturation(None)
 
   def isVariable(v: Int)(implicit lg: LogicGraph): Boolean = {
     val letFixer = (v + 1)

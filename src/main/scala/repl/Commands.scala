@@ -124,6 +124,14 @@ object Commands {
     printState(ls, 0 until ls.logicGraph.size, simple = false)
   }
 
+  val lsf: Command = consumeState { ls =>
+    implicit val lg = ls.logicGraph
+    for (expr <- 0 until lg.size) expr match {
+      case Fixer(a, b) => println((a, b))
+      case _ => ()
+    }
+  }
+
   val absurd: Command = consumeState { ls =>
     val status = if (ls.logicGraph.isAbsurd) "absurd" else "not absurd"
     println(s"The logic graph is $status")
@@ -132,6 +140,15 @@ object Commands {
   val fixN: Command = { ls =>
     { case Seq(e: Int) =>
       ls.logicGraph.fixLetSymbol(e)
+      ls
+    }
+  }
+
+  val saturateIter: Command = { ls =>
+    { case Seq(e: Int) =>
+      implicit val lg = ls.logicGraph
+      ls.solver.saturation(e)
+      proof(ls)(Seq())
       ls
     }
   }
@@ -215,6 +232,8 @@ object Commands {
       "Exits the REPL",
     CommandDef("lss", lss) ??
       "Displays all the expression in a simple way.",
+    CommandDef("lsf", lsf) ??
+      "Displays all the fixers in a simple way.",
     CommandDef("ls", ls) ??
       "Displays all the expression.",
     CommandDef("allmgu", allmgu) ??
@@ -237,6 +256,8 @@ object Commands {
       "Displays a proof by contradiction, if one was found.",
     CommandDef("s", saturate) ??
       "Applies the saturation algorithm to the set of expressions.",
+    CommandDef("ss", saturateIter) ~> IntT ??
+      "saturate n times.",
     CommandDef("dis", dis) ??
       "disjonction."
   )
