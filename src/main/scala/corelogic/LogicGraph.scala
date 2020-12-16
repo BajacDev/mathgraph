@@ -127,6 +127,8 @@ class LogicGraph extends ExprContainer {
       case _                    => false
     }
 
+  def getGraphHash: Int = truth.size.hashCode
+
   // -------------------------------------------------------------
   // -------------------------------------------------------------
   // Applications of inference rules

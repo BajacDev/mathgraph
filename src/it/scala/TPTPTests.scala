@@ -36,12 +36,12 @@ class TPTPTests extends AnyFunSuite with TimeLimits {
     test(testName) {
       try {
         val logicState = pipeline.run(FileSource(filename))(new Context)
-        val lg = logicState.logicGraph
+        implicit val lg = logicState.logicGraph
 
         failAfter(Span(timeout, Seconds)) {
           val thread = new Thread {
             override def run() = {
-              new Solver().saturation(lg)
+              new Solver().saturation
             }
           }
 

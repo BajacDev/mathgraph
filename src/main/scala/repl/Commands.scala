@@ -208,7 +208,8 @@ object Commands {
 
   val saturate: Command = consumeState { ls =>
     {
-      ls.solver.saturation(ls.logicGraph)
+      implicit val lg = ls.logicGraph
+      ls.solver.saturation
       proof(ls)(Seq())
     }
   }

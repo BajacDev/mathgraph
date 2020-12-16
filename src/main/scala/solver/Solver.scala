@@ -10,7 +10,7 @@ import scala.math._
 
 object Solver {
 
-  val MAX_LOGICGRAPH_SIZE: Int = 1000
+  val MAX_LOGICGRAPH_SIZE: Int = 10000
 
   /** context an expr is used
     * head can be a symbol or an expr if the head is a forall
@@ -45,21 +45,20 @@ class Solver() {
   var trueGlobalExpr = MutSet.empty[Int] // true expr with no forall as root
   var falseGlobalExpr = MutSet.empty[Int] // false expr with no forall as root
 
-  def saturation(implicit lg: LogicGraph): Unit = {
+  def saturation()(implicit lg: LogicGraph): Unit = {
 
-    // todo
-    if (lg.isAbsurd) ()
-    else {
-      val formerSize = lg.size
-      //fixLogicExpr
-      //fixForallExpr
-      fixLetSym
-      applyAllMgu
-      disjonction
-      if (formerSize == lg.size) ()
-      else if (lg.size > MAX_LOGICGRAPH_SIZE) ()
-      else saturation(lg)
-    }
+    if (lg.isAbsurd) return
+    if (lg.size > MAX_LOGICGRAPH_SIZE) return
+
+    val formerHash = lg.getGraphHash
+    fixLetSym
+    applyAllMgu
+    disjonction
+
+    if (formerHash == lg.getGraphHash) return
+
+    saturation
+
   }
 
 
