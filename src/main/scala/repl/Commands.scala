@@ -183,23 +183,8 @@ object Commands {
     }
   }
 
-  val fs: Command = { ls =>
-    { case Seq(e1: Int, e2: Int) =>
-      ls.logicGraph.fixAndSimpl(e1, e2)
-      ls
-    }
-  }
-
-  val fixLogicExpr: Command = consumeState { ls =>
-    ls.solver.fixLogicExpr()(ls.logicGraph)
-  }
-
-  val fixAllFalse: Command = consumeState { ls =>
+  val fixLetSymbols: Command = consumeState { ls =>
     ls.solver.fixLetSym()(ls.logicGraph)
-  }
-
-  val fixForallExpr: Command = consumeState { ls =>
-    ls.solver.fixForallExpr()(ls.logicGraph)
   }
 
   val proof: Command = consumeState { ls =>
@@ -211,22 +196,6 @@ object Commands {
       implicit val lg = ls.logicGraph
       ls.solver.saturation
       proof(ls)(Seq())
-    }
-  }
-
-  val psol: Command = consumeState { ls =>
-    {
-      val lg = ls.logicGraph
-      val sol = ls.solver
-      sol.update(lg)
-      println("imply exprs")
-      printState(ls, sol.logicExpr, simple = false)
-      println("forall exprs")
-      printState(ls, sol.forallExpr, simple = false)
-      println("true global exprs")
-      printState(ls, sol.trueGlobalExpr, simple = false)
-      println("false global exprs")
-      printState(ls, sol.falseGlobalExpr, simple = false)
     }
   }
 
@@ -245,8 +214,6 @@ object Commands {
       "all mgu",
     CommandDef("amgu", appmgu) ??
       "apply mgu",
-    CommandDef("psol", psol) ??
-      "Displays solver expressions.",
     CommandDef("abs", absurd) ??
       "Displays whether the set of expressions is absurd.",
     CommandDef("fixn", fixN) ~> IntT ??
@@ -257,13 +224,7 @@ object Commands {
       "Fixes the two symbols given as arguments.",
     CommandDef("unify", unify) ~> (IntT, IntT) ??
       "gives the mgu of two expressions",
-    CommandDef("fs", fs) ~> (IntT, IntT) ??
-      "Fixes the two symbols given as arguments.",
-    CommandDef("fle", fixLogicExpr) ??
-      "Fixes all the expressions to true.",
-    CommandDef("ffe", fixForallExpr) ??
-      "Fixes all the expressions to true.",
-    CommandDef("faf", fixAllFalse) ??
+    CommandDef("fls", fixLetSymbols) ??
       "Fixes all the expressions to false.",
     CommandDef("proof", proof) ??
       "Displays a proof by contradiction, if one was found.",

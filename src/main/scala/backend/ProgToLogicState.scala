@@ -62,7 +62,7 @@ object ProgToLogicState extends Pipeline[Program, LogicState] {
       val pos = exprToLogicGraph(expr, localStringToExpr, lg)
 
       globals.foldLeft(lg.forall(pos)) { case (pos2, arg) =>
-        lg.fixAndSimpl(pos2, globalstringToExpr(arg))
+        lg.fix(pos2, globalstringToExpr(arg))
       }
     }
   }
