@@ -127,7 +127,7 @@ object Commands {
   val lsf: Command = consumeState { ls =>
     implicit val lg = ls.logicGraph
     for (expr <- 0 until lg.size) expr match {
-      case Fixer(a, b) => println((a, b))
+      case Fixer(a, b) => println(f"$expr%04d ${(a, b)}")
       case _ => ()
     }
   }
