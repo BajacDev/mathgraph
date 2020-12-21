@@ -167,7 +167,7 @@ class LogicGraph extends ExprContainer {
 
   def disjunction(orig: Int): Unit = {
 
-    var visited: Map[Int, Boolean] = truth.toMap
+    var visited: Map[Int, Boolean] = Map()
 
     def findAbsurd(pos: Int, b: Boolean): Boolean = {
 
@@ -202,9 +202,11 @@ class LogicGraph extends ExprContainer {
       }
     }
 
+    visited = truth.toMap - orig
     if (findAbsurd(orig, false)) {
       link(TrueSymbol, orig, Disjunction)
     }
+    visited = truth.toMap - orig
     if (findAbsurd(orig, true)) {
       link(orig, FalseSymbol, Disjunction)
     }
