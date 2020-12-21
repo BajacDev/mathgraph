@@ -191,8 +191,10 @@ class Solver() {
   def findAllMgu()(implicit lg: LogicGraph): Set[Map[Int, Int]] = {
     var result: Set[Map[Int, Int]] = Set()
     for (expr <- 0 until lg.size) {
-      if (containsVariable(expr) && !isVariable(expr)) {
-        result = result ++ findMguAbsurdity(expr)
+      expr match {
+        case HeadTail(ImplySymbol, Seq(a, b)) =>
+          result = result ++ findMguAbsurdity(expr) ++ findMguAbsurdity(a) ++ findMguAbsurdity(b)
+        case _ => ()
       }
     }
     result
