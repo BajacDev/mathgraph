@@ -25,7 +25,8 @@ case class Printer(
   def remove(pos: Int): Printer = Printer(exprToString - pos)
 
   /** print expression in a simple way * */
-  def toSimpleString(implicit logicGraph: LogicGraph, pos: Int): String = Printer.toSimpleString(pos)
+  def toSimpleString(implicit logicGraph: LogicGraph, pos: Int): String =
+    Printer.toSimpleString(pos)
 
   // ---------------------------------------------------------------------------
   // print an humain readable expression using exprToString map
@@ -193,7 +194,7 @@ case class Printer(
     case SimplifyIR      => "Simplify"
     case Axiom           => "Axiom"
     case SimplInsideIR   => "SimplInsideIR"
-    case Disjonction     => "Disjonction"
+    case Disjunction     => "Disjunction"
   }
 
   def proofFromPos(lg: LogicGraph, pos: Int, alg: String = ""): List[String] = {

@@ -128,7 +128,7 @@ object Commands {
     implicit val lg = ls.logicGraph
     for (expr <- 0 until lg.size) expr match {
       case Fixer(a, b) => println(f"$expr%04d ${(a, b)}")
-      case _ => ()
+      case _           => ()
     }
   }
 
@@ -190,11 +190,12 @@ object Commands {
       println
       result match {
         case None => println("no mgu")
-        case Some(mgu) => mgu.foreach{ case (a, b) =>
-          print(ls.printer.toString(lg, a))
-          print(" <- ")
-          println(ls.printer.toString(lg, b))
-        }
+        case Some(mgu) =>
+          mgu.foreach { case (a, b) =>
+            print(ls.printer.toString(lg, a))
+            print(" <- ")
+            println(ls.printer.toString(lg, b))
+          }
       }
       ls
     }
@@ -219,7 +220,7 @@ object Commands {
   val dis: Command = consumeState { ls =>
     {
       implicit val lg = ls.logicGraph
-      ls.solver.disjonction
+      ls.solver.disjunction
     }
   }
 
@@ -259,6 +260,6 @@ object Commands {
     CommandDef("ss", saturateIter) ~> IntT ??
       "saturate n times.",
     CommandDef("dis", dis) ??
-      "disjonction."
+      "disjunction."
   )
 }

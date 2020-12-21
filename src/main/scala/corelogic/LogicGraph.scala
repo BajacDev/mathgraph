@@ -15,13 +15,13 @@ import scala.collection.mutable.{Map => MutMap, Set => MutSet}
   * why using '->' as a base Symbol and not 'not', 'or' and 'and'?
   * - I wanted to have the minimum number of symbols. Moreover I wanted the base symbols
   *   to have a strong relationship with the graph we are manipulating. hence `->`
-  *   have a instinctive meaning on the graph (see imply infrence rule).
-  *   It is not based on any performance requirements
+  *   have a intuitive meaning on the graph (see imply infrence rule).
+  *   It is not based on any performance requirements.
   *
-  * why ysing false propagation instead of just true propagation ?
-  * - I wanted the minimum number of inference rules. using only true propagation
+  * why using false propagation instead of just true propagation ?
+  * - I wanted the minimum number of inference rules. Using only true propagation
   *   would have increase the number of inference rule, specialy with
-  *   negations of forall (exists). See future proof of test.txt
+  *   negations of forall (exists). See future proof of test.txt.
   */
 
 // -----------------------------------------------------
@@ -32,8 +32,8 @@ import scala.collection.mutable.{Map => MutMap, Set => MutSet}
 // inference rules
 // -----------------------------------
 
-/** The goal was to have a minimal set of infernce rule
-  * Those object ar only use for proof building
+/** The goal was to have a minimal set of infernce rules
+  * Those object are only use for proof building
   * Please see the application of inference rules in LogicGraph for more details
   */
 
@@ -47,7 +47,7 @@ object FixIR extends InferenceRule
 object FixLetSymIR extends InferenceRule
 object SimplifyIR extends InferenceRule
 object Axiom extends InferenceRule
-object Disjonction extends InferenceRule
+object Disjunction extends InferenceRule
 
 object LogicGraph {
   def init: LogicGraph = {
@@ -66,7 +66,6 @@ object LogicGraph {
 class LogicGraph extends ExprContainer {
 
   val exprForest: ExprForest = new ExprForest
-  // todo use mulatble
   var truth: MutMap[Int, Boolean] = MutMap()
   var imply: MutMap[Int, MutSet[Int]] = MutMap()
   var isImpliedBy: MutMap[Int, MutSet[Int]] = MutMap()
@@ -80,7 +79,7 @@ class LogicGraph extends ExprContainer {
   def getTruthOriginOf(pos: Int) = truthOrigin get pos
   def getTruthOf(pos: Int) = truth get pos
   def getAbsurd = absurd
-  def isAbsurd: Boolean = !absurd.isEmpty
+  def isAbsurd: Boolean = absurd.isDefined
   def getAllTruth(b: Boolean): Iterator[Int] =
     truth.filter(_._2 == b).keysIterator
   def getAllTruth: Iterator[Int] = truth.keysIterator
@@ -135,14 +134,14 @@ class LogicGraph extends ExprContainer {
   // -------------------------------------------------------------
   // -------------------------------------------------------------
 
-  // note: when an infernce rule cannot by applied on pos,
+  // note: when an inference rule cannot by applied on pos,
   // it returns (this, pos)
 
   // -------------------------------------------------------------
   // Imply inference rule
   // -------------------------------------------------------------
 
-  /** this method comtains 3 inference rules related to implications
+  /** this method contains 3 inference rules related to implications
     * - when A -> B is true then A => B
     * - when A -> B is false then true => A
     * - when A -> B is false then B => false
@@ -166,16 +165,16 @@ class LogicGraph extends ExprContainer {
       case _ => ()
     }
 
-  def disjonction(orig: Int): Unit = {
+  def disjunction(orig: Int): Unit = {
 
     var visited: Map[Int, Boolean] = truth.toMap
 
     def findAbsurd(pos: Int, b: Boolean): Boolean = {
-      
+
       def exploreImply: Boolean = pos match {
         case HeadTail(ImplySymbol, Seq(left, right)) => {
           if (!b) findAbsurd(left, true) || findAbsurd(right, false)
-          // todo: disjonction in disjonction?
+          // todo: disjunction in disjunction?
           else if (visited.get(left) == Some(true)) findAbsurd(right, true)
           else if (visited.get(right) == Some(false)) findAbsurd(left, false)
           else false
@@ -188,13 +187,8 @@ class LogicGraph extends ExprContainer {
 
         neighsOpt match {
           case None => false
-          case Some(neighs: MutSet[Int]) => {
-            var v = false
-            for (neigh <- neighs) {
-              v = v || findAbsurd(neigh, b)
-            }
-            v
-          }
+          case Some(neighs: MutSet[Int]) =>
+            neighs.exists(findAbsurd(_, b))
         }
       }
 
@@ -209,10 +203,10 @@ class LogicGraph extends ExprContainer {
     }
 
     if (findAbsurd(orig, false)) {
-      link(TrueSymbol, orig, Disjonction)
+      link(TrueSymbol, orig, Disjunction)
     }
     if (findAbsurd(orig, true)) {
-      link(orig, FalseSymbol, Disjonction)
+      link(orig, FalseSymbol, Disjunction)
     }
   }
 
@@ -232,7 +226,7 @@ class LogicGraph extends ExprContainer {
   /** this method comtains 1 inference rule
     * when a forall contains n free Symbols and the tail/args of the forall
     * is of length at least n (ie: when all symbols in forall have been fixed)
-    * then use simply (see simplify)
+    * then use simplify (see simplify)
     */
   def simplifyAll(pos: Int): Option[Int] = pos match {
     case Forall(inside, args) =>
@@ -268,13 +262,13 @@ class LogicGraph extends ExprContainer {
 
   def forall(body: Int): Int = fix(ForallSymbol, body)
 
-  /** when A is in the graph, then it exists a symbol call
-    * the LetSymbol of A (call it a) such that  A <=> Fixer(A, a)
+  /** when A is in the graph, then there exists a symbol called
+    * the LetSymbol of A (call it a) such that A <=> Fixer(A, a).
     */
   def fixLetSymbol(pos: Int): Int =
     exprForest.getLetSymbol(pos) match {
       case Some(posSymbol) if isFixable(pos) => fix(pos, posSymbol)
-      case _            => pos
+      case _                                 => pos
     }
 
   // ---------------------------------------------------------------
