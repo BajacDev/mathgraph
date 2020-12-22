@@ -255,6 +255,7 @@ class LogicGraph extends ExprContainer {
 
     val pos = exprForest.fix(next, arg)
 
+    simplifyAll(pos)
     link(next, pos, FixIR)
     if (exprForest.isLetSymbol(next, arg)) {
       link(pos, next, FixLetSymIR)

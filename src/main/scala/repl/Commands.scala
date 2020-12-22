@@ -224,6 +224,14 @@ object Commands {
     }
   }
 
+  val dislg: Command = { ls =>
+    { case Seq(e: Int) =>
+      implicit val lg = ls.logicGraph
+      lg.disjunction(e)
+      ls
+    }
+  }
+
   /** Contains the list of all the available commands in the REPL */
   val commands: Map[String, CommandDef] = cmdsToMap(
     CommandDef("help", help) ~>? StringT ??
@@ -245,6 +253,8 @@ object Commands {
       "Displays whether the set of expressions is absurd.",
     CommandDef("fixn", fixN) ~> IntT ??
       "Fixes the given symbol with its let-symbol.",
+    CommandDef("dislg", dislg) ~> IntT ??
+      "disjonction in logic graph.",
     CommandDef("mgug", mgug) ~> IntT ??
       "explore mgu graph to find absurdity",
     CommandDef("fix", fix) ~> (IntT, IntT) ??
