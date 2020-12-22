@@ -64,17 +64,17 @@ object NameAnalyzer extends Pipeline[In.Program, Out.Program] {
       // Variables / Constant symbols
       case In.Apply(name, Seq()) =>
         if (!variables(name)) {
-          if (!symbols.contains(name))
+          /*if (!symbols.contains(name))
             ctxt.fatal(s"Constant or variable '$name' not found", e)
           else if (symbols(name) != 0)
-            ctxt.fatal(s"Expected arguments for function '$name'", e)
+            ctxt.fatal(s"Expected arguments for function '$name'", e)*/
         }
 
         Out.Apply(name, Seq())
 
       // Function symbols
       case In.Apply(name, args) =>
-        if (!symbols.contains(name) && !operators.contains(name))
+        /*if (!symbols.contains(name) && !operators.contains(name))
           ctxt.fatal(s"Function '$name' not found", e)
 
         val expectedArity = if (symbols.contains(name)) symbols(name) else 2
@@ -82,7 +82,7 @@ object NameAnalyzer extends Pipeline[In.Program, Out.Program] {
           ctxt.fatal(
             s"Function '$name' expects $expectedArity arguments, but ${args.size} were given",
             e
-          )
+          )*/
 
         Out.Apply(name, args.map(transformExpr))
 

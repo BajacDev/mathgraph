@@ -1,173 +1,255 @@
 package mathgraph.solver
 
 import mathgraph.corelogic._
+import mathgraph.corelogic.ExprContainer._
 import mathgraph.util.Pipe._
+import mathgraph.solver.Solver._
+import mathgraph.printer._
+import scala.collection.mutable.{Map => MutMap, Set => MutSet, ListBuffer}
+import scala.math._
 
 object Solver {
+  val MAX_LOGICGRAPH_SIZE: Int = 10000
+}
 
-  /** context an expr is used
-    * head can be a symbol or an expr if the head is a forall
-    *
-    * eg: ->(A, B)
-    * the context of A is Context(->, 0)
-    *
-    * when there is a forall, we take the arg number 0 as an head
-    * that make stats more precise
-    *
-    * this does not accept second order logic context yet
-    */
-  case class Context(head: Int, idArg: Int)
+class Solver() {
 
-  // todo better name
-  type Stats = Map[Context, Set[Int]]
+  def saturation(iter: Option[Int])(implicit lg: LogicGraph): Unit = {
 
-  def saturation(logicGraph: LogicGraph): LogicGraph = {
-    if (logicGraph.isAbsurd) logicGraph
-    else saturation(fixAll(fixLetSym(logicGraph)))
+    if (iter.map(_ <= 0).getOrElse(false)) return
+
+    if (lg.isAbsurd) return
+    if (lg.size > MAX_LOGICGRAPH_SIZE) return
+
+    val formerHash = lg.getGraphHash
+    fixLetSym
+    applyAllMgu
+    disjunction
+
+    if (formerHash == lg.getGraphHash) return
+
+    saturation(iter.map(_ - 1))
+  }
+
+  def saturation(iter: Int)(implicit lg: LogicGraph): Unit = saturation(
+    Some(iter)
+  )
+
+  def saturation()(implicit lg: LogicGraph): Unit = saturation(None)
+
+  def isVariable(v: Int)(implicit lg: LogicGraph): Boolean = {
+    val letFixer = (v + 1)
+    letFixer match {
+      case Forall(_, _) => lg.isTruth(letFixer, true)
+      case _            => false
+    }
+  }
+
+  def containsVariable(p: Int)(implicit lg: LogicGraph): Boolean = p match {
+    case Fixer(ForallSymbol, _) => false
+    case Fixer(a, b)            => containsVariable(a) || containsVariable(b)
+    case _                      => isVariable(p)
+  }
+
+  /*
+   * eg: return false for
+   * mgu: y <- x + x
+   * v, expr: x <- y + y
+   */
+  def cycleInMgu(v: Int, expr: Int, theta: Map[Int, Int])(implicit
+      lg: LogicGraph
+  ): Boolean = {
+    if (v == expr) true
+    else
+      theta.get(expr) match {
+        case Some(e) => cycleInMgu(v, e, theta)
+        case None =>
+          expr match {
+            case Fixer(ForallSymbol, _) => false
+            case Fixer(a, b) =>
+              cycleInMgu(v, a, theta) || cycleInMgu(v, b, theta)
+            case _ => false
+          }
+      }
+  }
+
+  def insertInMgu(p: Int, q: Int, theta: Map[Int, Int])(implicit
+      lg: LogicGraph
+  ): Option[Map[Int, Int]] = {
+    // todo: make it faster
+    theta.get(p) match {
+      case Some(x) if x == q => Some(theta)
+      case Some(x) if x != q => unify(x, q, theta)
+      case None =>
+        if (cycleInMgu(p, q, theta)) None
+        else Some(theta + (p -> q))
+    }
+  }
+
+  // fisrt order unify
+  def unify(p: Int, q: Int, theta: Map[Int, Int])(implicit
+      lg: LogicGraph
+  ): Option[Map[Int, Int]] = {
+    if (p == q) return Some(theta)
+    else if (isVariable(p)) insertInMgu(p, q, theta)
+    else if (isVariable(q)) insertInMgu(q, p, theta)
+    else
+      (p, q) match { // todo: foralls
+        case (Fixer(ForallSymbol, _), Fixer(ForallSymbol, _)) => Some(theta)
+        case (Fixer(l1, r1), Fixer(l2, r2)) =>
+          unify(l1, l2, theta).flatMap(unify(r1, r2, _))
+        case _ => None
+      }
+  }
+
+  def findMguAbsurdity(
+      orig: Int
+  )(implicit lg: LogicGraph): Set[Map[Int, Int]] = {
+
+    var visited: Map[Int, Boolean] = Map()
+
+    def findAbsurd(
+        pos: Int,
+        b: Boolean,
+        theta: Map[Int, Int]
+    ): Option[Map[Int, Int]] = {
+
+      def exploreImply: Option[Map[Int, Int]] = pos match {
+        case HeadTail(ImplySymbol, Seq(left, right)) => {
+          if (!b)
+            findAbsurd(left, true, theta).orElse(
+              findAbsurd(right, false, theta)
+            )
+          // todo: disjunction in disjunction?
+          else if (visited.get(left) == Some(true))
+            findAbsurd(right, true, theta)
+          else if (visited.get(right) == Some(false))
+            findAbsurd(left, false, theta)
+          else None
+        }
+        case _ => None
+      }
+
+      def exploreNeighbors: Option[Map[Int, Int]] = {
+        val neighsOpt = lg.getImplyGraphFor(b) get pos
+
+        neighsOpt.flatMap(neighs => {
+          neighs.toStream.map(findAbsurd(_, b, theta)).collectFirst {
+            case Some(subst) => subst
+          }
+        })
+      }
+
+      def exploreMgu: Option[Map[Int, Int]] = {
+        var result: Option[Map[Int, Int]] = None
+        for (neigh <- 0 until lg.size) {
+          // todo: !isVariable useful?
+          if (neigh != pos && !isVariable(neigh)) {
+            unify(pos, neigh, theta) match {
+              case None => ()
+              case Some(newTheta) =>
+                result = result.orElse(findAbsurd(neigh, b, newTheta))
+            }
+          }
+        }
+        result
+      }
+
+      visited.get(pos) match {
+        case Some(v) if v == b => {
+          None
+        }
+        // todo: check mgu at node is possible with current mgu !!
+        case Some(v) if v != b => {
+          Some(theta)
+        }
+        case None => {
+          visited = visited + (pos -> b)
+          exploreImply.orElse(exploreNeighbors).orElse(exploreMgu)
+        }
+      }
+    }
+
+    var result: Set[Map[Int, Int]] = Set()
+
+    // todo: better handling of cases with thruth(orig)
+    visited = lg.truth.toMap - orig
+    findAbsurd(orig, false, Map()) match {
+      case None      => ()
+      case Some(mgu) => result = result + mgu
+    }
+
+    visited = lg.truth.toMap - orig
+    findAbsurd(orig, true, Map()) match {
+      case None      => ()
+      case Some(mgu) => result = result + mgu
+    }
+
+    result
+  }
+
+  def findAllMgu()(implicit lg: LogicGraph): Set[Map[Int, Int]] = {
+    var result: Set[Map[Int, Int]] = Set()
+    for (expr <- 0 until lg.size) {
+      expr match {
+        case HeadTail(ImplySymbol, Seq(a, b)) =>
+          result = result ++ findMguAbsurdity(expr) ++ findMguAbsurdity(a) ++ findMguAbsurdity(b)
+        case _ => ()
+      }
+    }
+    result
+  }
+
+  def createFromMgu(p: Int, theta: Map[Int, Int])(implicit
+      lg: LogicGraph
+  ): Int = theta.get(p) match {
+    case None => p
+    case Some(value) =>
+      value match {
+        case e @ Fixer(ForallSymbol, _) => e
+        case Fixer(a, b) =>
+          lg.fix(createFromMgu(a, theta), createFromMgu(b, theta))
+        case e @ _ => createFromMgu(e, theta)
+      }
+  }
+
+  def applyMgu(theta: Map[Int, Int])(implicit lg: LogicGraph): Unit = {
+    for ((v, rep) <- theta.toSeq.sortBy(_._1)) {
+      val letFixer = (v + 1)
+      lg.fix(letFixer, createFromMgu(v, theta))
+    }
+  }
+
+  def applyAllMgu()(implicit lg: LogicGraph): Unit = {
+    findAllMgu.foreach(applyMgu)
   }
 
   /** fix all expressions with their let symbol
     * for now, I fix every false expression because I did not find
     * proofs where  you have to fix true expression. That can change
     */
-  def fixLetSym(logicGraph: LogicGraph): LogicGraph = {
-    logicGraph
-      .getAllTruth(false)
-      .filter(logicGraph.isFixable)
-      .filter(!existsFalseFixer(logicGraph, _))
-      .foldLeft(logicGraph) { case (lg, pos) =>
-        lg.fixLetSymbol(pos)._1
-      }
-  }
-
-  def existsFalseFixer(logicGraph: LogicGraph, pos: Int): Boolean = {
-    logicGraph
-      .getImplies(pos)
-      .exists(other =>
-        logicGraph.isFixOf(other, pos) && logicGraph.isTruth(other, false)
-      )
-  }
-
-  /** fix all expressions using stats * */
-  def fixAll(logicGraph: LogicGraph): LogicGraph = {
-    val exprSet = logicGraph.getAllTruth
-    val stats = getStats(logicGraph, exprSet)
-    exprSet.filter(logicGraph.isFixable).foldLeft(logicGraph) {
-      case (lg, pos) => fixPos(lg, pos, stats)
-    }
-  }
-
-  /** fix the expression pos using Contexts in stats
-    */
-  private def fixPos(
-      logicGraph: LogicGraph,
-      pos: Int,
-      stats: Stats
-  ): LogicGraph = {
-
-    val contextSet: Set[Context] = getContexts(logicGraph, pos)
-    contextSet.foldLeft(logicGraph) { case (lg, context) =>
-      stats.get(context) match {
-        case None      => lg
-        case Some(set) => fixArgSet(lg, pos, set)
-      }
-    }
-  }
-
-  private def fixArgSet(
-      logicGraph: LogicGraph,
-      pos: Int,
-      argSet: Set[Int]
-  ): LogicGraph = {
-    argSet.foldLeft(logicGraph) { case (lg, arg) =>
-      lg.fix(pos, arg)._1
-    }
-  }
-
-  // duplicated
-  private def insertPair(a: Context, b: Int, map: Stats): Stats =
-    map get a match {
-      case None    => map + (a -> Set(b))
-      case Some(s) => (map - a) + (a -> (s + b))
-    }
-
-  /** return stats from a set of expression
-    *
-    * eg: expression +(1, 4) will return the map
-    * Map(Context('+', 0) -> Set('1'), Context('+', 1) -> Set('4'))
-    *
-    * eg: expression +(1, f(7)) will return the map
-    * Map(Context('+', 0) -> Set('1'), Context('+', 1) -> Set('f(7)'), Context('f', 0) -> Set('7'))
-    */
-  def getStats(implicit logicGraph: LogicGraph, exprSet: Set[Int]): Stats = {
-
-    def getStatsHeadTail(head: Int, tail: Seq[Int], result: Stats): Stats = {
-      tail.zipWithIndex.foldLeft(result) { case (map, (arg, idx)) =>
-        val newStats = insertPair(Context(head, idx), arg, map)
-        getStatsPos(arg, newStats)
-      }
-    }
-
-    // return stats from one expression
-    def getStatsPos(pos: Int, result: Stats): Stats = {
-      pos match {
-        case Forall(_, _)         => result
-        case HeadTail(head, tail) => getStatsHeadTail(head, tail, result)
-      }
-    }
-
-    exprSet.foldLeft(Map[Context, Set[Int]]()) { case (map, pos) =>
-      getStatsPos(pos, map)
-    }
-  }
-
-  /** Return the context of the argument to be fixed
-    * eg: if pos is {0(1,2)}(+(a)), then it return the context of the first arg
-    * inside the forall and outside
-    * here returns Set(Context({0(1,2)}, 1), Context(+, 2))
-    */
-  def getContexts(implicit logicGraph: LogicGraph, pos: Int): Set[Context] = {
-
-    def getContextsOutside(p: Int): Context = {
-      p match {
-        case HeadTail(head, tail) => Context(head, tail.length)
-      }
-    }
-
-    val contextInside: Set[Context] = pos match {
-      case Forall(inside, args) =>
-        getContextsInside(logicGraph, inside, args.map(getContextsOutside))
-      case _ => Set()
-    }
-    contextInside + getContextsOutside(pos)
-  }
-
-  def getContextsInside(implicit
-      logicGraph: LogicGraph,
-      pos: Int,
-      // use Context to store (head, tail.size)
-      outsideArgs: Seq[Context]
-  ): Set[Context] = {
-    val idArg = outsideArgs.length
-    pos match {
-      case HeadTail(Symbol(id), _) if id >= idArg => Set()
-      case HeadTail(Symbol(id), args) => {
-
-        args.zipWithIndex.foldLeft(Set[Context]()) { case (set, (arg, idx)) =>
-          arg match {
-
-            // eg: {0(1,2)}(+(a))
-            // when we simplify this expression with arg number 1 and 2 fixed, we obtain
-            // +(a, arg1). So the arguement number 1 in this context: ('+', 2)
-            case Symbol(idSym) if idSym == idArg =>
-              set + Context(
-                outsideArgs(id).head,
-                idx + outsideArgs(id).idArg
-              )
-
-            case _ => set ++ getContextsInside(logicGraph, arg, outsideArgs)
-          }
+  def fixLetSym()(implicit lg: LogicGraph): Unit = {
+    // todo: less brut force
+    for (expr <- 0 until lg.size) {
+      if (lg.getTruthOf(expr).isEmpty) ()
+      else
+        expr match {
+          case Forall(inside, args) => lg.fixLetSymbol(expr)
+          case _                    => ()
         }
+    }
+  }
+
+  def disjunction()(implicit lg: LogicGraph): Unit = {
+    for (expr <- 0 until lg.size) {
+      expr match {
+        // sensitive part: can't use disjunction on anything (bc of correctness)
+        // move it into logic graph
+        case HeadTail(ImplySymbol, Seq(a, b)) =>
+          lg.disjunction(expr)
+          lg.disjunction(a)
+          lg.disjunction(b)
+        case _ => ()
       }
     }
   }

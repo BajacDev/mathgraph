@@ -5,6 +5,7 @@ import io.AnsiColor._
 import mathgraph.corelogic._
 import mathgraph.printer._
 import mathgraph.solver._
+import mathgraph.solver.Solver._
 
 object Commands {
 
@@ -64,13 +65,17 @@ object Commands {
   }
 
   // Prints the logic state to the console
-  def printState(ls: LogicState, simple: Boolean): Unit = {
+  def printState(
+      ls: LogicState,
+      exprs: Iterable[Int],
+      simple: Boolean
+  ): Unit = {
     val lg = ls.logicGraph
     val printer: Int => String =
       if (simple) ls.printer.toSimpleString(lg, _)
       else ls.printer.toString(lg, _)
 
-    for (e <- 0 until lg.size) {
+    for (e <- exprs) {
       val truth = lg
         .getTruthOf(e)
         .map(t => if (t) "[true]\t" else "[false]\t")
@@ -112,11 +117,19 @@ object Commands {
   }
 
   val lss: Command = consumeState { ls =>
-    printState(ls, simple = true)
+    printState(ls, 0 until ls.logicGraph.size, simple = true)
   }
 
   val ls: Command = consumeState { ls =>
-    printState(ls, simple = false)
+    printState(ls, 0 until ls.logicGraph.size, simple = false)
+  }
+
+  val lsf: Command = consumeState { ls =>
+    implicit val lg = ls.logicGraph
+    for (expr <- 0 until lg.size) expr match {
+      case Fixer(a, b) => println(f"$expr%04d ${(a, b)}")
+      case _           => ()
+    }
   }
 
   val absurd: Command = consumeState { ls =>
@@ -126,61 +139,96 @@ object Commands {
 
   val fixN: Command = { ls =>
     { case Seq(e: Int) =>
-      ls.copy(logicGraph = ls.logicGraph.fixLetSymbol(e)._1)
+      ls.logicGraph.fixLetSymbol(e)
+      ls
     }
+  }
+
+  val saturateIter: Command = { ls =>
+    { case Seq(e: Int) =>
+      implicit val lg = ls.logicGraph
+      ls.solver.saturation(e)
+      proof(ls)(Seq())
+      ls
+    }
+  }
+
+  val mgug: Command = { ls =>
+    { case Seq(e: Int) =>
+      implicit val lg = ls.logicGraph
+      val result = ls.solver.findMguAbsurdity(e)
+      println(ls.printer.toString(lg, e))
+      println
+      println(result)
+      ls
+    }
+  }
+
+  val appmgu: Command = consumeState { ls =>
+    implicit val lg = ls.logicGraph
+    ls.solver.applyAllMgu()(lg)
+  }
+
+  val allmgu: Command = consumeState { ls =>
+    implicit val lg = ls.logicGraph
+    println(ls.solver.findAllMgu)
   }
 
   val fix: Command = { ls =>
     { case Seq(e1: Int, e2: Int) =>
-      ls.copy(logicGraph = ls.logicGraph.fix(e1, e2)._1)
+      ls.logicGraph.fix(e1, e2)
+      ls
     }
   }
 
-  val simplify: Command = { ls =>
-    { case Seq(e: Int) =>
-      ls.copy(logicGraph = ls.logicGraph.simplifyInferenceRule(e)._1)
+  val unify: Command = { ls =>
+    { case Seq(e1: Int, e2: Int) =>
+      implicit val lg = ls.logicGraph
+      val result = ls.solver.unify(e1, e2, Map())
+      println(ls.printer.toString(lg, e1))
+      println(ls.printer.toString(lg, e2))
+      println
+      result match {
+        case None => println("no mgu")
+        case Some(mgu) =>
+          mgu.foreach { case (a, b) =>
+            print(ls.printer.toString(lg, a))
+            print(" <- ")
+            println(ls.printer.toString(lg, b))
+          }
+      }
+      ls
     }
   }
 
-  val fixAllTrue: Command = transformState { ls =>
-    ls.copy(logicGraph = Solver.fixAll(ls.logicGraph))
-  }
-
-  val fixAllFalse: Command = transformState { ls =>
-    ls.copy(logicGraph = Solver.fixLetSym(ls.logicGraph))
+  val fixLetSymbols: Command = consumeState { ls =>
+    ls.solver.fixLetSym()(ls.logicGraph)
   }
 
   val proof: Command = consumeState { ls =>
     ls.printer.proofAbsurd(ls.logicGraph).foreach(println)
   }
 
-  val saturate: Command = transformState { ls =>
-    proof(ls.copy(logicGraph = Solver.saturation(ls.logicGraph)))(Seq())
-  }
-
-  val stats: Command = consumeState { ls =>
-    val lg = ls.logicGraph
-    val printer = ls.printer
-    val exprs = lg.getAllTruth
-    val stats = Solver.getStats(lg, exprs)
-
-    stats.foreach { case (ctx, set) =>
-      println(
-        s"Context(head: ${ctx.head} ${printer.toString(lg, ctx.head)}, idArg: ${ctx.idArg})"
-      )
-      set.map(printer.toString(lg, _)).foreach(println)
-      println()
+  val saturate: Command = consumeState { ls =>
+    {
+      implicit val lg = ls.logicGraph
+      ls.solver.saturation
+      proof(ls)(Seq())
     }
   }
 
-  val undo: Command = transformState { ls =>
-    ls.previousState match {
-      case Some(prev) =>
-        println("Undo successful")
-        prev
-      case None =>
-        println("Nothing to undo")
-        ls
+  val dis: Command = consumeState { ls =>
+    {
+      implicit val lg = ls.logicGraph
+      ls.solver.disjunction
+    }
+  }
+
+  val dislg: Command = { ls =>
+    { case Seq(e: Int) =>
+      implicit val lg = ls.logicGraph
+      lg.disjunction(e)
+      ls
     }
   }
 
@@ -193,25 +241,35 @@ object Commands {
       "Exits the REPL",
     CommandDef("lss", lss) ??
       "Displays all the expression in a simple way.",
+    CommandDef("lsf", lsf) ??
+      "Displays all the fixers in a simple way.",
     CommandDef("ls", ls) ??
       "Displays all the expression.",
+    CommandDef("allmgu", allmgu) ??
+      "all mgu",
+    CommandDef("amgu", appmgu) ??
+      "apply mgu",
     CommandDef("abs", absurd) ??
       "Displays whether the set of expressions is absurd.",
     CommandDef("fixn", fixN) ~> IntT ??
       "Fixes the given symbol with its let-symbol.",
+    CommandDef("dislg", dislg) ~> IntT ??
+      "disjonction in logic graph.",
+    CommandDef("mgug", mgug) ~> IntT ??
+      "explore mgu graph to find absurdity",
     CommandDef("fix", fix) ~> (IntT, IntT) ??
       "Fixes the two symbols given as arguments.",
-    CommandDef("simp", simplify) ~> IntT ??
-      "Simplifies the given expression.",
-    CommandDef("fat", fixAllTrue) ??
-      "Fixes all the expressions to true.",
-    CommandDef("faf", fixAllFalse) ??
+    CommandDef("unify", unify) ~> (IntT, IntT) ??
+      "gives the mgu of two expressions",
+    CommandDef("fls", fixLetSymbols) ??
       "Fixes all the expressions to false.",
     CommandDef("proof", proof) ??
       "Displays a proof by contradiction, if one was found.",
     CommandDef("s", saturate) ??
       "Applies the saturation algorithm to the set of expressions.",
-    CommandDef("stats", stats) ??
-      "Displays statistics about the expressions."
+    CommandDef("ss", saturateIter) ~> IntT ??
+      "saturate n times.",
+    CommandDef("dis", dis) ??
+      "disjunction."
   )
 }

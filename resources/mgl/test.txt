@@ -1,7 +1,8 @@
-let(left, 20) A < B := forall x. A(x) -> B(x);
+let in(a, b);
+let(left, 20) A < B := forall x. in(A, x) -> in(B, x);
 
 let A, B, C;
 
 A < B;
 B < C;
-A < C -> false;
+~(A < C);

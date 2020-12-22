@@ -5,6 +5,17 @@ import io.AnsiColor._
 import mathgraph.corelogic.ExprContainer._
 import mathgraph.frontend.BackendTrees.{Apply, Expr, Forall => ExprForall}
 
+object Printer {
+  def toSimpleString(pos: Int)(implicit lg: LogicGraph): String =
+    pos match {
+      case HeadTail(Symbol(id), Seq()) => id.toString
+      case HeadTail(Symbol(id), seq) =>
+        id.toString + "(" + seq
+          .map(toSimpleString)
+          .mkString(", ") + ")"
+    }
+}
+
 case class Printer(
     exprToString: Map[Int, String]
 ) {
@@ -15,13 +26,7 @@ case class Printer(
 
   /** print expression in a simple way * */
   def toSimpleString(implicit logicGraph: LogicGraph, pos: Int): String =
-    pos match {
-      case HeadTail(Symbol(id), Seq()) => id.toString
-      case HeadTail(Symbol(id), seq) =>
-        id.toString + "(" + seq
-          .map(toSimpleString(logicGraph, _))
-          .mkString(", ") + ")"
-    }
+    Printer.toSimpleString(pos)
 
   // ---------------------------------------------------------------------------
   // print an humain readable expression using exprToString map
@@ -82,7 +87,11 @@ case class Printer(
     */
   def toString(implicit logicGraph: LogicGraph, orig: Int): String = {
 
-    def toExpr(orig: Int, map: Map[Int, Expr]): Expr = {
+    def toExpr(
+        orig: Int,
+        map: Map[Int, Expr],
+        insideForall: Boolean = false
+    ): Expr = {
 
       def toExprRec(pos: Int, seq: Seq[Expr]): Expr =
         map.get(pos) match {
@@ -90,9 +99,11 @@ case class Printer(
           case Some(ExprForall(vars, body)) => replace(body, vars, seq)
           case _ =>
             pos match {
-              case Fixer(ForallSymbol, arg) => forallToExpr(arg, seq)
-              case Fixer(next, arg)         => toExprRec(next, toExpr(arg, map) +: seq)
-              case Symbol(id)               => Apply(generateName(id), seq)
+              case Fixer(ForallSymbol, arg) if !insideForall =>
+                forallToExpr(arg, seq)
+              case Fixer(next, arg) =>
+                toExprRec(next, toExpr(arg, map, insideForall) +: seq)
+              case Symbol(id) => Apply(generateName(id), seq)
             }
         }
       toExprRec(orig, Seq())
@@ -106,20 +117,21 @@ case class Printer(
       val map = varsInside.zipWithIndex.map { case (expr, id) =>
         logicGraph.idToSymbol(id) -> expr
       }.toMap
-      ExprForall(freeVars, toExpr(inside, map))
+      ExprForall(freeVars, toExpr(inside, map, true))
     }
 
     def simplifyExpr(expr: Expr): Expr = expr match {
       case Apply("->", Seq(lhs, Apply("false", Seq()))) =>
-        Apply("not", Seq(lhs))
+        Apply("~", Seq(lhs))
       case Apply(id, seq)         => Apply(id, seq.map(simplifyExpr))
       case ExprForall(vars, body) => ExprForall(vars, simplifyExpr(body))
     }
 
     def toString(expr: Expr): (String, Boolean) = expr match {
-      case Apply(head, tail) => combineHeadTail(head, tail.map(toString).toList)
+      case Apply("~", Seq(prop)) => ("~" + applyPar(toString(prop)), false)
+      case Apply(head, tail)     => combineHeadTail(head, tail.map(toString).toList)
       case ExprForall(freeVars, body) =>
-        (s"forall ${freeVars.mkString(" ")}. ${toString(body)._1}", false)
+        (s"forall ${freeVars.mkString(" ")}. ${toString(body)._1}", true)
     }
 
     val map = exprToString.mapValues(Apply(_, Seq())).toMap
@@ -145,7 +157,7 @@ case class Printer(
       alg: String
   ): List[String] = {
 
-    def lineToString(pos: Int, inference: String) =
+    def lineToString(pos: Int, inference: String): String =
       alg + toString(lg, pos) + " " + inference
 
     way match {
@@ -158,6 +170,9 @@ case class Printer(
         val nextLayerProof = lg.getInferenceOf(a, b) match {
           case Some(ImplyIR(_, implyPos)) =>
             proofFromPos(lg, implyPos, alg + "\u2193 ")
+          case Some(ImplyUpIR(a, b)) =>
+            proofFromPos(lg, a, alg + "\u2193 ") ++ List(" ") ++
+              proofFromPos(lg, b, alg + "\u2193 ")
           case _ => List()
         }
 
@@ -172,11 +187,14 @@ case class Printer(
   }
 
   def inferenceToString(ir: InferenceRule): String = ir match {
-    case ImplyIR(_, _) => "Implies"
-    case FixIR         => "Fix"
-    case FixLetSymIR   => "FixLetSym"
-    case SimplifyIR    => "Simplify"
-    case Axiom         => "Axiom"
+    case ImplyIR(_, _)   => "Implies"
+    case ImplyUpIR(_, _) => "ImplyUpIR"
+    case FixIR           => "Fix"
+    case FixLetSymIR     => "FixLetSym"
+    case SimplifyIR      => "Simplify"
+    case Axiom           => "Axiom"
+    case SimplInsideIR   => "SimplInsideIR"
+    case Disjunction     => "Disjunction"
   }
 
   def proofFromPos(lg: LogicGraph, pos: Int, alg: String = ""): List[String] = {

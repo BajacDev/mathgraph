@@ -26,7 +26,7 @@ class TPTPTests extends AnyFunSuite with TimeLimits {
   val testRoot = new File("resources/tptp")
   val filter: String => Boolean = _.endsWith(".p")
   val pipeline = TPTPFrontend andThen Simplifier andThen ForallToLets andThen ProgToLogicState
-  val timeout = 5
+  val timeout = 0.5
   implicit val signaler: Signaler = ThreadSignaler // kills the main thread in case of a timeout
 
   def testFile(file: File): Unit = {
@@ -36,13 +36,12 @@ class TPTPTests extends AnyFunSuite with TimeLimits {
     test(testName) {
       try {
         val logicState = pipeline.run(FileSource(filename))(new Context)
-        val lg = logicState.logicGraph
-        var newLg: LogicGraph = null
+        implicit val lg = logicState.logicGraph
 
         failAfter(Span(timeout, Seconds)) {
           val thread = new Thread {
             override def run() = {
-              newLg = Solver.saturation(lg)
+              new Solver().saturation
             }
           }
 
@@ -50,7 +49,7 @@ class TPTPTests extends AnyFunSuite with TimeLimits {
           thread.join()
         }
 
-        assert(newLg.isAbsurd)
+        assert(lg.isAbsurd)
       } catch {
         case FatalError(_) => fail(s"There was an error in file '$filename'")
       }

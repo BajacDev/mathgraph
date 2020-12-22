@@ -29,6 +29,9 @@ trait ExprContainer {
   // where the first one is the left subtree and the second one the right subtree
   def getFixer(pos: Int): Option[(Int, Int)]
 
+  // from 2 expressions (next, pos), return Some(Int) if the Fixer alread exist, None else
+  def fixerToPos(next: Int, arg: Int): Option[Int]
+
   // from a expression position, return Some(Int) if it is a Symbol
   // the int is the symbol id
   def getSymbolId(pos: Int): Option[Int]

@@ -23,6 +23,11 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
   val idPos: Syntax[(Name, Position)] = accept(IdKind) {
     case tk @ IdToken(name) => (name, tk.pos)
   }
+
+  val opPos: Syntax[(Name, Position)] = accept(OpKind) {
+    case tk @ OpToken(name) => (name, tk.pos)
+  }
+
   implicit def delim(str: String): Syntax[Token] = elem(DelimKind(str))
   def kw(str: String): Syntax[Token] = elem(KwKind(str))
   val op: Syntax[Token] = elem(OpKind)
@@ -71,7 +76,7 @@ object Parser extends Parsers with Pipeline[Iterator[Token], Program] {
   }
 
   val variableOrCall: Syntax[Expr] =
-    (idPos ~ opt("(".skip ~ rep1sep(formula, ",") ~ ")".skip)).map {
+    ((idPos | opPos) ~ opt("(".skip ~ rep1sep(formula, ",") ~ ")".skip)).map {
       case (id, pos) ~ None      => Apply(id, Seq()).setPos(pos)
       case (id, pos) ~ Some(fms) => Apply(id, fms).setPos(pos)
     }
